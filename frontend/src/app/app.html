@@ -1,0 +1,2455 @@
+<main class="app-shell py-5">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-10">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body p-4 p-lg-5">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <div class="d-flex align-items-center gap-3">
+                <h1 class="h3 mb-1">{{ t('app.title') }}</h1>
+                @if (sessionUser()?.logoUrl; as logoUrl) {
+                  <img class="app-user-logo" [src]="logoUrl" [alt]="t('common.logo')" />
+                }
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <span
+                  class="ws-dot"
+                  [class.ws-dot-connected]="wsStatus() === 'connected'"
+                  [class.ws-dot-disconnected]="wsStatus() !== 'connected'"
+                  [attr.title]="wsStatus() === 'connected' ? t('ws.connected') : t('ws.disconnected')"
+                  aria-hidden="true"
+                ></span>
+                <button
+                  type="button"
+                  class="header-icon-btn header-icon-btn-active"
+                  [attr.aria-label]="currentLanguageLabel()"
+                  [attr.title]="currentLanguageLabel()"
+                  (click)="cycleLanguage()"
+                >
+                  {{ currentLanguageFlag() }}
+                </button>
+                <button
+                  type="button"
+                  class="header-icon-btn header-icon-btn-active"
+                  [attr.aria-label]="t('theme.toggleLabel') + ': ' + currentThemeLabel()"
+                  [attr.title]="currentThemeLabel()"
+                  (click)="cycleThemeMode()"
+                >
+                  {{ currentThemeIcon() }}
+                </button>
+                @if (sessionUser()) {
+                  <button
+                    type="button"
+                    class="header-icon-btn"
+                    [attr.aria-label]="t('nav.account')"
+                    [attr.title]="t('nav.account')"
+                    (click)="openAccountPage()"
+                  >
+                    👤
+                  </button>
+                }
+                <button
+                  type="button"
+                  class="header-icon-btn"
+                  [attr.aria-label]="t('nav.logout')"
+                  [attr.title]="t('nav.logout')"
+                  (click)="logout()"
+                >
+                  🚪
+                </button>
+              </div>
+            </div>
+
+            @if (toasts().length > 0) {
+              <div class="toast-stack" aria-live="polite" aria-atomic="true">
+                @for (toast of toasts(); track toast.id) {
+                  <div
+                    class="toast show border-0 mb-2"
+                    [class.text-bg-info]="toast.type === 'info'"
+                    [class.text-bg-success]="toast.type === 'success'"
+                    [class.text-bg-warning]="toast.type === 'warning'"
+                    [class.text-bg-danger]="toast.type === 'danger'"
+                    [attr.role]="toast.type === 'danger' || toast.type === 'warning' ? 'alert' : 'status'"
+                  >
+                    <div class="d-flex align-items-start">
+                      <div class="toast-body">{{ toast.message }}</div>
+                      <button
+                        type="button"
+                        class="btn-close me-2 mt-2"
+                        [class.btn-close-white]="toast.type !== 'warning'"
+                        aria-label="Close"
+                        (click)="dismissToast(toast.id)"
+                      ></button>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+
+            @if (page() === 'login') {
+              <form [formGroup]="loginForm" (ngSubmit)="submitLogin()" novalidate>
+                <div class="mb-3">
+                  <label class="form-label" for="login-username">{{ t('login.username') }}</label>
+                  <input id="login-username" class="form-control" type="text" formControlName="username" autocomplete="username" />
+                </div>
+
+                <div class="mb-4">
+                  <label class="form-label" for="login-password">{{ t('login.password') }}</label>
+                  <input id="login-password" class="form-control" type="password" formControlName="password" autocomplete="current-password" />
+                </div>
+
+                <div class="d-flex gap-2">
+                  <button class="btn btn-primary" type="submit">{{ t('login.signIn') }}</button>
+                  <button
+                    class="btn btn-outline-primary"
+                    type="button"
+                    [disabled]="!webAuthnSupported() || signingInWithAccessKey()"
+                    (click)="signInWithAccessKey()"
+                  >
+                    {{
+                      signingInWithAccessKey()
+                        ? t('login.signingInWithAccessKey')
+                        : t('login.signInWithAccessKey')
+                    }}
+                  </button>
+                  <a class="btn btn-outline-secondary" href="/subscribe">{{ t('login.createAccount') }}</a>
+                </div>
+              </form>
+            }
+
+            @if (page() === 'subscribe') {
+              <form [formGroup]="subscriptionForm" (ngSubmit)="submitSubscription()" novalidate>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label" for="sub-role">{{ t('subscribe.userType') }}</label>
+                    <select id="sub-role" class="form-select" formControlName="role">
+                      @for (role of roles; track role) {
+                        <option [value]="role">{{ role }}</option>
+                      }
+                    </select>
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label" for="sub-username">{{ t('subscribe.username') }}</label>
+                    <input
+                      id="sub-username"
+                      class="form-control"
+                      type="text"
+                      formControlName="username"
+                      autocomplete="username"
+                    />
+                    @if (subscriptionForm.controls.username.pending) {
+                      <div class="form-text">{{ t('subscribe.checkingUsername') }}</div>
+                    }
+                    @if (
+                      subscriptionForm.controls.username.touched &&
+                      !subscriptionForm.controls.username.pending &&
+                      !subscriptionForm.controls.username.hasError('required') &&
+                      !subscriptionForm.controls.username.hasError('usernameTaken')
+                    ) {
+                      <div class="form-text text-success">{{ t('subscribe.usernameAvailable') }}</div>
+                    }
+                    @if (subscriptionForm.controls.username.hasError('usernameTaken')) {
+                      <div class="form-text text-danger">{{ t('subscribe.usernameTaken') }}</div>
+                    }
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label" for="sub-first-name">{{ t('subscribe.firstName') }}</label>
+                    <input id="sub-first-name" class="form-control" type="text" formControlName="firstName" autocomplete="given-name" />
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label" for="sub-last-name">{{ t('subscribe.lastName') }}</label>
+                    <input id="sub-last-name" class="form-control" type="text" formControlName="lastName" autocomplete="family-name" />
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label" for="sub-organisation">{{ t('subscribe.organisation') }}</label>
+                    <input id="sub-organisation" class="form-control" type="text" formControlName="organisation" />
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label" for="sub-city">{{ t('subscribe.city') }}</label>
+                    <input id="sub-city" class="form-control" type="text" formControlName="city" autocomplete="address-level2" />
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label" for="sub-zipcode">{{ t('subscribe.zipcode') }}</label>
+                    <input id="sub-zipcode" class="form-control" type="text" formControlName="zipcode" autocomplete="postal-code" />
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label" for="sub-email">{{ t('subscribe.email') }}</label>
+                    <input id="sub-email" class="form-control" type="email" formControlName="email" autocomplete="email" />
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label" for="sub-address">{{ t('subscribe.address') }}</label>
+                    <input id="sub-address" class="form-control" type="text" formControlName="physicalAddress" autocomplete="street-address" />
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label" for="sub-phone">{{ t('subscribe.phone') }}</label>
+                    <input id="sub-phone" class="form-control" type="text" formControlName="phoneNumber" autocomplete="tel" />
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label" for="sub-business-id">{{ t('subscribe.siret') }}</label>
+                    <input id="sub-business-id" class="form-control" type="text" formControlName="businessRegistrationId" inputmode="numeric" />
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label" for="sub-password">{{ t('subscribe.password') }}</label>
+                    <input id="sub-password" class="form-control" type="password" formControlName="password" autocomplete="new-password" />
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label" for="sub-logo">{{ t('subscribe.logo') }}</label>
+                    <input
+                      id="sub-logo"
+                      class="form-control"
+                      type="file"
+                      accept="image/png,image/jpeg,image/gif"
+                      (change)="onSubscriptionLogoSelected($event)"
+                    />
+                  </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                  <button class="btn btn-primary" type="submit" [disabled]="subscriptionForm.controls.username.pending">
+                    {{ t('subscribe.createAccount') }}
+                  </button>
+                  <a class="btn btn-outline-secondary" href="/login">{{ t('subscribe.backToLogin') }}</a>
+                </div>
+              </form>
+            }
+
+            @if (page() === 'account') {
+              <div>
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                  <a class="btn btn-link back-arrow-btn" href="/dashboard" [attr.aria-label]="t('common.back')">⟵</a>
+                </div>
+
+                @if (sessionUser(); as user) {
+                  <form [formGroup]="accountForm" (ngSubmit)="submitAccount()" novalidate>
+                    <div class="row g-3">
+                      <div class="col-md-6">
+                        <label class="form-label" for="account-username">{{ t('account.username') }}</label>
+                        <input id="account-username" class="form-control" type="text" [value]="user.username" disabled />
+                      </div>
+
+                      <div class="col-md-6">
+                        <label class="form-label" for="account-first-name">{{ t('account.firstName') }}</label>
+                        <input id="account-first-name" class="form-control" type="text" formControlName="firstName" />
+                      </div>
+
+                      <div class="col-md-6">
+                        <label class="form-label" for="account-last-name">{{ t('account.lastName') }}</label>
+                        <input id="account-last-name" class="form-control" type="text" formControlName="lastName" />
+                      </div>
+
+                      <div class="col-md-6">
+                        <label class="form-label" for="account-organisation">{{ t('account.organisation') }}</label>
+                        <input id="account-organisation" class="form-control" type="text" formControlName="organisation" />
+                      </div>
+
+                      <div class="col-md-6">
+                        <label class="form-label" for="account-city">{{ t('account.city') }}</label>
+                        <input id="account-city" class="form-control" type="text" formControlName="city" />
+                      </div>
+
+                      <div class="col-md-6">
+                        <label class="form-label" for="account-zipcode">{{ t('account.zipcode') }}</label>
+                        <input id="account-zipcode" class="form-control" type="text" formControlName="zipcode" />
+                      </div>
+
+                      <div class="col-md-6">
+                        <label class="form-label" for="account-email">{{ t('account.email') }}</label>
+                        <input id="account-email" class="form-control" type="email" formControlName="email" />
+                      </div>
+
+                      <div class="col-12">
+                        <label class="form-label" for="account-address">{{ t('account.address') }}</label>
+                        <input id="account-address" class="form-control" type="text" formControlName="physicalAddress" />
+                      </div>
+
+                      <div class="col-md-6">
+                        <label class="form-label" for="account-phone">{{ t('account.phone') }}</label>
+                        <input id="account-phone" class="form-control" type="text" formControlName="phoneNumber" />
+                      </div>
+
+                      @if (user.role === 'vendor') {
+                        <div class="col-12">
+                          <label class="form-label" for="account-business-description">{{ t('account.businessDescription') }}</label>
+                          <textarea
+                            id="account-business-description"
+                            class="form-control bill-comment-textarea"
+                            formControlName="businessDescription"
+                          ></textarea>
+                        </div>
+                      }
+
+                      <div class="col-md-6">
+                        <label class="form-label" for="account-business-id">{{ t('account.siret') }}</label>
+                        <input id="account-business-id" class="form-control" type="text" formControlName="businessRegistrationId" />
+                      </div>
+
+                      <div class="col-md-6">
+                        <label class="form-label" for="account-logo">{{ t('account.logo') }}</label>
+                        <input
+                          id="account-logo"
+                          class="form-control"
+                          type="file"
+                          accept="image/png,image/jpeg,image/gif"
+                          (change)="onAccountLogoSelected($event)"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                      <button class="btn btn-primary" type="submit" [disabled]="updatingAccount()">
+                        {{ updatingAccount() ? t('account.saving') : t('account.saveChanges') }}
+                      </button>
+                      <button
+                        class="btn btn-outline-primary"
+                        type="button"
+                        [disabled]="!webAuthnSupported() || enrollingAccessKey()"
+                        (click)="enrollAccessKey()"
+                      >
+                        {{
+                          enrollingAccessKey()
+                            ? t('account.enrollingAccessKey')
+                            : t('account.enrollAccessKey')
+                        }}
+                      </button>
+                    </div>
+
+                    <div class="border rounded p-3 mt-4">
+                      <h3 class="h6 mb-3">{{ t('account.accessKeysTitle') }}</h3>
+
+                      @if (loadingAccessKeys()) {
+                        <div class="form-text">{{ t('admin.refreshing') }}</div>
+                      } @else if (accessKeys().length === 0) {
+                        <div class="alert alert-light border mb-0">{{ t('account.noAccessKeys') }}</div>
+                      } @else {
+                        <div class="table-responsive">
+                          <table class="table table-striped align-middle mb-0">
+                            <thead>
+                              <tr>
+                                <th scope="col">{{ t('account.accessKeyName') }}</th>
+                                <th scope="col">{{ t('account.accessKeyId') }}</th>
+                                <th scope="col">{{ t('account.accessKeyType') }}</th>
+                                <th scope="col">{{ t('account.accessKeyCreatedAt') }}</th>
+                                <th scope="col">{{ t('account.accessKeyLastUsedAt') }}</th>
+                                <th scope="col">{{ t('account.accessKeyAction') }}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              @for (accessKey of accessKeys(); track accessKey.id) {
+                                <tr>
+                                  <td>{{ accessKey.name }}</td>
+                                  <td><code>{{ accessKey.keyId }}</code></td>
+                                  <td>
+                                    {{
+                                      accessKey.deviceType === 'multiDevice'
+                                        ? t('account.accessKeyTypeMultiDevice')
+                                        : t('account.accessKeyTypeSingleDevice')
+                                    }}
+                                  </td>
+                                  <td>{{ accessKey.createdAt ? (accessKey.createdAt | date: 'medium') : '-' }}</td>
+                                  <td>
+                                    {{
+                                      accessKey.lastUsedAt
+                                        ? (accessKey.lastUsedAt | date: 'medium')
+                                        : t('account.accessKeyNeverUsed')
+                                    }}
+                                  </td>
+                                  <td>
+                                    <button
+                                      class="btn btn-sm btn-outline-danger"
+                                      type="button"
+                                      [disabled]="isDeletingAccessKey(accessKey.id)"
+                                      (click)="removeAccessKey(accessKey.id)"
+                                    >
+                                      {{
+                                        isDeletingAccessKey(accessKey.id)
+                                          ? t('admin.removing')
+                                          : t('account.removeAccessKey')
+                                      }}
+                                    </button>
+                                  </td>
+                                </tr>
+                              }
+                            </tbody>
+                          </table>
+                        </div>
+                      }
+                    </div>
+                  </form>
+                }
+              </div>
+            }
+
+            @if (page() === 'dashboard') {
+              <div>
+                <p class="mb-4">{{ t('dashboard.subtitle') }}</p>
+
+                @if (sessionUser(); as user) {
+                  <div class="row g-3 mb-4">
+                    <div class="col-md-6"><strong>{{ t('dashboard.firstName') }}:</strong> {{ user.firstName }}</div>
+                    <div class="col-md-6"><strong>{{ t('dashboard.lastName') }}:</strong> {{ user.lastName }}</div>
+                    <div class="col-md-6"><strong>{{ t('dashboard.organisation') }}:</strong> {{ user.organisation }}</div>
+                    <div class="col-md-6"><strong>{{ t('dashboard.siret') }}:</strong> {{ user.businessRegistrationId }}</div>
+                  </div>
+
+                  @if (user.role === 'admin') {
+                    <div class="mb-4 d-flex gap-2">
+                      <a class="btn btn-outline-primary" href="/admin">{{ t('dashboard.openAdmin') }}</a>
+                      <a class="btn btn-outline-primary" href="/statistics">{{ t('admin.openStatistics') }}</a>
+                    </div>
+                  }
+
+                  @if (user.role === 'vendor') {
+                    <div class="mb-4 d-flex gap-2">
+                      <a class="btn btn-outline-primary" href="/stocks">{{ t('dashboard.openStocks') }}</a>
+                      <a class="btn btn-outline-primary" href="/vendor-statistics">{{ t('dashboard.openVendorStatistics') }}</a>
+                      <a class="btn btn-outline-primary" href="/vendor-monthly-summary">{{ t('dashboard.openVendorMonthlySummary') }}</a>
+                      <a class="btn btn-outline-primary" href="/vendor-overdue-bills">{{ t('dashboard.openVendorOverdueBills') }}</a>
+                      <a class="btn btn-outline-primary" href="/vendor-refunds">{{ t('dashboard.openVendorRefunds') }}</a>
+                    </div>
+
+                    <div class="border rounded p-3 mb-4">
+                      <h2 class="h5 mb-3">{{ t('dashboard.bills') }}</h2>
+
+                      <ul class="nav nav-tabs mb-3">
+                        <li class="nav-item">
+                          <button
+                            class="nav-link"
+                            type="button"
+                            [class.active]="vendorBillsTab() === 'by-date'"
+                            (click)="setVendorBillsTab('by-date')"
+                          >
+                            {{ t('dashboard.vendorBillsTabDate') }}
+                          </button>
+                        </li>
+                        <li class="nav-item">
+                          <button
+                            class="nav-link"
+                            type="button"
+                            [class.active]="vendorBillsTab() === 'by-client-range'"
+                            (click)="setVendorBillsTab('by-client-range')"
+                          >
+                            {{ t('dashboard.vendorBillsTabClientRange') }}
+                          </button>
+                        </li>
+                      </ul>
+
+                      @if (vendorBillsTab() === 'by-date') {
+                        <div class="row g-3 align-items-end mb-3">
+                          <div class="col-md-4">
+                            <label class="form-label" for="vendor-bills-date">{{ t('dashboard.date') }}</label>
+                            <input
+                              id="vendor-bills-date"
+                              class="form-control"
+                              type="date"
+                              [value]="vendorBillsDate()"
+                              (change)="setVendorBillsDate($any($event.target).value)"
+                            />
+                          </div>
+                        </div>
+
+                        @if (vendorOrderSummaries().length === 0 && !loadingVendorOrderSummaries()) {
+                          <div class="alert alert-light border mb-0">{{ t('dashboard.noBillForDay') }}</div>
+                        }
+                      } @else {
+                        <div class="row g-3 align-items-end mb-3">
+                          <div class="col-md-3">
+                            <label class="form-label" for="vendor-bills-from-date">{{ t('dashboard.fromDate') }}</label>
+                            <input
+                              id="vendor-bills-from-date"
+                              class="form-control"
+                              type="date"
+                              [value]="vendorBillsRangeFromDate()"
+                              (change)="setVendorBillsRangeFromDate($any($event.target).value)"
+                            />
+                          </div>
+                          <div class="col-md-3">
+                            <label class="form-label" for="vendor-bills-to-date">{{ t('dashboard.toDate') }}</label>
+                            <input
+                              id="vendor-bills-to-date"
+                              class="form-control"
+                              type="date"
+                              [value]="vendorBillsRangeToDate()"
+                              (change)="setVendorBillsRangeToDate($any($event.target).value)"
+                            />
+                          </div>
+                          <div class="col-md-6">
+                            <label class="form-label" for="vendor-bill-client-select">{{ t('dashboard.client') }}</label>
+                            <select
+                              id="vendor-bill-client-select"
+                              class="form-select"
+                              [value]="selectedVendorBillClientId()"
+                              [disabled]="loadingVendorBillClients()"
+                              (change)="setSelectedVendorBillClientId($any($event.target).value)"
+                            >
+                              <option value="">{{ t('dashboard.selectClient') }}</option>
+                              @for (client of vendorBillClients(); track client.id) {
+                                <option [value]="client.id">{{ client.name }}</option>
+                              }
+                            </select>
+                          </div>
+                        </div>
+
+                        @if (!loadingVendorBillClients() && vendorBillClients().length === 0) {
+                          <div class="alert alert-light border mb-0">{{ t('dashboard.noClientsForRange') }}</div>
+                        } @else if (selectedVendorBillClientId() && vendorOrderSummaries().length === 0 && !loadingVendorOrderSummaries()) {
+                          <div class="alert alert-light border mb-0">{{ t('dashboard.noBillsForRange') }}</div>
+                        }
+                      }
+
+                      @if (vendorOrderSummaries().length > 0) {
+                        <label class="form-label" for="vendor-order-select">
+                          {{ vendorBillsTab() === 'by-client-range' ? t('dashboard.billsForClientRange') : t('dashboard.billsByClient') }}
+                        </label>
+                        <button
+                          id="vendor-order-select"
+                          type="button"
+                          class="btn btn-outline-secondary w-100 d-flex justify-content-between align-items-center"
+                          [attr.aria-expanded]="vendorBillsExpanded()"
+                          (click)="toggleVendorBillsExpanded()"
+                        >
+                          <span>{{ selectedVendorBillLabel() }}</span>
+                          <span aria-hidden="true">{{ vendorBillsExpanded() ? '▴' : '▾' }}</span>
+                        </button>
+                        @if (vendorBillsExpanded()) {
+                          <div class="bill-list-panel mt-2">
+                            @for (order of vendorOrderSummaries(); track order.key) {
+                              <button
+                                type="button"
+                                class="bill-list-item"
+                                [class.bill-list-item-settled]="order.isSettled"
+                                [class.bill-list-item-active]="selectedVendorOrderKey() === order.key"
+                                (click)="openVendorOrderDetails(order.key)"
+                              >
+                                @if (vendorBillsTab() === 'by-client-range') {
+                                  {{ order.day }} - {{ order.totalPrice | number: '1.2-2' }} {{ order.currency === 'EUR' ? '€' : order.currency }}
+                                } @else {
+                                  {{ order.organisation }} - {{ order.totalPrice | number: '1.2-2' }} {{ order.currency === 'EUR' ? '€' : order.currency }}
+                                }
+                              </button>
+                            }
+                          </div>
+                        }
+                      }
+                    </div>
+
+                    <div class="border rounded p-3 mb-4">
+                      <div class="d-flex align-items-center gap-2 mb-3">
+                        <h2 class="h5 mb-0">{{ t('dashboard.clientMessagesTitle') }}</h2>
+                        @if (hasUnreadVendorBillMessages()) {
+                          <span class="dashboard-unread-dot" aria-hidden="true"></span>
+                        }
+                      </div>
+
+                      @if (loadingVendorBillMessages()) {
+                        <div class="form-text">{{ t('admin.refreshing') }}</div>
+                      } @else if (vendorBillMessages().length === 0) {
+                        <div class="alert alert-light border mb-0">{{ t('dashboard.noClientMessages') }}</div>
+                      } @else {
+                        <div class="bill-list-panel bill-message-panel">
+                          @for (message of vendorBillMessages(); track message.key) {
+                            <div class="bill-message-row">
+                              <button
+                                type="button"
+                                class="bill-list-item bill-message-open-btn"
+                                (click)="openVendorBillMessage(message.key)"
+                              >
+                                <div class="d-flex align-items-center gap-2">
+                                  <div class="fw-semibold">{{ t('dashboard.messageFromClient') }} {{ message.clientOrganisation }}</div>
+                                  @if (!message.isRead) {
+                                    <span class="dashboard-unread-dot dashboard-unread-dot-inline" aria-hidden="true"></span>
+                                  }
+                                </div>
+                                <div class="small text-body-secondary">{{ message.day }}</div>
+                              </button>
+                              <button
+                                type="button"
+                                class="btn btn-outline-danger btn-sm bill-message-delete-btn"
+                                [attr.aria-label]="t('dashboard.deleteClientMessage')"
+                                [disabled]="isDeletingVendorBillMessage(message.key)"
+                                (click)="dismissVendorBillMessage(message.key)"
+                              >
+                                {{ isDeletingVendorBillMessage(message.key) ? t('admin.removing') : t('common.delete') }}
+                              </button>
+                            </div>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+
+                  @if (user.role === 'client') {
+                    <div class="mb-4 d-flex gap-2">
+                      <a class="btn btn-outline-primary" href="/order">{{ t('dashboard.openOrder') }}</a>
+                      <a class="btn btn-outline-primary" href="/find-vendors">{{ t('dashboard.openFindVendors') }}</a>
+                    </div>
+
+                    <div class="border rounded p-3 mb-4">
+                      <h2 class="h5 mb-3">{{ t('clientUnpaidReminders.title') }}</h2>
+                      @if (loadingClientUnpaidReminders()) {
+                        <div class="form-text">{{ t('admin.refreshing') }}</div>
+                      } @else if (clientUnpaidReminders().length === 0) {
+                        <div class="alert alert-light border mb-0">{{ t('clientUnpaidReminders.none') }}</div>
+                      } @else {
+                        <div class="d-flex flex-column gap-2">
+                          @for (reminder of clientUnpaidReminders(); track reminder.vendorId + ':' + reminder.createdAt) {
+                            <div class="border rounded p-2 client-unpaid-reminder-row">
+                              <span class="me-2">🔔</span>
+                              <span class="fw-bold text-danger me-2">{{ reminder.vendorName }}</span>
+                              <span class="fw-bold text-danger">
+                                {{ reminder.totalAmount | number: '1.2-2' }} {{ reminder.currency === 'EUR' ? '€' : reminder.currency }}
+                              </span>
+                            </div>
+                          }
+                        </div>
+                      }
+                    </div>
+
+                    <div class="border rounded p-3 mb-4">
+                      <h2 class="h5 mb-3">{{ t('dashboard.bills') }}</h2>
+
+                      <ul class="nav nav-tabs mb-3">
+                        <li class="nav-item">
+                          <button
+                            class="nav-link"
+                            type="button"
+                            [class.active]="clientBillsTab() === 'by-date'"
+                            (click)="setClientBillsTab('by-date')"
+                          >
+                            {{ t('dashboard.clientBillsTabDate') }}
+                          </button>
+                        </li>
+                        <li class="nav-item">
+                          <button
+                            class="nav-link"
+                            type="button"
+                            [class.active]="clientBillsTab() === 'unpaid'"
+                            (click)="setClientBillsTab('unpaid')"
+                          >
+                            {{ t('dashboard.clientBillsTabUnpaid') }}
+                          </button>
+                        </li>
+                      </ul>
+
+                      @if (clientBillsTab() === 'by-date') {
+                        <div class="row g-3 align-items-end mb-3">
+                          <div class="col-md-4">
+                            <label class="form-label" for="client-bills-date">{{ t('dashboard.date') }}</label>
+                            <input
+                              id="client-bills-date"
+                              class="form-control"
+                              type="date"
+                              [value]="clientBillsDate()"
+                              (change)="setClientBillsDate($any($event.target).value)"
+                            />
+                          </div>
+                        </div>
+
+                        @if (clientCartSummaries().length === 0 && !loadingClientCartSummaries()) {
+                          <div class="alert alert-light border mb-0">{{ t('dashboard.noBillForDay') }}</div>
+                        }
+
+                        @if (clientCartSummaries().length > 0) {
+                          <label class="form-label" for="client-cart-select">{{ t('dashboard.billsByVendor') }}</label>
+                          <button
+                            id="client-cart-select"
+                            type="button"
+                            class="btn btn-outline-secondary w-100 d-flex justify-content-between align-items-center"
+                            [attr.aria-expanded]="clientBillsExpanded()"
+                            (click)="toggleClientBillsExpanded()"
+                          >
+                            <span>{{ selectedClientBillLabel() }}</span>
+                            <span aria-hidden="true">{{ clientBillsExpanded() ? '▴' : '▾' }}</span>
+                          </button>
+                          @if (clientBillsExpanded()) {
+                            <div class="bill-list-panel mt-2">
+                            @for (cart of clientCartSummaries(); track cart.key) {
+                                <button
+                                  type="button"
+                                  class="bill-list-item"
+                                  [class.bill-list-item-settled]="cart.isSettled"
+                                  [class.bill-list-item-active]="selectedClientCartKey() === cart.key"
+                                  (click)="openClientCartDetails(cart.key)"
+                                >
+                                {{ cart.organisation }} - {{ cart.totalPrice | number: '1.2-2' }} {{ cart.currency === 'EUR' ? '€' : cart.currency }}
+                                </button>
+                            }
+                            </div>
+                          }
+                        }
+                      }
+
+                      @if (clientBillsTab() === 'unpaid') {
+                        <div class="row g-3 align-items-end mb-3">
+                          <div class="col-md-6">
+                            <label class="form-label" for="client-unpaid-vendor-select">{{ t('dashboard.selectVendor') }}</label>
+                            <select
+                              id="client-unpaid-vendor-select"
+                              class="form-select"
+                              [value]="selectedClientUnpaidVendorId()"
+                              [disabled]="loadingClientBillVendors()"
+                              (change)="setClientUnpaidVendorId($any($event.target).value)"
+                            >
+                              @if (clientBillVendors().length === 0) {
+                                <option value="">{{ t('dashboard.noAssociatedVendors') }}</option>
+                              }
+                              @for (vendor of clientBillVendors(); track vendor.id) {
+                                <option [value]="vendor.id">{{ vendor.name }}</option>
+                              }
+                            </select>
+                          </div>
+                        </div>
+
+                        @if (loadingClientUnpaidVendorBills()) {
+                          <div class="form-text">{{ t('admin.refreshing') }}</div>
+                        } @else if (!selectedClientUnpaidVendorId()) {
+                          <div class="alert alert-light border mb-0">{{ t('dashboard.noAssociatedVendors') }}</div>
+                        } @else if (clientUnpaidVendorBills().length === 0) {
+                          <div class="alert alert-light border mb-0">{{ t('dashboard.noUnpaidBillForVendor') }}</div>
+                        } @else {
+                          <div class="bill-list-panel">
+                            @for (bill of clientUnpaidVendorBills(); track bill.key) {
+                              <button
+                                type="button"
+                                class="bill-list-item"
+                                [class.bill-list-item-overdue]="bill.isOverdue"
+                                [class.bill-list-item-active]="selectedClientCartKey() === bill.key"
+                                (click)="openClientCartDetails(bill.key)"
+                              >
+                                <div class="d-flex justify-content-between">
+                                  <span>{{ bill.day }}</span>
+                                  <span>{{ bill.totalPrice | number: '1.2-2' }} {{ bill.currency === 'EUR' ? '€' : bill.currency }}</span>
+                                </div>
+                                <div class="small">
+                                  {{ t('vendorOverdueBills.deliveryDate') }}: {{ bill.deliveryDate | date: 'dd/MM/yyyy' : 'UTC' }}
+                                </div>
+                              </button>
+                            }
+                          </div>
+                        }
+                      }
+                    </div>
+                  }
+                }
+
+              </div>
+
+              @if (showingVendorOrderModal() && vendorOrderDetails(); as details) {
+                <div class="modal-backdrop fade show"></div>
+                <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true">
+                  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                      <div class="modal-header">
+                        <h3 class="modal-title h5 mb-0">{{ t('dashboard.billDetails') }}</h3>
+                        <button class="btn-close" type="button" aria-label="Close" (click)="closeVendorOrderDetailsModal()"></button>
+                      </div>
+                      <div class="modal-body">
+                        <p class="mb-2"><strong>{{ t('dashboard.client') }}:</strong> {{ details.clientUsername }}</p>
+                        <p class="mb-3"><strong>{{ t('dashboard.day') }}:</strong> {{ details.day }}</p>
+                        <div class="bill-settlement-box mb-3">
+                          <div class="small mb-2">
+                            <strong>{{ t('dashboard.billSettlementStatus') }}:</strong>
+                            {{ details.vendorSettled ? t('dashboard.billConfirmed') : t('dashboard.billPending') }}
+                            /
+                            {{ details.clientSettled ? t('dashboard.billConfirmed') : t('dashboard.billPending') }}
+                          </div>
+                          <div class="form-check">
+                            <input
+                              id="vendor-bill-settled"
+                              class="form-check-input bill-settlement-checkbox"
+                              type="checkbox"
+                              [checked]="details.vendorSettled"
+                              [disabled]="updatingVendorBillSettlement()"
+                              (change)="setVendorBillSettled($any($event.target).checked)"
+                            />
+                            <label class="form-check-label" for="vendor-bill-settled">
+                              {{ t('dashboard.vendorSettlementCheckbox') }}
+                            </label>
+                          </div>
+                        </div>
+
+                        @if (details.clientComment) {
+                          <div class="mb-3">
+                            <label class="form-label" for="vendor-bill-comment">{{ t('dashboard.billComment') }}</label>
+                            <textarea
+                              id="vendor-bill-comment"
+                              class="form-control bill-comment-textarea"
+                              [value]="details.clientComment"
+                              readonly
+                            ></textarea>
+                          </div>
+                        }
+
+                        <div class="table-responsive">
+                          <table class="table table-striped align-middle">
+                            <thead>
+                              <tr>
+                                <th scope="col">{{ t('order.item') }}</th>
+                                <th scope="col">{{ t('order.category') }}</th>
+                                <th scope="col">{{ t('order.unitPriceEur') }}</th>
+                                <th scope="col">{{ t('order.qty') }}</th>
+                                <th scope="col">{{ t('order.lineTotalEur') }}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              @for (item of details.items; track item.merchandiseId + '-' + item.unitPrice) {
+                                <tr>
+                                  <td>{{ item.reference ? item.name + ' (' + item.reference + ')' : item.name }}</td>
+                                  <td>{{ item.category }}</td>
+                                  <td>{{ item.unitPrice | number: '1.2-2' }}</td>
+                                  <td>{{ item.quantity ?? '—' }}</td>
+                                  <td>{{ item.lineTotal | number: '1.2-2' }}</td>
+                                </tr>
+                              }
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      <div class="modal-footer d-flex justify-content-between">
+                        <strong>{{ t('common.total') }}: {{ details.totalPrice | number: '1.2-2' }} {{ details.currency }}</strong>
+                        <div class="d-flex gap-2">
+                          <button class="btn btn-outline-primary" type="button" (click)="openVendorBillPdf()">{{ t('common.printPdf') }}</button>
+                          <button class="btn btn-secondary" type="button" (click)="closeVendorOrderDetailsModal()">{{ t('common.close') }}</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              }
+
+              @if (showingClientCartModal() && clientCartDetails(); as details) {
+                <div class="modal-backdrop fade show"></div>
+                <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true">
+                  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                      <div class="modal-header">
+                        <h3 class="modal-title h5 mb-0">{{ t('dashboard.billDetails') }}</h3>
+                        <button class="btn-close" type="button" aria-label="Close" (click)="closeClientCartDetailsModal()"></button>
+                      </div>
+                      <div class="modal-body">
+                        <p class="mb-2"><strong>{{ t('order.vendor') }}:</strong> {{ details.vendorName }}</p>
+                        <p class="mb-3"><strong>{{ t('dashboard.day') }}:</strong> {{ details.day }}</p>
+                        <div class="bill-settlement-box mb-3">
+                          <div class="small mb-2">
+                            <strong>{{ t('dashboard.billSettlementStatus') }}:</strong>
+                            {{ details.vendorSettled ? t('dashboard.billConfirmed') : t('dashboard.billPending') }}
+                            /
+                            {{ details.clientSettled ? t('dashboard.billConfirmed') : t('dashboard.billPending') }}
+                          </div>
+                          <div class="form-check">
+                            <input
+                              id="client-bill-settled"
+                              class="form-check-input bill-settlement-checkbox"
+                              type="checkbox"
+                              [checked]="details.clientSettled"
+                              [disabled]="updatingClientBillSettlement()"
+                              (change)="setClientBillSettled($any($event.target).checked)"
+                            />
+                            <label class="form-check-label" for="client-bill-settled">
+                              {{ t('dashboard.clientSettlementCheckbox') }}
+                            </label>
+                          </div>
+                        </div>
+
+                        <div class="mb-3">
+                          <label class="form-label" for="client-bill-comment">{{ t('dashboard.billComment') }}</label>
+                          <div class="d-flex gap-2 align-items-start">
+                            <textarea
+                              id="client-bill-comment"
+                              class="form-control bill-comment-textarea"
+                              [value]="clientBillCommentDraft()"
+                              [disabled]="sendingClientBillComment()"
+                              (input)="clientBillCommentDraft.set($any($event.target).value)"
+                            ></textarea>
+                            <button
+                              class="btn btn-outline-primary bill-comment-send-btn"
+                              type="button"
+                              [disabled]="sendingClientBillComment() || !clientBillCommentDraft().trim()"
+                              [attr.aria-label]="t('dashboard.sendComment')"
+                              [attr.title]="t('dashboard.sendComment')"
+                              (click)="sendClientBillComment()"
+                            >
+                              📨
+                            </button>
+                          </div>
+                        </div>
+
+                        <div class="table-responsive">
+                          <table class="table table-striped align-middle">
+                            <thead>
+                              <tr>
+                                <th scope="col">{{ t('order.item') }}</th>
+                                <th scope="col">{{ t('order.category') }}</th>
+                                <th scope="col">{{ t('order.vendor') }}</th>
+                                <th scope="col">{{ t('order.unitPriceEur') }}</th>
+                                <th scope="col">{{ t('order.qty') }}</th>
+                                <th scope="col">{{ t('order.lineTotalEur') }}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              @for (item of details.items; track item.merchandiseId + '-' + item.unitPrice + '-' + item.vendorId) {
+                                <tr>
+                                  <td>{{ item.reference ? item.name + ' (' + item.reference + ')' : item.name }}</td>
+                                  <td>{{ item.category }}</td>
+                                  <td>{{ item.vendorName }}</td>
+                                  <td>{{ item.unitPrice | number: '1.2-2' }}</td>
+                                  <td>{{ item.quantity ?? '—' }}</td>
+                                  <td>{{ item.lineTotal | number: '1.2-2' }}</td>
+                                </tr>
+                              }
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      <div class="modal-footer d-flex justify-content-between">
+                        <strong>{{ t('common.total') }}: {{ details.totalPrice | number: '1.2-2' }} {{ details.currency }}</strong>
+                        <div class="d-flex gap-2">
+                          <button class="btn btn-outline-primary" type="button" (click)="openClientBillPdf()">{{ t('common.printPdf') }}</button>
+                          <button class="btn btn-secondary" type="button" (click)="closeClientCartDetailsModal()">{{ t('common.close') }}</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              }
+            }
+
+            @if (page() === 'admin') {
+              <div>
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                  <a class="btn btn-link back-arrow-btn" href="/dashboard" [attr.aria-label]="t('common.back')">⟵</a>
+                </div>
+
+                @if (!isAdmin()) {
+                  <div class="alert alert-danger">{{ t('admin.onlyAdmins') }}</div>
+                }
+
+                @if (isAdmin()) {
+                  <div class="border rounded p-3 mb-4">
+                    <h2 class="h5 mb-3">{{ t('admin.dailyBillRunTitle') }}</h2>
+                    <div class="row g-3 align-items-end">
+                      <div class="col-md-4">
+                        <label class="form-label" for="admin-bill-generation-day">{{ t('admin.dailyBillRunDate') }}</label>
+                        <input
+                          #billGenerationDayInput
+                          id="admin-bill-generation-day"
+                          class="form-control"
+                          type="date"
+                          [value]="adminBillGenerationDay()"
+                          [disabled]="runningAdminBillGeneration()"
+                        />
+                        <div class="form-text">{{ t('admin.dailyBillRunHint') }}</div>
+                      </div>
+                      <div class="col-md-3">
+                        <button
+                          class="btn btn-primary"
+                          type="button"
+                          [disabled]="runningAdminBillGeneration()"
+                          (click)="runAdminDailyBillGeneration($any(billGenerationDayInput).value)"
+                        >
+                          {{ runningAdminBillGeneration() ? t('admin.dailyBillRunning') : t('admin.dailyBillRunButton') }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="border rounded p-3 mb-4">
+                    <h2 class="h5 mb-3">{{ t('admin.billOverdueSettingsTitle') }}</h2>
+                    <div class="row g-3 align-items-end">
+                      <div class="col-md-4">
+                        <label class="form-label" for="admin-bill-overdue-days">{{ t('admin.billOverdueDaysLabel') }}</label>
+                        <input
+                          #billOverdueDaysInput
+                          id="admin-bill-overdue-days"
+                          class="form-control"
+                          type="number"
+                          min="1"
+                          max="3650"
+                          step="1"
+                          [value]="adminBillOverdueDays()"
+                          [disabled]="loadingAdminBillOverdueDays() || savingAdminBillOverdueDays()"
+                        />
+                        <div class="form-text">{{ t('admin.billOverdueDaysHint') }}</div>
+                      </div>
+                      <div class="col-md-3">
+                        <button
+                          class="btn btn-primary"
+                          type="button"
+                          [disabled]="loadingAdminBillOverdueDays() || savingAdminBillOverdueDays()"
+                          (click)="saveAdminBillOverdueDays($any(billOverdueDaysInput).value)"
+                        >
+                          {{ savingAdminBillOverdueDays() ? t('common.saving') : t('account.saveChanges') }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="border rounded p-3 mb-4">
+                    <h2 class="h5 mb-3">{{ t('admin.appStyleProfileTitle') }}</h2>
+                    <p class="form-text mb-3">{{ t('admin.appStyleProfileHint') }}</p>
+                    <div class="row g-3 align-items-end">
+                      <div class="col-md-6">
+                        <div class="d-flex flex-column gap-2">
+                          <div class="form-check">
+                            <input
+                              id="admin-app-style-primary"
+                              class="form-check-input"
+                              type="radio"
+                              name="admin-app-style-profile"
+                              value="primary"
+                              [checked]="adminAppStyleProfile() === 'primary'"
+                              [disabled]="loadingAdminAppStyleProfile() || savingAdminAppStyleProfile()"
+                              (change)="adminAppStyleProfile.set('primary')"
+                            />
+                            <label class="form-check-label" for="admin-app-style-primary">{{ t('admin.appStyleProfilePrimary') }}</label>
+                          </div>
+                          <div class="form-check">
+                            <input
+                              id="admin-app-style-secondary"
+                              class="form-check-input"
+                              type="radio"
+                              name="admin-app-style-profile"
+                              value="secondary"
+                              [checked]="adminAppStyleProfile() === 'secondary'"
+                              [disabled]="loadingAdminAppStyleProfile() || savingAdminAppStyleProfile()"
+                              (change)="adminAppStyleProfile.set('secondary')"
+                            />
+                            <label class="form-check-label" for="admin-app-style-secondary">{{ t('admin.appStyleProfileSecondary') }}</label>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="col-md-3">
+                        <button
+                          class="btn btn-primary"
+                          type="button"
+                          [disabled]="loadingAdminAppStyleProfile() || savingAdminAppStyleProfile()"
+                          (click)="saveAdminAppStyleProfile(adminAppStyleProfile())"
+                        >
+                          {{ savingAdminAppStyleProfile() ? t('common.saving') : t('account.saveChanges') }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="border rounded p-3 mb-4">
+                    <h2 class="h5 mb-3">{{ t('admin.associationsTitle') }}</h2>
+
+                    <div class="row g-4">
+                      <div class="col-lg-6">
+                        <h3 class="h6 mb-3">{{ t('admin.clientToVendor') }}</h3>
+
+                        <div class="mb-3">
+                          <label class="form-label" for="assoc-client-select">{{ t('admin.client') }}</label>
+                          <select
+                            id="assoc-client-select"
+                            class="form-select"
+                            [value]="selectedAdminClientId()"
+                            (change)="selectedAdminClientId.set($any($event.target).value)"
+                          >
+                            <option value="">{{ t('admin.selectClient') }}</option>
+                            @for (client of selectableAdminClients(); track client.id) {
+                              <option [value]="client.id">{{ client.username }} - {{ client.organisation }}</option>
+                            }
+                          </select>
+                        </div>
+
+                        <div class="mb-3">
+                          <label class="form-label" for="assoc-vendor-for-client">{{ t('admin.vendor') }}</label>
+                          <div class="d-flex gap-2">
+                            <select
+                              id="assoc-vendor-for-client"
+                              class="form-select"
+                              [value]="selectedVendorForClientId()"
+                              (change)="selectedVendorForClientId.set($any($event.target).value)"
+                            >
+                              <option value="">{{ t('admin.selectVendor') }}</option>
+                              @for (vendor of selectableAdminVendors(); track vendor.id) {
+                                <option [value]="vendor.id">{{ vendor.username }} - {{ vendor.organisation }}</option>
+                              }
+                            </select>
+                            <button
+                              class="btn btn-primary"
+                              type="button"
+                              [disabled]="assigningAssociation() || !selectedAdminClientId() || !selectedVendorForClientId()"
+                              (click)="assignVendorToClient(selectedAdminClientId(), selectedVendorForClientId())"
+                            >
+                              {{ assigningAssociation() ? t('admin.assigning') : t('admin.assign') }}
+                            </button>
+                          </div>
+                        </div>
+
+                        <h4 class="h6">{{ t('admin.assignedVendors') }}</h4>
+                        @if (selectedClientAssignedVendors().length === 0) {
+                          <div class="alert alert-light border mb-0">{{ t('admin.noAssignedVendors') }}</div>
+                        } @else {
+                          <ul class="list-group">
+                            @for (vendor of selectedClientAssignedVendors(); track vendor.id) {
+                              <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span>{{ vendor.username }} - {{ vendor.organisation }}</span>
+                                <button
+                                  class="btn btn-sm btn-outline-danger"
+                                  type="button"
+                                  [disabled]="isRemovingAssociation(selectedAdminClientId() + ':' + vendor.id)"
+                                  (click)="removeVendorFromClient(selectedAdminClientId(), vendor.id)"
+                                >
+                                  {{ isRemovingAssociation(selectedAdminClientId() + ':' + vendor.id) ? t('admin.removing') : t('admin.deassign') }}
+                                </button>
+                              </li>
+                            }
+                          </ul>
+                        }
+                      </div>
+
+                      <div class="col-lg-6">
+                        <h3 class="h6 mb-3">{{ t('admin.vendorToClient') }}</h3>
+
+                        <div class="mb-3">
+                          <label class="form-label" for="assoc-vendor-select">{{ t('admin.vendor') }}</label>
+                          <select
+                            id="assoc-vendor-select"
+                            class="form-select"
+                            [value]="selectedAdminVendorId()"
+                            (change)="selectedAdminVendorId.set($any($event.target).value)"
+                          >
+                            <option value="">{{ t('admin.selectVendor') }}</option>
+                            @for (vendor of selectableAdminVendors(); track vendor.id) {
+                              <option [value]="vendor.id">{{ vendor.username }} - {{ vendor.organisation }}</option>
+                            }
+                          </select>
+                        </div>
+
+                        <div class="mb-3">
+                          <label class="form-label" for="assoc-client-for-vendor">{{ t('admin.client') }}</label>
+                          <div class="d-flex gap-2">
+                            <select
+                              id="assoc-client-for-vendor"
+                              class="form-select"
+                              [value]="selectedClientForVendorId()"
+                              (change)="selectedClientForVendorId.set($any($event.target).value)"
+                            >
+                              <option value="">{{ t('admin.selectClient') }}</option>
+                              @for (client of selectableAdminClients(); track client.id) {
+                                <option [value]="client.id">{{ client.username }} - {{ client.organisation }}</option>
+                              }
+                            </select>
+                            <button
+                              class="btn btn-primary"
+                              type="button"
+                              [disabled]="assigningAssociation() || !selectedAdminVendorId() || !selectedClientForVendorId()"
+                              (click)="assignVendorToClient(selectedClientForVendorId(), selectedAdminVendorId())"
+                            >
+                              {{ assigningAssociation() ? t('admin.assigning') : t('admin.assign') }}
+                            </button>
+                          </div>
+                        </div>
+
+                        <h4 class="h6">{{ t('admin.assignedClients') }}</h4>
+                        @if (selectedVendorAssignedClients().length === 0) {
+                          <div class="alert alert-light border mb-0">{{ t('admin.noAssignedClients') }}</div>
+                        } @else {
+                          <ul class="list-group">
+                            @for (client of selectedVendorAssignedClients(); track client.id) {
+                              <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span>{{ client.username }} - {{ client.organisation }}</span>
+                                <button
+                                  class="btn btn-sm btn-outline-danger"
+                                  type="button"
+                                  [disabled]="isRemovingAssociation(client.id + ':' + selectedAdminVendorId())"
+                                  (click)="removeVendorFromClient(client.id, selectedAdminVendorId())"
+                                >
+                                  {{ isRemovingAssociation(client.id + ':' + selectedAdminVendorId()) ? t('admin.removing') : t('admin.deassign') }}
+                                </button>
+                              </li>
+                            }
+                          </ul>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                }
+
+                @if (isAdmin() && pendingUsers().length === 0 && !loadingPendingUsers()) {
+                  <div class="border rounded p-3 mb-4">
+                    <div class="mb-3">
+                      <h2 class="h5 mb-0">{{ t('admin.pendingApprovalsTitle') }}</h2>
+                    </div>
+                    <div class="alert alert-light border mb-0">{{ t('admin.noPendingUsers') }}</div>
+                  </div>
+                }
+
+                @if (pendingUsers().length > 0) {
+                  <div class="border rounded p-3 mb-4">
+                    <div class="mb-3">
+                      <h2 class="h5 mb-0">{{ t('admin.pendingApprovalsTitle') }}</h2>
+                    </div>
+
+                    <div class="table-responsive">
+                      <table class="table table-striped align-middle">
+                        <thead>
+                          <tr>
+                            <th scope="col">{{ t('admin.role') }}</th>
+                            <th scope="col">{{ t('admin.organisation') }}</th>
+                            <th scope="col">{{ t('admin.action') }}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (pendingUser of pendingUsers(); track pendingUser.id) {
+                            <tr class="pending-user-row" (click)="openPendingUserDetails(pendingUser)">
+                              <td>{{ pendingUser.role }}</td>
+                              <td>{{ pendingUser.organisation }}</td>
+                              <td class="d-flex gap-2">
+                                <button
+                                  class="btn btn-sm btn-success"
+                                  (click)="activateUser(pendingUser.id); $event.stopPropagation()"
+                                  [disabled]="isActivating(pendingUser.id)"
+                                  type="button"
+                                >
+                                  {{ isActivating(pendingUser.id) ? t('admin.activating') : t('admin.activate') }}
+                                </button>
+                                <button
+                                  class="btn btn-sm btn-outline-danger"
+                                  (click)="deletePendingUser(pendingUser.id, $event)"
+                                  [disabled]="isDeletingPendingUser(pendingUser.id)"
+                                  type="button"
+                                >
+                                  {{ isDeletingPendingUser(pendingUser.id) ? t('admin.removing') : t('admin.deletePendingUser') }}
+                                </button>
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                }
+
+                @if (showingPendingUserModal() && selectedPendingUser(); as pendingUser) {
+                  <div class="modal-backdrop fade show"></div>
+                  <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true">
+                    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                      <div class="modal-content">
+                        <div class="modal-header">
+                          <h3 class="modal-title h5 mb-0">{{ t('admin.pendingUserDetails') }}</h3>
+                          <button class="btn-close" type="button" aria-label="Close" (click)="closePendingUserDetails()"></button>
+                        </div>
+                        <div class="modal-body">
+                          <div class="row g-3">
+                            <div class="col-md-6"><strong>{{ t('admin.role') }}:</strong> {{ pendingUser.role }}</div>
+                            <div class="col-md-6"><strong>{{ t('admin.username') }}:</strong> {{ pendingUser.username }}</div>
+                            <div class="col-md-6"><strong>{{ t('admin.organisation') }}:</strong> {{ pendingUser.organisation }}</div>
+                            <div class="col-md-6"><strong>{{ t('admin.email') }}:</strong> {{ pendingUser.email }}</div>
+                            <div class="col-md-6"><strong>{{ t('admin.phone') }}:</strong> {{ pendingUser.phoneNumber }}</div>
+                            <div class="col-md-6"><strong>{{ t('admin.siret') }}:</strong> {{ pendingUser.businessRegistrationId }}</div>
+                            <div class="col-md-6"><strong>{{ t('account.firstName') }}:</strong> {{ pendingUser.firstName }}</div>
+                            <div class="col-md-6"><strong>{{ t('account.lastName') }}:</strong> {{ pendingUser.lastName }}</div>
+                            <div class="col-md-6"><strong>{{ t('account.city') }}:</strong> {{ pendingUser.city }}</div>
+                            <div class="col-md-6"><strong>{{ t('account.zipcode') }}:</strong> {{ pendingUser.zipcode }}</div>
+                            <div class="col-12"><strong>{{ t('account.address') }}:</strong> {{ pendingUser.physicalAddress }}</div>
+                            <div class="col-12"><strong>{{ t('admin.requestedAt') }}:</strong> {{ pendingUser.createdAt | date: 'medium' }}</div>
+                          </div>
+                        </div>
+                        <div class="modal-footer d-flex gap-2">
+                          <button
+                            class="btn btn-success"
+                            type="button"
+                            (click)="activateUser(pendingUser.id)"
+                            [disabled]="isActivating(pendingUser.id)"
+                          >
+                            {{ isActivating(pendingUser.id) ? t('admin.activating') : t('admin.activate') }}
+                          </button>
+                          <button
+                            class="btn btn-outline-danger"
+                            type="button"
+                            (click)="deletePendingUser(pendingUser.id)"
+                            [disabled]="isDeletingPendingUser(pendingUser.id)"
+                          >
+                            {{ isDeletingPendingUser(pendingUser.id) ? t('admin.removing') : t('admin.deletePendingUser') }}
+                          </button>
+                          <button class="btn btn-secondary" type="button" (click)="closePendingUserDetails()">{{ t('common.close') }}</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+
+            @if (page() === 'statistics') {
+              <div>
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                  <a class="btn btn-link back-arrow-btn" href="/admin" aria-label="Back to admin">⟵</a>
+                </div>
+
+                @if (!isAdmin()) {
+                  <div class="alert alert-danger">{{ t('admin.onlyAdmins') }}</div>
+                } @else {
+                  <div class="border rounded p-3 mb-4">
+                    <h2 class="h5 mb-3">{{ t('statistics.title') }}</h2>
+
+                    <div class="d-flex flex-wrap gap-3 mb-3">
+                      <span class="small"><span class="fw-bold text-primary">●</span> {{ t('statistics.orderCountLine') }}</span>
+                      <span class="small"><span class="fw-bold text-success">●</span> {{ t('statistics.totalAmountLine') }}</span>
+                    </div>
+
+                    @if (loadingActivatedOrdersStats()) {
+                      <div class="form-text">{{ t('admin.refreshing') }}</div>
+                    } @else if (activatedOrdersStats().length === 0) {
+                      <div class="alert alert-light border mb-0">{{ t('statistics.noData') }}</div>
+                    } @else if (activatedOrdersChart(); as chart) {
+                      <div class="table-responsive mb-3">
+                        <svg
+                          [attr.viewBox]="'0 0 ' + chart.width + ' ' + chart.height"
+                          [attr.width]="'100%'"
+                          [attr.height]="chart.height"
+                          role="img"
+                          [attr.aria-label]="t('statistics.activatedOrdersOverTime')"
+                        >
+                          <rect x="0" y="0" [attr.width]="chart.width" [attr.height]="chart.height" fill="transparent"></rect>
+                          <line
+                            [attr.x1]="chart.marginLeft"
+                            [attr.y1]="chart.marginTop"
+                            [attr.x2]="chart.marginLeft"
+                            [attr.y2]="chart.height - chart.marginBottom"
+                            stroke="currentColor"
+                            stroke-opacity="0.35"
+                          />
+                          <line
+                            [attr.x1]="chart.width - chart.marginRight"
+                            [attr.y1]="chart.marginTop"
+                            [attr.x2]="chart.width - chart.marginRight"
+                            [attr.y2]="chart.height - chart.marginBottom"
+                            stroke="currentColor"
+                            stroke-opacity="0.35"
+                          />
+                          <line
+                            [attr.x1]="chart.marginLeft"
+                            [attr.y1]="chart.height - chart.marginBottom"
+                            [attr.x2]="chart.width - chart.marginRight"
+                            [attr.y2]="chart.height - chart.marginBottom"
+                            stroke="currentColor"
+                            stroke-opacity="0.35"
+                          />
+                          <polyline [attr.points]="chart.countPolyline" fill="none" stroke="#0d6efd" stroke-width="3" />
+                          <polyline [attr.points]="chart.amountPolyline" fill="none" stroke="#198754" stroke-width="3" />
+                          @for (tick of chart.leftTicks; track tick.y) {
+                            <line
+                              [attr.x1]="chart.marginLeft - 4"
+                              [attr.y1]="tick.y"
+                              [attr.x2]="chart.marginLeft"
+                              [attr.y2]="tick.y"
+                              stroke="currentColor"
+                              stroke-opacity="0.5"
+                            />
+                            <text [attr.x]="chart.marginLeft - 8" [attr.y]="tick.y + 4" text-anchor="end" font-size="12">{{ tick.label }}</text>
+                          }
+                          @for (tick of chart.rightTicks; track tick.y) {
+                            <line
+                              [attr.x1]="chart.width - chart.marginRight"
+                              [attr.y1]="tick.y"
+                              [attr.x2]="chart.width - chart.marginRight + 4"
+                              [attr.y2]="tick.y"
+                              stroke="currentColor"
+                              stroke-opacity="0.5"
+                            />
+                            <text [attr.x]="chart.width - chart.marginRight + 8" [attr.y]="tick.y + 4" text-anchor="start" font-size="12">{{ tick.label }} €</text>
+                          }
+                          <text [attr.x]="chart.marginLeft" [attr.y]="chart.height - 8" font-size="12">{{ chart.firstDay }}</text>
+                          <text [attr.x]="chart.width - chart.marginRight" [attr.y]="chart.height - 8" font-size="12" text-anchor="end">{{ chart.lastDay }}</text>
+                        </svg>
+                      </div>
+
+                      <div class="table-responsive">
+                        <table class="table table-striped align-middle mb-0">
+                          <thead>
+                            <tr>
+                              <th scope="col">{{ t('dashboard.day') }}</th>
+                              <th scope="col">{{ t('statistics.orderCountLine') }}</th>
+                              <th scope="col">{{ t('statistics.totalAmountLine') }}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @for (row of paginatedActivatedOrdersStatsTableRows(); track row.day) {
+                              <tr>
+                                <td>{{ row.day }}</td>
+                                <td>{{ row.orderCount }}</td>
+                                <td>{{ row.totalAmount | number: '1.2-2' }} {{ row.currency === 'EUR' ? '€' : row.currency }}</td>
+                              </tr>
+                            }
+                          </tbody>
+                        </table>
+                      </div>
+
+                      @if (activatedOrdersStatsPageCount() > 1) {
+                        <div class="d-flex justify-content-between align-items-center gap-3 mt-3">
+                          <button
+                            class="btn btn-outline-secondary"
+                            type="button"
+                            [disabled]="activatedOrdersStatsPage() === 0"
+                            (click)="showPreviousActivatedOrdersStatsPage()"
+                          >
+                            {{ t('statistics.previousPage') }}
+                          </button>
+                          <div class="small text-body-secondary">
+                            {{ t('statistics.page') }} {{ activatedOrdersStatsPage() + 1 }} / {{ activatedOrdersStatsPageCount() }}
+                          </div>
+                          <button
+                            class="btn btn-outline-secondary"
+                            type="button"
+                            [disabled]="activatedOrdersStatsPage() >= activatedOrdersStatsPageCount() - 1"
+                            (click)="showNextActivatedOrdersStatsPage()"
+                          >
+                            {{ t('statistics.nextPage') }}
+                          </button>
+                        </div>
+                      }
+                    }
+                  </div>
+                }
+              </div>
+            }
+
+            @if (page() === 'vendor-statistics') {
+              <div>
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                  <a class="btn btn-link back-arrow-btn" href="/dashboard" aria-label="Back to dashboard">⟵</a>
+                </div>
+
+                @if (!isVendor()) {
+                  <div class="alert alert-danger">{{ t('stocks.onlyVendors') }}</div>
+                } @else {
+                  <div class="border rounded p-3 mb-4">
+                    <h2 class="h5 mb-3">{{ t('vendorStatistics.title') }}</h2>
+
+                    <div class="row g-3 align-items-end mb-3">
+                      <div class="col-md-4">
+                        <label class="form-label" for="vendor-stats-from">{{ t('vendorStatistics.fromDate') }}</label>
+                        <input
+                          id="vendor-stats-from"
+                          class="form-control"
+                          type="date"
+                          [value]="vendorStatsFromDate()"
+                          (change)="setVendorStatsFromDate($any($event.target).value)"
+                        />
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label" for="vendor-stats-to">{{ t('vendorStatistics.toDate') }}</label>
+                        <input
+                          id="vendor-stats-to"
+                          class="form-control"
+                          type="date"
+                          [value]="vendorStatsToDate()"
+                          (change)="setVendorStatsToDate($any($event.target).value)"
+                        />
+                      </div>
+                    </div>
+
+                    @if (loadingVendorCategorySalesStats()) {
+                      <div class="form-text">{{ t('admin.refreshing') }}</div>
+                    } @else if (vendorCategorySalesStats().length === 0) {
+                      <div class="alert alert-light border mb-0">{{ t('vendorStatistics.noData') }}</div>
+                    } @else if (vendorCategorySalesPie(); as pie) {
+                      <div class="row g-4">
+                        <div class="col-lg-6">
+                          <svg
+                            [attr.viewBox]="'0 0 ' + pie.width + ' ' + pie.height"
+                            [attr.width]="'100%'"
+                            [attr.height]="pie.height"
+                            role="img"
+                            [attr.aria-label]="t('vendorStatistics.chartLabel')"
+                          >
+                            @for (slice of pie.slices; track slice.category) {
+                              @if (slice.fullCircle) {
+                                <circle [attr.cx]="pie.cx" [attr.cy]="pie.cy" [attr.r]="pie.radius" [attr.fill]="slice.color"></circle>
+                              } @else {
+                                <path [attr.d]="slice.path" [attr.fill]="slice.color"></path>
+                              }
+                            }
+                          </svg>
+                          <div class="small text-muted">
+                            {{ t('vendorStatistics.total') }}: {{ pie.totalAmount | number: '1.2-2' }} €
+                          </div>
+                        </div>
+                        <div class="col-lg-6">
+                          <ul class="list-group">
+                            @for (slice of pie.slices; track slice.category) {
+                              <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center gap-2">
+                                  <span [style.color]="slice.color">●</span>
+                                  <span>{{ slice.category }}</span>
+                                </div>
+                                <span>
+                                  {{ slice.amount | number: '1.2-2' }} €
+                                  ({{ slice.percent | number: '1.0-1' }}%)
+                                </span>
+                              </li>
+                            }
+                          </ul>
+                        </div>
+                      </div>
+                    }
+
+                    @if (!loadingVendorCategorySalesStats() && vendorClientSalesBarChart(); as barChart) {
+                      <div class="mt-4">
+                        <h3 class="h6 mb-3">{{ t('vendorStatistics.clientBarChartTitle') }}</h3>
+                        <div class="table-responsive mb-3">
+                          <svg
+                            [attr.viewBox]="'0 0 ' + barChart.width + ' ' + barChart.height"
+                            [attr.width]="'100%'"
+                            [attr.height]="barChart.height"
+                            role="img"
+                            [attr.aria-label]="t('vendorStatistics.clientBarChartLabel')"
+                          >
+                            <line
+                              [attr.x1]="barChart.marginLeft"
+                              [attr.y1]="barChart.marginTop"
+                              [attr.x2]="barChart.marginLeft"
+                              [attr.y2]="barChart.height - barChart.marginBottom"
+                              stroke="currentColor"
+                              stroke-opacity="0.35"
+                            />
+                            <line
+                              [attr.x1]="barChart.marginLeft"
+                              [attr.y1]="barChart.height - barChart.marginBottom"
+                              [attr.x2]="barChart.width - barChart.marginRight"
+                              [attr.y2]="barChart.height - barChart.marginBottom"
+                              stroke="currentColor"
+                              stroke-opacity="0.35"
+                            />
+                            @for (tick of barChart.yTicks; track tick.y) {
+                              <line
+                                [attr.x1]="barChart.marginLeft - 4"
+                                [attr.y1]="tick.y"
+                                [attr.x2]="barChart.marginLeft"
+                                [attr.y2]="tick.y"
+                                stroke="currentColor"
+                                stroke-opacity="0.5"
+                              />
+                              <text [attr.x]="barChart.marginLeft - 8" [attr.y]="tick.y + 4" text-anchor="end" font-size="12">{{ tick.label }}</text>
+                            }
+                            @for (bar of barChart.bars; track bar.clientId) {
+                              <rect
+                                [attr.x]="bar.x"
+                                [attr.y]="bar.y"
+                                [attr.width]="bar.width"
+                                [attr.height]="bar.height"
+                                fill="#0d6efd"
+                                opacity="0.85"
+                              />
+                              <text [attr.x]="bar.x + bar.width / 2" [attr.y]="barChart.height - barChart.marginBottom + 14" text-anchor="middle" font-size="11">
+                                {{ bar.label }}
+                              </text>
+                            }
+                          </svg>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+
+            @if (page() === 'vendor-monthly-summary') {
+              <div>
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                  <a class="btn btn-link back-arrow-btn" href="/dashboard" aria-label="Back to dashboard">⟵</a>
+                </div>
+
+                @if (!isVendor()) {
+                  <div class="alert alert-danger">{{ t('stocks.onlyVendors') }}</div>
+                } @else {
+                  <div class="border rounded p-3 mb-4">
+                    <h2 class="h5 mb-3">{{ t('vendorMonthlySummary.title') }}</h2>
+
+                    <div class="row g-3 align-items-end mb-3">
+                      <div class="col-md-3">
+                        <label class="form-label" for="vendor-monthly-summary-year">{{ t('vendorMonthlySummary.year') }}</label>
+                        <input
+                          id="vendor-monthly-summary-year"
+                          class="form-control"
+                          type="number"
+                          min="2000"
+                          max="9999"
+                          step="1"
+                          [value]="vendorMonthlySummaryYear()"
+                          (change)="vendorMonthlySummaryYear.set(+$any($event.target).value || vendorMonthlySummaryYear())"
+                        />
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label" for="vendor-monthly-summary-month">{{ t('vendorMonthlySummary.month') }}</label>
+                        <select
+                          id="vendor-monthly-summary-month"
+                          class="form-select"
+                          [value]="vendorMonthlySummaryMonth()"
+                          (change)="vendorMonthlySummaryMonth.set(+$any($event.target).value || vendorMonthlySummaryMonth())"
+                        >
+                          @for (month of [1,2,3,4,5,6,7,8,9,10,11,12]; track month) {
+                            <option [value]="month">{{ month }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label" for="vendor-monthly-summary-client">{{ t('vendorMonthlySummary.client') }}</label>
+                        <select
+                          id="vendor-monthly-summary-client"
+                          class="form-select"
+                          [value]="selectedVendorMonthlySummaryClientId()"
+                          [disabled]="loadingVendorMonthlySummaryClients()"
+                          (change)="selectedVendorMonthlySummaryClientId.set($any($event.target).value)"
+                        >
+                          <option value="">{{ t('vendorMonthlySummary.selectClient') }}</option>
+                          @for (client of vendorMonthlySummaryClients(); track client.id) {
+                            <option [value]="client.id">{{ client.name }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="col-md-2">
+                        <button
+                          class="btn btn-primary w-100"
+                          type="button"
+                          [disabled]="loadingVendorMonthlySummaryClients() || loadingVendorMonthlySummary()"
+                          (click)="loadVendorMonthlySummary()"
+                        >
+                          {{ loadingVendorMonthlySummary() ? t('admin.refreshing') : t('vendorMonthlySummary.validate') }}
+                        </button>
+                      </div>
+                    </div>
+
+                    @if (loadingVendorMonthlySummaryClients()) {
+                      <div class="form-text">{{ t('admin.refreshing') }}</div>
+                    } @else if (vendorMonthlySummaryClients().length === 0) {
+                      <div class="alert alert-light border mb-0">{{ t('vendorMonthlySummary.noClients') }}</div>
+                    }
+
+                    @if (vendorMonthlySummaryLoaded() && vendorMonthlySummaryBills().length === 0 && !loadingVendorMonthlySummary()) {
+                      <div class="alert alert-light border mb-0">{{ t('vendorMonthlySummary.noBills') }}</div>
+                    } @else if (vendorMonthlySummaryBills().length > 0) {
+                      <div class="table-responsive">
+                        <table class="table table-striped align-middle mb-0">
+                          <thead>
+                            <tr>
+                              <th scope="col">{{ t('vendorMonthlySummary.billId') }}</th>
+                              <th scope="col">{{ t('vendorMonthlySummary.deliveryDate') }}</th>
+                              <th scope="col" class="text-end">{{ t('vendorMonthlySummary.totalAmount') }}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @for (bill of vendorMonthlySummaryBills(); track bill.billId) {
+                              <tr>
+                                <td><code>{{ bill.billId }}</code></td>
+                                <td>{{ bill.deliveryDate ? (bill.deliveryDate | date: 'dd/MM/yyyy' : 'UTC') : '—' }}</td>
+                                <td class="text-end">{{ bill.totalAmount | number: '1.2-2' }} {{ bill.currency === 'EUR' ? '€' : bill.currency }}</td>
+                              </tr>
+                            }
+                          </tbody>
+                          <tfoot>
+                            <tr>
+                              <th colspan="2">{{ t('vendorMonthlySummary.grandTotal') }}</th>
+                              <th class="text-end">{{ vendorMonthlySummaryGrandTotal() | number: '1.2-2' }} {{ vendorMonthlySummaryCurrency() === 'EUR' ? '€' : vendorMonthlySummaryCurrency() }}</th>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+
+            @if (page() === 'vendor-overdue-bills') {
+              <div>
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                  <a class="btn btn-link back-arrow-btn" href="/dashboard" aria-label="Back to dashboard">⟵</a>
+                </div>
+
+                @if (!isVendor()) {
+                  <div class="alert alert-danger">{{ t('stocks.onlyVendors') }}</div>
+                } @else {
+                  <div class="border rounded p-3 mb-4">
+                    <h2 class="h5 mb-3">{{ t('vendorOverdueBills.title') }}</h2>
+
+                    @if (loadingVendorOverdueBills()) {
+                      <div class="form-text">{{ t('admin.refreshing') }}</div>
+                    } @else if (vendorOverdueBillGroups().length === 0) {
+                      <div class="alert alert-light border mb-0">{{ t('vendorOverdueBills.noData') }}</div>
+                    } @else {
+                      @for (group of vendorOverdueBillGroups(); track group.clientId) {
+                        <div class="border rounded p-3 mb-3">
+                          <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                            <h3 class="h6 mb-0">{{ group.organisation }}</h3>
+                            <div class="d-flex align-items-center gap-2">
+                              <div class="small">
+                                {{ t('vendorOverdueBills.billCount') }}: {{ group.billCount }}
+                                |
+                                {{ t('common.total') }}: {{ group.totalAmount | number: '1.2-2' }} {{ group.currency === 'EUR' ? '€' : group.currency }}
+                              </div>
+                              <button
+                                class="btn btn-sm"
+                                [class.btn-danger]="isReminderSentForClient(group.clientId)"
+                                [class.btn-outline-danger]="!isReminderSentForClient(group.clientId)"
+                                type="button"
+                                [disabled]="isSendingUnpaidReminder(group.clientId)"
+                                [attr.aria-label]="t('vendorOverdueBills.sendReminder')"
+                                [attr.title]="t('vendorOverdueBills.sendReminder')"
+                                (click)="sendUnpaidReminder(group)"
+                              >
+                                🔔
+                              </button>
+                            </div>
+                          </div>
+
+                          <div class="table-responsive">
+                            <table class="table table-striped align-middle mb-0">
+                              <thead>
+                                <tr>
+                                  <th scope="col">{{ t('vendorOverdueBills.orderedAt') }}</th>
+                                  <th scope="col">{{ t('vendorOverdueBills.deliveryDate') }}</th>
+                                  <th scope="col">{{ t('vendorOverdueBills.daysPastDue') }}</th>
+                                  <th scope="col">{{ t('order.qty') }}</th>
+                                  <th scope="col">{{ t('vendorOverdueBills.lineCount') }}</th>
+                                  <th scope="col">{{ t('common.total') }}</th>
+                                  <th scope="col">{{ t('vendorOverdueBills.penaltyPercent') }}</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                @for (bill of group.bills; track bill.key) {
+                                  <tr
+                                    class="vendor-overdue-bill-row"
+                                    role="button"
+                                    tabindex="0"
+                                    (click)="openVendorOrderDetails(bill.key)"
+                                    (keydown.enter)="openVendorOrderDetails(bill.key)"
+                                    (keydown.space)="openVendorOrderDetails(bill.key); $event.preventDefault()"
+                                  >
+                                    <td>{{ bill.orderedAt | date: 'dd/MM/yyyy HH:mm' : 'UTC' }}</td>
+                                    <td>{{ bill.deliveryDate | date: 'dd/MM/yyyy' : 'UTC' }}</td>
+                                    <td>{{ bill.daysPastDue }}</td>
+                                    <td>{{ bill.totalQuantity }}</td>
+                                    <td>{{ bill.lineCount }}</td>
+                                    <td>{{ bill.totalPrice | number: '1.2-2' }} €</td>
+                                    <td>
+                                      <div class="d-flex align-items-center gap-2 justify-content-end">
+                                        <input
+                                          class="form-control form-control-sm vendor-overdue-penalty-input"
+                                          type="number"
+                                          min="1"
+                                          max="50"
+                                          step="1"
+                                          [value]="getVendorOverdueBillPenaltyPercent(bill.key)"
+                                          [disabled]="bill.hasPenaltyLine || isApplyingVendorOverduePenalty(bill.key)"
+                                          (click)="$event.stopPropagation()"
+                                          (keydown)="$event.stopPropagation()"
+                                          (change)="setVendorOverdueBillPenaltyPercent(bill.key, $any($event.target).value)"
+                                        />
+                                        <button
+                                          class="btn btn-sm btn-outline-primary"
+                                          type="button"
+                                          [disabled]="bill.hasPenaltyLine || isApplyingVendorOverduePenalty(bill.key)"
+                                          [attr.aria-label]="t('vendorOverdueBills.applyPenalty')"
+                                          [attr.title]="t('vendorOverdueBills.applyPenalty')"
+                                          (click)="applyVendorOverdueBillPenalty(bill, $event)"
+                                        >
+                                          ✅
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                }
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      }
+                    }
+                  </div>
+
+                  @if (showingVendorOrderModal() && vendorOrderDetails(); as details) {
+                    <div class="modal-backdrop fade show"></div>
+                    <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true">
+                      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                        <div class="modal-content">
+                          <div class="modal-header">
+                            <h3 class="modal-title h5 mb-0">{{ t('dashboard.billDetails') }}</h3>
+                            <button class="btn-close" type="button" aria-label="Close" (click)="closeVendorOrderDetailsModal()"></button>
+                          </div>
+                          <div class="modal-body">
+                            <p class="mb-2"><strong>{{ t('dashboard.client') }}:</strong> {{ details.clientUsername }}</p>
+                            <p class="mb-3"><strong>{{ t('dashboard.day') }}:</strong> {{ details.day }}</p>
+
+                            <div class="bill-settlement-box mb-3">
+                              <div class="small mb-2">
+                                <strong>{{ t('dashboard.billSettlementStatus') }}:</strong>
+                                {{ details.vendorSettled ? t('dashboard.billConfirmed') : t('dashboard.billPending') }}
+                                /
+                                {{ details.clientSettled ? t('dashboard.billConfirmed') : t('dashboard.billPending') }}
+                              </div>
+                              <div class="form-check">
+                                <input
+                                  id="vendor-overdue-bill-settled"
+                                  class="form-check-input bill-settlement-checkbox"
+                                  type="checkbox"
+                                  [checked]="details.vendorSettled"
+                                  [disabled]="updatingVendorBillSettlement()"
+                                  (change)="setVendorBillSettled($any($event.target).checked)"
+                                />
+                                <label class="form-check-label" for="vendor-overdue-bill-settled">
+                                  {{ t('dashboard.vendorSettlementCheckbox') }}
+                                </label>
+                              </div>
+                            </div>
+
+                            <div class="table-responsive">
+                              <table class="table table-striped align-middle">
+                                <thead>
+                                  <tr>
+                                    <th scope="col">{{ t('order.item') }}</th>
+                                    <th scope="col">{{ t('order.category') }}</th>
+                                    <th scope="col">{{ t('order.unitPriceEur') }}</th>
+                                    <th scope="col">{{ t('order.qty') }}</th>
+                                    <th scope="col">{{ t('order.lineTotalEur') }}</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  @for (item of details.items; track item.merchandiseId + '-' + item.unitPrice) {
+                                    <tr>
+                                      <td>{{ item.reference ? item.name + ' (' + item.reference + ')' : item.name }}</td>
+                                      <td>{{ item.category }}</td>
+                                      <td>{{ item.unitPrice | number: '1.2-2' }}</td>
+                                      <td>{{ item.quantity ?? '—' }}</td>
+                                      <td>{{ item.lineTotal | number: '1.2-2' }}</td>
+                                    </tr>
+                                  }
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                          <div class="modal-footer d-flex justify-content-between">
+                            <strong>{{ t('common.total') }}: {{ details.totalPrice | number: '1.2-2' }} {{ details.currency }}</strong>
+                            <div class="d-flex gap-2">
+                              <button class="btn btn-outline-primary" type="button" (click)="openVendorBillPdf()">{{ t('common.printPdf') }}</button>
+                              <button class="btn btn-secondary" type="button" (click)="closeVendorOrderDetailsModal()">{{ t('common.close') }}</button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                }
+              </div>
+            }
+
+            @if (page() === 'vendor-refunds') {
+              <div>
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                  <a class="btn btn-link back-arrow-btn" href="/dashboard" aria-label="Back to dashboard">⟵</a>
+                </div>
+
+                @if (!isVendor()) {
+                  <div class="alert alert-danger">{{ t('refunds.onlyVendors') }}</div>
+                } @else {
+                  <div class="border rounded p-3 mb-4">
+                    <h2 class="h5 mb-3">{{ t('refunds.title') }}</h2>
+                    <p class="text-body-secondary mb-4">{{ t('refunds.subtitle') }}</p>
+
+                    <form [formGroup]="vendorRefundForm" (ngSubmit)="submitVendorRefund()" novalidate>
+                      <div class="row g-3">
+                        <div class="col-md-6">
+                          <label class="form-label" for="refund-client">{{ t('refunds.client') }}</label>
+                          <select
+                            id="refund-client"
+                            class="form-select"
+                            formControlName="clientId"
+                            [disabled]="loadingVendorRefundClients() || savingVendorRefund()"
+                          >
+                            @if (vendorRefundClients().length === 0) {
+                              <option value="">{{ t('refunds.noClients') }}</option>
+                            }
+                            @for (client of vendorRefundClients(); track client.id) {
+                              <option [value]="client.id">{{ client.name }}</option>
+                            }
+                          </select>
+                        </div>
+
+                        <div class="col-md-3">
+                          <label class="form-label" for="refund-amount">{{ t('refunds.amount') }}</label>
+                          <input
+                            id="refund-amount"
+                            class="form-control"
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            formControlName="amount"
+                            [disabled]="savingVendorRefund()"
+                          />
+                        </div>
+
+                        <div class="col-md-9">
+                          <label class="form-label" for="refund-comment">{{ t('refunds.comment') }}</label>
+                          <input
+                            id="refund-comment"
+                            class="form-control"
+                            type="text"
+                            maxlength="32"
+                            formControlName="comment"
+                            [disabled]="savingVendorRefund()"
+                          />
+                          <div class="form-text">{{ t('refunds.commentHint') }}</div>
+                        </div>
+                      </div>
+
+                      <div class="d-flex gap-2 mt-4">
+                        <button
+                          class="btn btn-primary"
+                          type="submit"
+                          [disabled]="savingVendorRefund() || loadingVendorRefundClients() || vendorRefundClients().length === 0"
+                        >
+                          {{ savingVendorRefund() ? t('refunds.submitting') : t('refunds.submit') }}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                }
+              </div>
+            }
+
+            @if (page() === 'find-vendors') {
+              <div>
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                  <a class="btn btn-link back-arrow-btn" href="/dashboard" aria-label="Back to dashboard">⟵</a>
+                </div>
+
+                @if (!isClient()) {
+                  <div class="alert alert-danger">{{ t('findVendors.onlyClients') }}</div>
+                } @else {
+                  <div class="border rounded p-3 mb-4">
+                    <h2 class="h5 mb-3">{{ t('findVendors.title') }}</h2>
+
+                    @if (loadingClientVendorDiscovery()) {
+                      <div class="form-text">{{ t('admin.refreshing') }}</div>
+                    } @else if (clientVendorDiscoveryItems().length === 0) {
+                      <div class="alert alert-light border mb-0">{{ t('findVendors.noVendors') }}</div>
+                    } @else {
+                      <div class="bill-list-panel" style="max-height: 29rem;">
+                        @for (vendor of clientVendorDiscoveryItems(); track vendor.id) {
+                          <div class="bill-message-row">
+                            <button
+                              type="button"
+                              class="bill-list-item flex-grow-1 border-0 rounded-0"
+                              (click)="openClientVendorDiscoveryDetails(vendor)"
+                            >
+                              <span class="fw-semibold">{{ vendor.organisation }}</span>
+                            </button>
+                            <div class="d-flex align-items-center justify-content-center px-3 border-start" (click)="$event.stopPropagation()">
+                              <input
+                                class="form-check-input m-0"
+                                type="checkbox"
+                                [checked]="vendor.isAssigned"
+                                [disabled]="vendor.isAssigned || isAssigningClientVendor(vendor.id)"
+                                [attr.aria-label]="vendor.organisation"
+                                (click)="assignClientVendor(vendor.id, $event)"
+                              />
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+
+                  @if (showingClientVendorDiscoveryModal() && selectedClientVendorDiscoveryItem(); as vendor) {
+                    <div class="modal-backdrop fade show"></div>
+                    <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true">
+                      <div class="modal-dialog modal-dialog-scrollable">
+                        <div class="modal-content">
+                          <div class="modal-header">
+                            <h3 class="modal-title h5 mb-0">{{ vendor.organisation }}</h3>
+                            <button class="btn-close" type="button" aria-label="Close" (click)="closeClientVendorDiscoveryDetails()"></button>
+                          </div>
+                          <div class="modal-body">
+                            @if (vendor.logoUrl) {
+                              <div class="mb-3 text-center">
+                                <img
+                                  class="app-user-logo"
+                                  [src]="vendor.logoUrl"
+                                  [alt]="t('common.logo')"
+                                  loading="lazy"
+                                />
+                              </div>
+                            }
+
+                            <h4 class="h6 mb-2">{{ t('findVendors.businessDescription') }}</h4>
+                            <p class="mb-0 text-break">
+                              {{ vendor.businessDescription || t('findVendors.noBusinessDescription') }}
+                            </p>
+                          </div>
+                          <div class="modal-footer">
+                            <button class="btn btn-secondary" type="button" (click)="closeClientVendorDiscoveryDetails()">
+                              {{ t('common.close') }}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                }
+              </div>
+            }
+
+            @if (page() === 'stocks') {
+              <div>
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                  <a class="btn btn-link back-arrow-btn" href="/dashboard" aria-label="Back to dashboard">⟵</a>
+                </div>
+
+                @if (!isVendor()) {
+                  <div class="alert alert-danger">{{ t('stocks.onlyVendors') }}</div>
+                }
+
+                @if (isVendor()) {
+                  <form [formGroup]="stockForm" (ngSubmit)="submitStock()" class="border rounded p-3 mb-4" novalidate>
+                    <h2 class="h5 mb-3">{{ editingStockItemId() ? t('stocks.editMerchandise') : t('stocks.addMerchandise') }}</h2>
+
+                    <div class="row g-3">
+                      <div class="col-md-3">
+                        <label class="form-label" for="stock-name">{{ t('stocks.name') }}</label>
+                        <input id="stock-name" class="form-control" type="text" formControlName="name" />
+                      </div>
+
+                      <div class="col-md-3">
+                        <label class="form-label" for="stock-reference">{{ t('stocks.reference') }}</label>
+                        <input id="stock-reference" class="form-control" type="text" formControlName="reference" />
+                      </div>
+
+                      <div class="col-md-2">
+                        <label class="form-label" for="stock-price">{{ t('stocks.price') }}</label>
+                        <input id="stock-price" class="form-control" type="number" step="0.01" min="0" formControlName="price" />
+                      </div>
+
+                      <div class="col-md-2">
+                        <label class="form-label" for="stock-qty">{{ t('stocks.stock') }}</label>
+                        <input id="stock-qty" class="form-control" type="number" step="1" min="0" formControlName="stock" />
+                      </div>
+
+                      <div class="col-md-3">
+                        <label class="form-label" for="stock-min-threshold">{{ t('stocks.minimumThreshold') }}</label>
+                        <input
+                          id="stock-min-threshold"
+                          class="form-control"
+                          type="number"
+                          step="1"
+                          min="0"
+                          formControlName="minimumStockThreshold"
+                          placeholder="{{ t('stocks.minimumThresholdOptional') }}"
+                        />
+                      </div>
+
+                      <div class="col-md-2">
+                        <label class="form-label" for="stock-category">{{ t('stocks.category') }}</label>
+                        <input
+                          id="stock-category"
+                          class="form-control"
+                          type="text"
+                          formControlName="category"
+                          list="stock-category-options"
+                        />
+                        <datalist id="stock-category-options">
+                          @for (category of stockCategories(); track category) {
+                            <option [value]="category"></option>
+                          }
+                        </datalist>
+                      </div>
+
+                      <div class="col-md-3">
+                        <label class="form-label" for="stock-image">{{ t('stocks.image') }}</label>
+                        <input
+                          #stockImageInput
+                          id="stock-image"
+                          class="form-control"
+                          type="file"
+                          accept="image/png,image/jpeg,image/gif"
+                          (change)="onStockImageSelected($event)"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-3">
+                      <button class="btn btn-success" [disabled]="savingStockItem()" type="submit">
+                        {{ savingStockItem() ? t('common.saving') : (editingStockItemId() ? t('common.update') : t('common.create')) }}
+                      </button>
+
+                      @if (editingStockItemId()) {
+                        <button class="btn btn-outline-secondary" type="button" (click)="cancelStockEdition()">{{ t('stocks.cancelEdit') }}</button>
+                      }
+                    </div>
+                  </form>
+
+                  @if (stockItems().length === 0 && !loadingStockItems()) {
+                    <div class="alert alert-light border">{{ t('stocks.noMerchandise') }}</div>
+                  }
+
+                  @if (stockItems().length > 0) {
+                    <div class="table-responsive">
+                      <table class="table table-striped align-middle">
+                        <thead>
+                          <tr>
+                            <th scope="col">
+                              <button class="btn btn-link p-0 text-decoration-none" type="button" (click)="setStockSort('category')">
+                                {{ t('stocks.category') }}
+                                @if (stockSortKey() === 'category') {
+                                  <span>{{ stockSortDirection() === 'asc' ? ' ▲' : ' ▼' }}</span>
+                                }
+                              </button>
+                            </th>
+                            <th scope="col">
+                              <button class="btn btn-link p-0 text-decoration-none" type="button" (click)="setStockSort('name')">
+                                {{ t('stocks.name') }}
+                                @if (stockSortKey() === 'name') {
+                                  <span>{{ stockSortDirection() === 'asc' ? ' ▲' : ' ▼' }}</span>
+                                }
+                              </button>
+                            </th>
+                            <th scope="col">{{ t('stocks.reference') }}</th>
+                            <th scope="col" class="text-center">{{ t('stocks.image') }}</th>
+                            <th scope="col">{{ t('stocks.price') }}</th>
+                            <th scope="col">{{ t('stocks.stock') }}</th>
+                            <th scope="col">{{ t('stocks.actions') }}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (item of sortedStockItems(); track item.id) {
+                            <tr>
+                              <td>{{ item.category }}</td>
+                              <td>{{ item.name }}</td>
+                              <td>{{ item.reference }}</td>
+                              <td class="text-center">
+                                @if (item.imageUrl) {
+                                  <span class="stock-item-image-indicator" [attr.aria-label]="t('stocks.image')" [attr.title]="t('stocks.image')">
+                                    🖼️
+                                    <span class="stock-item-image-tooltip">
+                                      <img [src]="item.imageUrl" [alt]="item.name" loading="lazy" />
+                                    </span>
+                                  </span>
+                                }
+                              </td>
+                              <td>{{ item.price | number: '1.2-2' }}</td>
+                              <td>{{ item.stock }}</td>
+                              <td class="d-flex gap-2">
+                                <button
+                                  class="btn btn-sm btn-outline-primary"
+                                  type="button"
+                                  [attr.aria-label]="t('common.edit')"
+                                  [attr.title]="t('common.edit')"
+                                  (click)="startStockEdition(item)"
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  class="btn btn-sm btn-outline-danger"
+                                  type="button"
+                                  [attr.aria-label]="t('common.delete')"
+                                  [attr.title]="t('common.delete')"
+                                  (click)="deleteStock(item.id)"
+                                  [disabled]="isDeletingStockItem(item.id)"
+                                >
+                                  {{ isDeletingStockItem(item.id) ? t('stocks.deleting') : '🗑️' }}
+                                </button>
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+                }
+              </div>
+            }
+
+            @if (page() === 'order') {
+              <div>
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                  <a class="btn btn-link back-arrow-btn" href="/dashboard" aria-label="Back to dashboard">⟵</a>
+                </div>
+
+                @if (!isClient()) {
+                  <div class="alert alert-danger">{{ t('order.onlyClients') }}</div>
+                }
+
+                @if (isClient()) {
+                  <div class="border rounded p-3 mb-4">
+                    <h2 class="h5 mb-3">{{ t('order.items') }}</h2>
+
+                    <ul class="nav nav-tabs order-tabs mb-3" role="tablist">
+                      <li class="nav-item" role="presentation">
+                        <button
+                          class="nav-link"
+                          [class.active]="selectedOrderTab() === 'catalog'"
+                          type="button"
+                          (click)="setSelectedOrderTab('catalog')"
+                        >
+                          {{ t('order.catalog') }}
+                        </button>
+                      </li>
+                      <li class="nav-item" role="presentation">
+                        <button
+                          class="nav-link"
+                          [class.active]="selectedOrderTab() === 'favorites'"
+                          type="button"
+                          (click)="setSelectedOrderTab('favorites')"
+                        >
+                          {{ t('order.favorites') }}
+                        </button>
+                      </li>
+                    </ul>
+
+                    @if (selectedOrderTab() === 'catalog') {
+                      <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                          <label class="form-label" for="order-category-filter">{{ t('order.category') }}</label>
+                          <select
+                            id="order-category-filter"
+                            class="form-select"
+                            [value]="selectedOrderCategory()"
+                            (change)="setSelectedOrderCategory($any($event.target).value)"
+                          >
+                            <option value="all">{{ t('order.allCategories') }}</option>
+                            @for (category of orderCategories(); track category) {
+                              <option [value]="category">{{ category }}</option>
+                            }
+                          </select>
+                        </div>
+
+                        <div class="col-md-4">
+                          <label class="form-label" for="order-vendor-filter">{{ t('order.vendor') }}</label>
+                          <select
+                            id="order-vendor-filter"
+                            class="form-select"
+                            [value]="selectedOrderVendor()"
+                            (change)="setSelectedOrderVendor($any($event.target).value)"
+                          >
+                            <option value="all">{{ t('order.allVendors') }}</option>
+                            @for (vendor of orderVendors(); track vendor.id) {
+                              <option [value]="vendor.id">{{ vendor.name }}</option>
+                            }
+                          </select>
+                        </div>
+                      </div>
+                    }
+
+                    <form [formGroup]="addToCartForm" (ngSubmit)="addToCart()" class="row g-3 align-items-end" novalidate>
+                      <div class="col-md-7">
+                        <label class="form-label mb-2">
+                          {{ selectedOrderTab() === 'favorites' ? t('order.favoriteItems') : t('order.item') }}
+                        </label>
+                        <input type="hidden" formControlName="merchandiseId" />
+                        <div class="list-group order-item-list" role="listbox" [attr.aria-label]="t('order.orderItems')">
+                          @for (item of orderItemsForSelectedTab(); track item.id) {
+                            <div
+                              class="list-group-item order-item-entry d-flex align-items-start gap-2"
+                              [class.order-item-entry-active]="addToCartForm.controls.merchandiseId.value === item.id"
+                            >
+                              <button
+                                type="button"
+                                class="btn order-item-select-btn text-start p-0 border-0 bg-transparent flex-grow-1"
+                                (click)="selectCatalogItem(item.id)"
+                              >
+                                <span class="order-item-with-image-tooltip">
+                                  {{ item.name }} ({{ item.reference }}) - {{ item.vendorName }} - {{ item.price | number: '1.2-2' }} EUR
+                                  @if (item.imageUrl) {
+                                    <span class="order-item-image-tooltip">
+                                      <img [src]="item.imageUrl" [alt]="item.name" width="100" />
+                                    </span>
+                                  }
+                                </span>
+                                @if (item.minimumStockThreshold !== null && item.stock <= item.minimumStockThreshold) {
+                                  <span class="order-low-stock-indicator ms-2" [attr.title]="t('order.lowStock')">
+                                    ★
+                                    <span class="order-low-stock-tooltip">
+                                      {{ t('order.remainingStock') }}: {{ item.stock }}
+                                    </span>
+                                  </span>
+                                }
+                                @if (getOrderPriceVariation(item.id); as variation) {
+                                  <span
+                                    class="ms-2 small fw-semibold"
+                                    [class.text-danger]="variation.direction === 'up'"
+                                    [class.text-success]="variation.direction === 'down'"
+                                  >
+                                    {{ variation.direction === 'up' ? '▲' : '▼' }} {{ variation.percent }}%
+                                  </span>
+                                }
+                              </button>
+                              <button
+                                type="button"
+                                class="btn btn-sm order-favorite-star"
+                                [class.order-favorite-star-active]="isFavoriteItem(item.id)"
+                                [disabled]="isTogglingFavorite(item.id)"
+                                [attr.aria-label]="isFavoriteItem(item.id) ? t('order.removeFavorite') : t('order.addFavorite')"
+                                (click)="toggleFavorite(item.id, $event)"
+                              >
+                                ⭐
+                              </button>
+                            </div>
+                          }
+                        </div>
+                      </div>
+
+                      <div class="col-md-2">
+                        <label class="form-label" for="order-quantity">{{ t('order.quantity') }}</label>
+                        <input id="order-quantity" class="form-control" type="number" min="1" step="1" formControlName="quantity" />
+                      </div>
+
+                      <div class="col-md-3">
+                        <button class="btn btn-success w-100" [disabled]="addingToCart()" type="submit">
+                          @if (addingToCart()) {
+                            {{ t('order.adding') }}
+                          } @else {
+                            <span class="order-add-plus-emoji" aria-hidden="true">➕</span>
+                          }
+                        </button>
+                      </div>
+                    </form>
+
+                    @if (orderItemsForSelectedTab().length === 0 && !loadingOrderCatalog()) {
+                      <div class="alert alert-light border mt-3 mb-0">
+                        {{ selectedOrderTab() === 'favorites' ? t('order.noFavoriteItems') : t('order.noCatalogItems') }}
+                      </div>
+                    }
+                  </div>
+
+                  <div class="border rounded p-3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                      <h2 class="h5 mb-0">{{ t('order.cart') }}</h2>
+                      <div class="d-flex align-items-center gap-2">
+                        <label class="form-label mb-0" for="order-delivery-date">{{ t('order.deliveryDate') }}</label>
+                        <input
+                          id="order-delivery-date"
+                          class="form-control form-control-sm"
+                          style="width: 12rem"
+                          type="date"
+                          [value]="orderDeliveryDate()"
+                          (change)="setOrderDeliveryDate($any($event.target).value)"
+                        />
+                      </div>
+                      <div class="d-flex align-items-center gap-2">
+                        <label class="form-label mb-0" for="cart-group-by">{{ t('order.groupBy') }}</label>
+                        <select
+                          id="cart-group-by"
+                          class="form-select form-select-sm"
+                          style="width: 10rem"
+                          [value]="cartGroupBy()"
+                          (change)="setCartGroupBy($any($event.target).value)"
+                        >
+                          <option value="vendor">{{ t('order.vendor') }}</option>
+                          <option value="category">{{ t('order.category') }}</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    @if (cart().items.length === 0 && !loadingOrderCart()) {
+                      <div class="alert alert-light border">{{ t('order.cartEmpty') }}</div>
+                    }
+
+                    @if (cart().items.length > 0) {
+                      <div class="table-responsive mb-3">
+                        <table class="table table-striped align-middle">
+                          <thead>
+                            <tr>
+                              <th scope="col">{{ t('order.item') }}</th>
+                              <th scope="col">{{ t('order.category') }}</th>
+                              <th scope="col">{{ t('order.vendor') }}</th>
+                              <th scope="col">{{ t('order.unitPriceEur') }}</th>
+                              <th scope="col">{{ t('order.qty') }}</th>
+                              <th scope="col">{{ t('order.lineTotalEur') }}</th>
+                              <th scope="col">{{ t('order.actions') }}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @for (item of sortedCartItems(); track item.merchandiseId) {
+                              <tr>
+                                <td>{{ item.name }} ({{ item.reference }})</td>
+                                <td>{{ item.category }}</td>
+                                <td>{{ item.vendorName }}</td>
+                                <td>{{ item.unitPrice | number: '1.2-2' }}</td>
+                                <td style="max-width: 8rem">
+                                  <input #qtyInput class="form-control form-control-sm" type="number" min="1" step="1" [value]="item.quantity" />
+                                </td>
+                                <td>{{ item.lineTotal | number: '1.2-2' }}</td>
+                                <td class="d-flex gap-2">
+                                  <button
+                                    class="btn btn-sm btn-outline-primary"
+                                    type="button"
+                                    [attr.aria-label]="t('common.update')"
+                                    [attr.title]="t('common.update')"
+                                    (click)="updateCartQuantity(item, qtyInput.value)"
+                                    [disabled]="isUpdatingCartItem(item.merchandiseId)"
+                                  >
+                                    {{ isUpdatingCartItem(item.merchandiseId) ? t('order.updating') : '🔄' }}
+                                  </button>
+
+                                  <button
+                                    class="btn btn-sm btn-outline-danger"
+                                    type="button"
+                                    [attr.aria-label]="t('order.remove')"
+                                    [attr.title]="t('order.remove')"
+                                    (click)="removeFromCart(item)"
+                                    [disabled]="isRemovingCartItem(item.merchandiseId)"
+                                  >
+                                    {{ isRemovingCartItem(item.merchandiseId) ? t('order.removing') : '🗑️' }}
+                                  </button>
+                                </td>
+                              </tr>
+                            }
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div class="mb-3">
+                        <strong>{{ t('order.currentCartTotal') }}: {{ cart().grandTotal | number: '1.2-2' }} {{ cart().currency }}</strong>
+                      </div>
+
+                      <div class="mb-3">
+                        <h3 class="h6">{{ t('order.groupedSubtotals') }} ({{ cartGroupBy() }})</h3>
+                        <ul class="mb-0">
+                          @for (group of localCartAggregates(); track group.key) {
+                            <li>{{ group.label }}: {{ group.total | number: '1.2-2' }} EUR</li>
+                          }
+                        </ul>
+                      </div>
+
+                      <div class="d-flex gap-2">
+                        <button class="btn btn-primary" (click)="validateCart()" [disabled]="validatingCart()" type="button">
+                          {{ validatingCart() ? t('order.validating') : t('order.validateCart') }}
+                        </button>
+                      </div>
+
+                      @if (cartValidation(); as validation) {
+                        <div class="mt-4 p-3 border rounded bg-light-subtle">
+                          <h3 class="h6 mb-3">{{ t('order.validationResult') }} ({{ validation.groupBy }})</h3>
+                          <ul class="mb-2">
+                            @for (group of validation.totals; track group.key) {
+                              <li>{{ group.label }}: {{ group.total | number: '1.2-2' }} {{ validation.currency }}</li>
+                            }
+                          </ul>
+                          <strong>Total: {{ validation.grandTotal | number: '1.2-2' }} {{ validation.currency }}</strong>
+                        </div>
+                      }
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>

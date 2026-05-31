@@ -1,0 +1,508 @@
+@import 'bootstrap/dist/css/bootstrap.min.css';
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+app-root {
+  display: block;
+  --app-bg: #f7f9fc;
+  --app-bg-radial-a: rgba(0, 123, 255, 0.08);
+  --app-bg-radial-b: rgba(25, 135, 84, 0.08);
+  --app-surface: #ffffff;
+  --app-text: #1e293b;
+  --app-border: #7c8da3;
+  --app-input-bg: #ffffff;
+  --app-input-text: #0f172a;
+  --app-input-border: #6b7c93;
+  --app-tooltip-bg: #ffffff;
+  --app-tooltip-text: #0f172a;
+  --app-tooltip-border: #6b7c93;
+  --app-table-striped: #f2f6fc;
+  --app-active-bg: #0b5ed7;
+  --app-active-text: #ffffff;
+  --app-active-border: #084298;
+  --app-header-active-bg: rgba(13, 110, 253, 0.14);
+  --app-block-shadow: 0 0.45rem 1.4rem rgba(15, 23, 42, 0.18);
+  --app-block-shadow-strong: 0 0.6rem 1.6rem rgba(15, 23, 42, 0.22);
+}
+
+[data-theme='dark'] app-root {
+  --app-bg: #0b1220;
+  --app-bg-radial-a: rgba(56, 189, 248, 0.16);
+  --app-bg-radial-b: rgba(34, 197, 94, 0.14);
+  --app-surface: #101a2f;
+  --app-text: #e5e7eb;
+  --app-border: #64748b;
+  --app-input-bg: #0f172a;
+  --app-input-text: #e2e8f0;
+  --app-input-border: #64748b;
+  --app-tooltip-bg: #0f172a;
+  --app-tooltip-text: #e2e8f0;
+  --app-tooltip-border: #64748b;
+  --app-table-striped: #1b2942;
+  --app-active-bg: #1d4ed8;
+  --app-active-text: #ffffff;
+  --app-active-border: #93c5fd;
+  --app-header-active-bg: rgba(96, 165, 250, 0.26);
+  --app-block-shadow: 0 0.5rem 1.5rem rgba(2, 6, 23, 0.42);
+  --app-block-shadow-strong: 0 0.7rem 1.9rem rgba(2, 6, 23, 0.5);
+}
+
+app-root .app-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 10% 20%, var(--app-bg-radial-a), transparent 40%),
+    radial-gradient(circle at 90% 10%, var(--app-bg-radial-b), transparent 45%),
+    var(--app-bg);
+  color: var(--app-text);
+  --bs-body-color: var(--app-text);
+}
+
+app-root .card {
+  border-radius: 1rem;
+  background-color: var(--app-surface);
+  color: var(--app-text);
+  border-width: 2px;
+  box-shadow: var(--app-block-shadow-strong);
+}
+
+app-root .form-control,
+app-root .form-select {
+  min-height: 2.8rem;
+  background-color: var(--app-input-bg);
+  color: var(--app-input-text);
+  border-color: var(--app-input-border);
+  border-width: 2px;
+}
+
+app-root .form-control:focus,
+app-root .form-select:focus {
+  background-color: var(--app-input-bg);
+  color: var(--app-input-text);
+}
+
+app-root .ws-dot {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+app-root .ws-dot-connected {
+  background-color: #198754;
+}
+
+app-root .ws-dot-disconnected {
+  background-color: #dc3545;
+}
+
+app-root .header-icon-btn {
+  border: 0;
+  background: transparent;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+
+app-root .app-user-logo {
+  width: 100px;
+  height: auto;
+  max-height: 100px;
+  object-fit: contain;
+}
+
+app-root .header-icon-btn:hover,
+app-root .header-icon-btn:focus {
+  opacity: 0.8;
+}
+
+app-root .header-icon-btn-active {
+  border-radius: 0.35rem;
+  background: var(--app-header-active-bg);
+}
+
+app-root .order-item-list {
+  max-height: 32rem;
+  overflow-y: auto;
+}
+
+app-root .order-item-list .list-group-item {
+  min-height: 3.2rem;
+}
+
+app-root .order-item-entry {
+  cursor: default;
+}
+
+app-root .order-item-entry-active {
+  background-color: var(--app-active-bg);
+  color: var(--app-active-text);
+  border-color: var(--app-active-border);
+}
+
+app-root .order-item-select-btn {
+  color: inherit;
+  text-decoration: none;
+}
+
+app-root .order-item-entry-active .order-item-select-btn {
+  color: var(--app-active-text);
+}
+
+app-root .order-item-select-btn:hover {
+  text-decoration: none;
+}
+
+app-root .order-item-with-image-tooltip {
+  position: relative;
+  display: inline-block;
+}
+
+app-root .order-item-image-tooltip {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.35rem);
+  z-index: 20;
+  display: none;
+  padding: 0.35rem;
+  background: var(--app-tooltip-bg);
+  color: var(--app-tooltip-text);
+  border: 1px solid var(--app-tooltip-border);
+  border-radius: 0.35rem;
+  box-shadow: 0 0.2rem 0.8rem rgba(0, 0, 0, 0.2);
+}
+
+app-root .order-item-image-tooltip img {
+  width: 100px;
+  height: auto;
+  display: block;
+}
+
+app-root .order-item-with-image-tooltip:hover .order-item-image-tooltip {
+  display: block;
+}
+
+app-root .order-low-stock-indicator {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  color: #dc3545;
+  font-size: 1rem;
+  cursor: default;
+}
+
+app-root .order-low-stock-tooltip {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(100% + 0.35rem);
+  z-index: 20;
+  display: none;
+  padding: 0.3rem 0.45rem;
+  white-space: nowrap;
+  background: var(--app-tooltip-bg);
+  color: var(--app-tooltip-text);
+  border: 1px solid var(--app-tooltip-border);
+  border-radius: 0.35rem;
+  box-shadow: 0 0.2rem 0.8rem rgba(0, 0, 0, 0.2);
+}
+
+app-root .order-low-stock-indicator:hover .order-low-stock-tooltip {
+  display: block;
+}
+
+app-root .stock-item-image-indicator {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  cursor: default;
+}
+
+app-root .stock-item-image-tooltip {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(100% + 0.35rem);
+  z-index: 20;
+  display: none;
+  padding: 0.35rem;
+  background: var(--app-tooltip-bg);
+  color: var(--app-tooltip-text);
+  border: 1px solid var(--app-tooltip-border);
+  border-radius: 0.35rem;
+  box-shadow: 0 0.2rem 0.8rem rgba(0, 0, 0, 0.2);
+}
+
+app-root .stock-item-image-tooltip img {
+  width: 100px;
+  height: auto;
+  display: block;
+}
+
+app-root .stock-item-image-indicator:hover .stock-item-image-tooltip {
+  display: block;
+}
+
+app-root .order-favorite-star {
+  border: 0;
+  background: transparent;
+  line-height: 1;
+  filter: grayscale(1);
+  opacity: 0.65;
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
+app-root .order-favorite-star.order-favorite-star-active {
+  filter: none;
+  opacity: 1;
+}
+
+app-root .order-favorite-star:disabled {
+  opacity: 0.35;
+}
+
+app-root .order-add-plus-emoji {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+app-root .back-arrow-btn {
+  color: var(--app-text);
+  font-size: 1.9rem;
+  line-height: 1;
+  padding: 0.1rem 0.5rem;
+  text-decoration: none;
+}
+
+app-root .back-arrow-btn:hover,
+app-root .back-arrow-btn:focus {
+  color: var(--app-text);
+  text-decoration: none;
+}
+
+app-root .toast-stack {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1200;
+  width: min(26rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+app-root .toast-stack .toast {
+  pointer-events: auto;
+}
+
+app-root .pending-user-row {
+  cursor: pointer;
+}
+
+app-root .app-shell .modal-content,
+app-root .app-shell .list-group-item,
+app-root .app-shell .table,
+app-root .app-shell .alert,
+app-root .app-shell .border,
+app-root .app-shell .form-text,
+app-root .app-shell .form-label {
+  color: var(--app-text);
+}
+
+app-root .app-shell .modal-content {
+  background-color: var(--app-surface);
+  border-width: 2px;
+  box-shadow: var(--app-block-shadow-strong);
+}
+
+app-root .app-shell .modal-header,
+app-root .app-shell .modal-footer {
+  border-color: var(--app-border);
+}
+
+app-root .app-shell .table {
+  --bs-table-color: var(--app-text);
+  --bs-table-bg: transparent;
+  --bs-table-border-color: var(--app-border);
+  --bs-table-striped-color: var(--app-text);
+  --bs-table-striped-bg: var(--app-table-striped);
+}
+
+app-root .app-shell .list-group-item {
+  background-color: var(--app-surface);
+  border-color: var(--app-border);
+  border-width: 2px;
+}
+
+app-root .app-shell .list-group-item.order-item-entry-active {
+  background-color: var(--app-active-bg);
+  color: var(--app-active-text);
+  border-color: var(--app-active-border);
+}
+
+app-root .app-shell .table-responsive,
+app-root .app-shell .border,
+app-root .app-shell .modal-content,
+app-root .app-shell .card {
+  border-color: var(--app-border) !important;
+  border-width: 2px !important;
+  box-shadow: var(--app-block-shadow);
+}
+
+app-root .bill-option-settled {
+  background-color: #d9f3dd;
+}
+
+app-root .bill-list-panel {
+  max-height: 16rem;
+  overflow-y: auto;
+  border: 2px solid var(--app-border);
+  border-radius: 0.5rem;
+  background: var(--app-surface);
+  box-shadow: var(--app-block-shadow);
+}
+
+app-root .bill-list-item {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--app-border);
+  background: transparent;
+  color: var(--app-text);
+  text-align: left;
+  padding: 0.7rem 0.85rem;
+  cursor: pointer;
+}
+
+app-root .bill-list-panel .bill-list-item:last-child {
+  border-bottom: 0;
+}
+
+app-root .bill-list-item:hover,
+app-root .bill-list-item:focus {
+  background: var(--app-table-striped);
+}
+
+app-root .bill-list-item-active {
+  background: var(--app-header-active-bg);
+}
+
+app-root .bill-list-item-settled {
+  background-color: #d9f3dd;
+}
+
+app-root .bill-list-item-overdue {
+  background-color: rgba(220, 53, 69, 0.14);
+}
+
+app-root .bill-message-panel {
+  max-height: 13.2rem;
+}
+
+app-root .bill-message-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 2px solid var(--app-border);
+}
+
+app-root .bill-message-panel .bill-message-row:last-child {
+  border-bottom: 0;
+}
+
+app-root .bill-message-row .bill-list-item {
+  border-bottom: 0;
+}
+
+app-root .bill-message-open-btn {
+  flex: 1;
+}
+
+app-root .bill-message-delete-btn {margin:.55rem .65rem .55rem 0;align-self:center}
+
+app-root .dashboard-unread-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  display: inline-block;
+  background: #dc3545;
+  flex: 0 0 auto;
+}
+
+app-root .dashboard-unread-dot-inline {
+  width: 0.5rem;
+  height: 0.5rem;
+}
+
+app-root .bill-settlement-box {
+  border: 2px solid var(--app-border);
+  border-radius: 0.5rem;
+  padding: 0.75rem 0.9rem;
+  background: rgba(25, 135, 84, 0.08);
+  box-shadow: var(--app-block-shadow);
+}
+
+app-root .bill-settlement-checkbox {
+  width: 1.65rem;
+  height: 1.65rem;
+  margin-top: 0.15rem;
+}
+
+app-root .bill-settlement-checkbox + .form-check-label {
+  padding-left: 0.45rem;
+  font-weight: 600;
+}
+
+app-root .bill-comment-textarea {
+  min-height: 6.5rem;
+  max-height: 6.5rem;
+  resize: none;
+  overflow-y: auto;
+}
+
+app-root .bill-comment-send-btn {
+  min-width: 3rem;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+app-root .client-unpaid-reminder-row {
+  color: #b02a37;
+  background: rgba(220, 53, 69, 0.08);
+}
+
+app-root .vendor-overdue-penalty-input {
+  width: 4.5rem;
+  min-width: 4.5rem;
+}
+
+app-root .vendor-overdue-bill-row {
+  cursor: pointer;
+}
+
+app-root .vendor-overdue-bill-row:hover,
+app-root .vendor-overdue-bill-row:focus-visible {
+  background: rgba(13, 110, 253, 0.08);
+}
+
+[data-theme='dark'] app-root .app-shell .btn-outline-secondary {
+  color: #cbd5e1;
+  border-color: #64748b;
+}
+
+[data-theme='dark'] app-root .app-shell .btn-outline-secondary:hover {
+  color: #0f172a;
+  background-color: #cbd5e1;
+}
+
+[data-theme='dark'] app-root .app-shell .btn-close {
+  filter: invert(1);
+}

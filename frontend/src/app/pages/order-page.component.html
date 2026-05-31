@@ -1,0 +1,272 @@
+<div>
+  <div class="d-flex flex-wrap gap-2 mb-4">
+    <a class="btn btn-link back-arrow-btn" routerLink="/dashboard" aria-label="Back to dashboard">⟵</a>
+  </div>
+
+  @if (!app.isClient()) {
+    <div class="alert alert-danger">{{ app.t('order.onlyClients') }}</div>
+  }
+
+  @if (app.isClient()) {
+    <div class="border rounded p-3 mb-4">
+      <h2 class="h5 mb-3">{{ app.t('order.items') }}</h2>
+
+      <ul class="nav nav-tabs order-tabs mb-3" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            [class.active]="app.selectedOrderTab() === 'catalog'"
+            type="button"
+            (click)="app.setSelectedOrderTab('catalog')"
+          >
+            {{ app.t('order.catalog') }}
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            [class.active]="app.selectedOrderTab() === 'favorites'"
+            type="button"
+            (click)="app.setSelectedOrderTab('favorites')"
+          >
+            {{ app.t('order.favorites') }}
+          </button>
+        </li>
+      </ul>
+
+      @if (app.selectedOrderTab() === 'catalog') {
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label" for="order-category-filter">{{ app.t('order.category') }}</label>
+            <select
+              id="order-category-filter"
+              class="form-select"
+              [value]="app.selectedOrderCategory()"
+              (change)="app.setSelectedOrderCategory($any($event.target).value)"
+            >
+              <option value="all">{{ app.t('order.allCategories') }}</option>
+              @for (category of app.orderCategories(); track category) {
+                <option [value]="category">{{ category }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label" for="order-vendor-filter">{{ app.t('order.vendor') }}</label>
+            <select
+              id="order-vendor-filter"
+              class="form-select"
+              [value]="app.selectedOrderVendor()"
+              (change)="app.setSelectedOrderVendor($any($event.target).value)"
+            >
+              <option value="all">{{ app.t('order.allVendors') }}</option>
+              @for (vendor of app.orderVendors(); track vendor.id) {
+                <option [value]="vendor.id">{{ vendor.name }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      }
+
+      <form [formGroup]="app.addToCartForm" (ngSubmit)="app.addToCart()" class="row g-3 align-items-end" novalidate>
+        <div class="col-md-7">
+          <label class="form-label mb-2">
+            {{ app.selectedOrderTab() === 'favorites' ? app.t('order.favoriteItems') : app.t('order.item') }}
+          </label>
+          <input type="hidden" formControlName="merchandiseId" />
+          <div class="list-group order-item-list" role="listbox" [attr.aria-label]="app.t('order.orderItems')">
+            @for (item of app.orderItemsForSelectedTab(); track item.id) {
+              <div
+                class="list-group-item order-item-entry d-flex align-items-start gap-2"
+                [class.order-item-entry-active]="app.addToCartForm.controls.merchandiseId.value === item.id"
+              >
+                <button
+                  type="button"
+                  class="btn order-item-select-btn text-start p-0 border-0 bg-transparent flex-grow-1"
+                  (click)="app.selectCatalogItem(item.id)"
+                >
+                  <span class="order-item-with-image-tooltip">
+                    {{ item.name }} ({{ item.reference }}) - {{ item.vendorName }} - {{ item.price | number: '1.2-2' }} EUR
+                    @if (item.imageUrl) {
+                      <span class="order-item-image-tooltip">
+                        <img [src]="item.imageUrl" [alt]="item.name" width="100" />
+                      </span>
+                    }
+                  </span>
+                  @if (item.minimumStockThreshold !== null && item.stock <= item.minimumStockThreshold) {
+                    <span class="order-low-stock-indicator ms-2" [attr.title]="app.t('order.lowStock')">
+                      ★
+                      <span class="order-low-stock-tooltip">
+                        {{ app.t('order.remainingStock') }}: {{ item.stock }}
+                      </span>
+                    </span>
+                  }
+                  @if (app.getOrderPriceVariation(item.id); as variation) {
+                    <span
+                      class="ms-2 small fw-semibold"
+                      [class.text-danger]="variation.direction === 'up'"
+                      [class.text-success]="variation.direction === 'down'"
+                    >
+                      {{ variation.direction === 'up' ? '▲' : '▼' }} {{ variation.percent }}%
+                    </span>
+                  }
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm order-favorite-star"
+                  [class.order-favorite-star-active]="app.isFavoriteItem(item.id)"
+                  [disabled]="app.isTogglingFavorite(item.id)"
+                  [attr.aria-label]="app.isFavoriteItem(item.id) ? app.t('order.removeFavorite') : app.t('order.addFavorite')"
+                  (click)="app.toggleFavorite(item.id, $event)"
+                >
+                  ⭐
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label" for="order-quantity">{{ app.t('order.quantity') }}</label>
+          <input id="order-quantity" class="form-control" type="number" min="1" step="1" formControlName="quantity" />
+        </div>
+
+        <div class="col-md-3">
+          <button class="btn btn-success w-100" [disabled]="app.addingToCart()" type="submit">
+            @if (app.addingToCart()) {
+              {{ app.t('order.adding') }}
+            } @else {
+              <span class="order-add-plus-emoji" aria-hidden="true">➕</span>
+            }
+          </button>
+        </div>
+      </form>
+
+      @if (app.orderItemsForSelectedTab().length === 0 && !app.loadingOrderCatalog()) {
+        <div class="alert alert-light border mt-3 mb-0">
+          {{ app.selectedOrderTab() === 'favorites' ? app.t('order.noFavoriteItems') : app.t('order.noCatalogItems') }}
+        </div>
+      }
+    </div>
+
+    <div class="border rounded p-3">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h2 class="h5 mb-0">{{ app.t('order.cart') }}</h2>
+        <div class="d-flex align-items-center gap-2">
+          <label class="form-label mb-0" for="order-delivery-date">{{ app.t('order.deliveryDate') }}</label>
+          <input
+            id="order-delivery-date"
+            class="form-control form-control-sm"
+            style="width: 12rem"
+            type="date"
+            [value]="app.orderDeliveryDate()"
+            (change)="app.setOrderDeliveryDate($any($event.target).value)"
+          />
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <label class="form-label mb-0" for="cart-group-by">{{ app.t('order.groupBy') }}</label>
+          <select
+            id="cart-group-by"
+            class="form-select form-select-sm"
+            style="width: 10rem"
+            [value]="app.cartGroupBy()"
+            (change)="app.setCartGroupBy($any($event.target).value)"
+          >
+            <option value="vendor">{{ app.t('order.vendor') }}</option>
+            <option value="category">{{ app.t('order.category') }}</option>
+          </select>
+        </div>
+      </div>
+
+      @if (app.cart().items.length === 0 && !app.loadingOrderCart()) {
+        <div class="alert alert-light border">{{ app.t('order.cartEmpty') }}</div>
+      }
+
+      @if (app.cart().items.length > 0) {
+        <div class="table-responsive mb-3">
+          <table class="table table-striped align-middle">
+            <thead>
+              <tr>
+                <th scope="col">{{ app.t('order.item') }}</th>
+                <th scope="col">{{ app.t('order.category') }}</th>
+                <th scope="col">{{ app.t('order.vendor') }}</th>
+                <th scope="col">{{ app.t('order.unitPriceEur') }}</th>
+                <th scope="col">{{ app.t('order.qty') }}</th>
+                <th scope="col">{{ app.t('order.lineTotalEur') }}</th>
+                <th scope="col">{{ app.t('order.actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of app.sortedCartItems(); track item.merchandiseId) {
+                <tr>
+                  <td>{{ item.name }} ({{ item.reference }})</td>
+                  <td>{{ item.category }}</td>
+                  <td>{{ item.vendorName }}</td>
+                  <td>{{ item.unitPrice | number: '1.2-2' }}</td>
+                  <td style="max-width: 8rem">
+                    <input #qtyInput class="form-control form-control-sm" type="number" min="1" step="1" [value]="item.quantity" />
+                  </td>
+                  <td>{{ item.lineTotal | number: '1.2-2' }}</td>
+                  <td class="d-flex gap-2">
+                    <button
+                      class="btn btn-sm btn-outline-primary"
+                      type="button"
+                      [attr.aria-label]="app.t('common.update')"
+                      [attr.title]="app.t('common.update')"
+                      (click)="app.updateCartQuantity(item, qtyInput.value)"
+                      [disabled]="app.isUpdatingCartItem(item.merchandiseId)"
+                    >
+                      {{ app.isUpdatingCartItem(item.merchandiseId) ? app.t('order.updating') : '🔄' }}
+                    </button>
+
+                    <button
+                      class="btn btn-sm btn-outline-danger"
+                      type="button"
+                      [attr.aria-label]="app.t('order.remove')"
+                      [attr.title]="app.t('order.remove')"
+                      (click)="app.removeFromCart(item)"
+                      [disabled]="app.isRemovingCartItem(item.merchandiseId)"
+                    >
+                      {{ app.isRemovingCartItem(item.merchandiseId) ? app.t('order.removing') : '🗑️' }}
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mb-3">
+          <strong>{{ app.t('order.currentCartTotal') }}: {{ app.cart().grandTotal | number: '1.2-2' }} {{ app.cart().currency }}</strong>
+        </div>
+
+        <div class="mb-3">
+          <h3 class="h6">{{ app.t('order.groupedSubtotals') }} ({{ app.cartGroupBy() }})</h3>
+          <ul class="mb-0">
+            @for (group of app.localCartAggregates(); track group.key) {
+              <li>{{ group.label }}: {{ group.total | number: '1.2-2' }} EUR</li>
+            }
+          </ul>
+        </div>
+
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary" (click)="app.validateCart()" [disabled]="app.validatingCart()" type="button">
+            {{ app.validatingCart() ? app.t('order.validating') : app.t('order.validateCart') }}
+          </button>
+        </div>
+
+        @if (app.cartValidation(); as validation) {
+          <div class="mt-4 p-3 border rounded bg-light-subtle">
+            <h3 class="h6 mb-3">{{ app.t('order.validationResult') }} ({{ validation.groupBy }})</h3>
+            <ul class="mb-2">
+              @for (group of validation.totals; track group.key) {
+                <li>{{ group.label }}: {{ group.total | number: '1.2-2' }} {{ validation.currency }}</li>
+              }
+            </ul>
+            <strong>Total: {{ validation.grandTotal | number: '1.2-2' }} {{ validation.currency }}</strong>
+          </div>
+        }
+      }
+    </div>
+  }
+</div>

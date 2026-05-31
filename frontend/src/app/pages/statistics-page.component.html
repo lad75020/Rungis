@@ -1,0 +1,131 @@
+<div>
+  <div class="d-flex flex-wrap gap-2 mb-4">
+    <a class="btn btn-link back-arrow-btn" routerLink="/admin" aria-label="Back to admin">⟵</a>
+  </div>
+
+  @if (!app.isAdmin()) {
+    <div class="alert alert-danger">{{ app.t('admin.onlyAdmins') }}</div>
+  } @else {
+    <div class="border rounded p-3 mb-4">
+      <h2 class="h5 mb-3">{{ app.t('statistics.title') }}</h2>
+
+      <div class="d-flex flex-wrap gap-3 mb-3">
+        <span class="small"><span class="fw-bold text-primary">●</span> {{ app.t('statistics.orderCountLine') }}</span>
+        <span class="small"><span class="fw-bold text-success">●</span> {{ app.t('statistics.totalAmountLine') }}</span>
+      </div>
+
+      @if (app.loadingActivatedOrdersStats()) {
+        <div class="form-text">{{ app.t('admin.refreshing') }}</div>
+      } @else if (app.activatedOrdersStats().length === 0) {
+        <div class="alert alert-light border mb-0">{{ app.t('statistics.noData') }}</div>
+      } @else if (app.activatedOrdersChart(); as chart) {
+        <div class="table-responsive mb-3">
+          <svg
+            [attr.viewBox]="'0 0 ' + chart.width + ' ' + chart.height"
+            [attr.width]="'100%'"
+            [attr.height]="chart.height"
+            role="img"
+            [attr.aria-label]="app.t('statistics.activatedOrdersOverTime')"
+          >
+            <rect x="0" y="0" [attr.width]="chart.width" [attr.height]="chart.height" fill="transparent"></rect>
+            <line
+              [attr.x1]="chart.marginLeft"
+              [attr.y1]="chart.marginTop"
+              [attr.x2]="chart.marginLeft"
+              [attr.y2]="chart.height - chart.marginBottom"
+              stroke="currentColor"
+              stroke-opacity="0.35"
+            />
+            <line
+              [attr.x1]="chart.width - chart.marginRight"
+              [attr.y1]="chart.marginTop"
+              [attr.x2]="chart.width - chart.marginRight"
+              [attr.y2]="chart.height - chart.marginBottom"
+              stroke="currentColor"
+              stroke-opacity="0.35"
+            />
+            <line
+              [attr.x1]="chart.marginLeft"
+              [attr.y1]="chart.height - chart.marginBottom"
+              [attr.x2]="chart.width - chart.marginRight"
+              [attr.y2]="chart.height - chart.marginBottom"
+              stroke="currentColor"
+              stroke-opacity="0.35"
+            />
+            <polyline [attr.points]="chart.countPolyline" fill="none" stroke="#0d6efd" stroke-width="3" />
+            <polyline [attr.points]="chart.amountPolyline" fill="none" stroke="#198754" stroke-width="3" />
+            @for (tick of chart.leftTicks; track tick.y) {
+              <line
+                [attr.x1]="chart.marginLeft - 4"
+                [attr.y1]="tick.y"
+                [attr.x2]="chart.marginLeft"
+                [attr.y2]="tick.y"
+                stroke="currentColor"
+                stroke-opacity="0.5"
+              />
+              <text [attr.x]="chart.marginLeft - 8" [attr.y]="tick.y + 4" text-anchor="end" font-size="12">{{ tick.label }}</text>
+            }
+            @for (tick of chart.rightTicks; track tick.y) {
+              <line
+                [attr.x1]="chart.width - chart.marginRight"
+                [attr.y1]="tick.y"
+                [attr.x2]="chart.width - chart.marginRight + 4"
+                [attr.y2]="tick.y"
+                stroke="currentColor"
+                stroke-opacity="0.5"
+              />
+              <text [attr.x]="chart.width - chart.marginRight + 8" [attr.y]="tick.y + 4" text-anchor="start" font-size="12">{{ tick.label }} €</text>
+            }
+            <text [attr.x]="chart.marginLeft" [attr.y]="chart.height - 8" font-size="12">{{ chart.firstDay }}</text>
+            <text [attr.x]="chart.width - chart.marginRight" [attr.y]="chart.height - 8" font-size="12" text-anchor="end">{{ chart.lastDay }}</text>
+          </svg>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-striped align-middle mb-0">
+            <thead>
+              <tr>
+                <th scope="col">{{ app.t('dashboard.day') }}</th>
+                <th scope="col">{{ app.t('statistics.orderCountLine') }}</th>
+                <th scope="col">{{ app.t('statistics.totalAmountLine') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of app.paginatedActivatedOrdersStatsTableRows(); track row.day) {
+                <tr>
+                  <td>{{ row.day }}</td>
+                  <td>{{ row.orderCount }}</td>
+                  <td>{{ row.totalAmount | number: '1.2-2' }} {{ row.currency === 'EUR' ? '€' : row.currency }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        @if (app.activatedOrdersStatsPageCount() > 1) {
+          <div class="d-flex justify-content-between align-items-center gap-3 mt-3">
+            <button
+              class="btn btn-outline-secondary"
+              type="button"
+              [disabled]="app.activatedOrdersStatsPage() === 0"
+              (click)="app.showPreviousActivatedOrdersStatsPage()"
+            >
+              {{ app.t('statistics.previousPage') }}
+            </button>
+            <div class="small text-body-secondary">
+              {{ app.t('statistics.page') }} {{ app.activatedOrdersStatsPage() + 1 }} / {{ app.activatedOrdersStatsPageCount() }}
+            </div>
+            <button
+              class="btn btn-outline-secondary"
+              type="button"
+              [disabled]="app.activatedOrdersStatsPage() >= app.activatedOrdersStatsPageCount() - 1"
+              (click)="app.showNextActivatedOrdersStatsPage()"
+            >
+              {{ app.t('statistics.nextPage') }}
+            </button>
+          </div>
+        }
+      }
+    </div>
+  }
+</div>

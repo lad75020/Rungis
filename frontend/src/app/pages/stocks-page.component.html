@@ -1,0 +1,166 @@
+<div>
+  <div class="d-flex flex-wrap gap-2 mb-4">
+    <a class="btn btn-link back-arrow-btn" routerLink="/dashboard" aria-label="Back to dashboard">⟵</a>
+  </div>
+
+  @if (!app.isVendor()) {
+    <div class="alert alert-danger">{{ app.t('stocks.onlyVendors') }}</div>
+  }
+
+  @if (app.isVendor()) {
+    <form [formGroup]="app.stockForm" (ngSubmit)="app.submitStock()" class="border rounded p-3 mb-4" novalidate>
+      <h2 class="h5 mb-3">{{ app.editingStockItemId() ? app.t('stocks.editMerchandise') : app.t('stocks.addMerchandise') }}</h2>
+
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label" for="stock-name">{{ app.t('stocks.name') }}</label>
+          <input id="stock-name" class="form-control" type="text" formControlName="name" />
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label" for="stock-reference">{{ app.t('stocks.reference') }}</label>
+          <input id="stock-reference" class="form-control" type="text" formControlName="reference" />
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label" for="stock-price">{{ app.t('stocks.price') }}</label>
+          <input id="stock-price" class="form-control" type="number" step="0.01" min="0" formControlName="price" />
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label" for="stock-qty">{{ app.t('stocks.stock') }}</label>
+          <input id="stock-qty" class="form-control" type="number" step="1" min="0" formControlName="stock" />
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label" for="stock-min-threshold">{{ app.t('stocks.minimumThreshold') }}</label>
+          <input
+            id="stock-min-threshold"
+            class="form-control"
+            type="number"
+            step="1"
+            min="0"
+            formControlName="minimumStockThreshold"
+            placeholder="{{ app.t('stocks.minimumThresholdOptional') }}"
+          />
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label" for="stock-category">{{ app.t('stocks.category') }}</label>
+          <input
+            id="stock-category"
+            class="form-control"
+            type="text"
+            formControlName="category"
+            list="stock-category-options"
+          />
+          <datalist id="stock-category-options">
+            @for (category of app.stockCategories(); track category) {
+              <option [value]="category"></option>
+            }
+          </datalist>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label" for="stock-image">{{ app.t('stocks.image') }}</label>
+          <input
+            #stockImageInput
+            id="stock-image"
+            class="form-control"
+            type="file"
+            accept="image/png,image/jpeg,image/gif"
+            (change)="app.onStockImageSelected($event)"
+          />
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-success" [disabled]="app.savingStockItem()" type="submit">
+          {{ app.savingStockItem() ? app.t('common.saving') : (app.editingStockItemId() ? app.t('common.update') : app.t('common.create')) }}
+        </button>
+
+        @if (app.editingStockItemId()) {
+          <button class="btn btn-outline-secondary" type="button" (click)="app.cancelStockEdition()">{{ app.t('stocks.cancelEdit') }}</button>
+        }
+      </div>
+    </form>
+
+    @if (app.stockItems().length === 0 && !app.loadingStockItems()) {
+      <div class="alert alert-light border">{{ app.t('stocks.noMerchandise') }}</div>
+    }
+
+    @if (app.stockItems().length > 0) {
+      <div class="table-responsive">
+        <table class="table table-striped align-middle">
+          <thead>
+            <tr>
+              <th scope="col">
+                <button class="btn btn-link p-0 text-decoration-none" type="button" (click)="app.setStockSort('category')">
+                  {{ app.t('stocks.category') }}
+                  @if (app.stockSortKey() === 'category') {
+                    <span>{{ app.stockSortDirection() === 'asc' ? ' ▲' : ' ▼' }}</span>
+                  }
+                </button>
+              </th>
+              <th scope="col">
+                <button class="btn btn-link p-0 text-decoration-none" type="button" (click)="app.setStockSort('name')">
+                  {{ app.t('stocks.name') }}
+                  @if (app.stockSortKey() === 'name') {
+                    <span>{{ app.stockSortDirection() === 'asc' ? ' ▲' : ' ▼' }}</span>
+                  }
+                </button>
+              </th>
+              <th scope="col">{{ app.t('stocks.reference') }}</th>
+              <th scope="col" class="text-center">{{ app.t('stocks.image') }}</th>
+              <th scope="col">{{ app.t('stocks.price') }}</th>
+              <th scope="col">{{ app.t('stocks.stock') }}</th>
+              <th scope="col">{{ app.t('stocks.actions') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of app.sortedStockItems(); track item.id) {
+              <tr>
+                <td>{{ item.category }}</td>
+                <td>{{ item.name }}</td>
+                <td>{{ item.reference }}</td>
+                <td class="text-center">
+                  @if (item.imageUrl) {
+                    <span class="stock-item-image-indicator" [attr.aria-label]="app.t('stocks.image')" [attr.title]="app.t('stocks.image')">
+                      🖼️
+                      <span class="stock-item-image-tooltip">
+                        <img [src]="item.imageUrl" [alt]="item.name" loading="lazy" />
+                      </span>
+                    </span>
+                  }
+                </td>
+                <td>{{ item.price | number: '1.2-2' }}</td>
+                <td>{{ item.stock }}</td>
+                <td class="d-flex gap-2">
+                  <button
+                    class="btn btn-sm btn-outline-primary"
+                    type="button"
+                    [attr.aria-label]="app.t('common.edit')"
+                    [attr.title]="app.t('common.edit')"
+                    (click)="app.startStockEdition(item)"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    class="btn btn-sm btn-outline-danger"
+                    type="button"
+                    [attr.aria-label]="app.t('common.delete')"
+                    [attr.title]="app.t('common.delete')"
+                    (click)="app.deleteStock(item.id)"
+                    [disabled]="app.isDeletingStockItem(item.id)"
+                  >
+                    {{ app.isDeletingStockItem(item.id) ? app.t('stocks.deleting') : '🗑️' }}
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</div>

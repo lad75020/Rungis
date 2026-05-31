@@ -1,0 +1,357 @@
+<div>
+  <div class="d-flex flex-wrap gap-2 mb-4">
+    <a class="btn btn-link back-arrow-btn" routerLink="/dashboard" [attr.aria-label]="app.t('common.back')">⟵</a>
+  </div>
+
+  @if (!app.isAdmin()) {
+    <div class="alert alert-danger">{{ app.t('admin.onlyAdmins') }}</div>
+  }
+
+  @if (app.isAdmin()) {
+    <div class="border rounded p-3 mb-4">
+      <h2 class="h5 mb-3">{{ app.t('admin.dailyBillRunTitle') }}</h2>
+      <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label" for="admin-bill-generation-day">{{ app.t('admin.dailyBillRunDate') }}</label>
+          <input
+            #billGenerationDayInput
+            id="admin-bill-generation-day"
+            class="form-control"
+            type="date"
+            [value]="app.adminBillGenerationDay()"
+            [disabled]="app.runningAdminBillGeneration()"
+          />
+          <div class="form-text">{{ app.t('admin.dailyBillRunHint') }}</div>
+        </div>
+        <div class="col-md-3">
+          <button
+            class="btn btn-primary"
+            type="button"
+            [disabled]="app.runningAdminBillGeneration()"
+            (click)="app.runAdminDailyBillGeneration($any(billGenerationDayInput).value)"
+          >
+            {{ app.runningAdminBillGeneration() ? app.t('admin.dailyBillRunning') : app.t('admin.dailyBillRunButton') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="border rounded p-3 mb-4">
+      <h2 class="h5 mb-3">{{ app.t('admin.billOverdueSettingsTitle') }}</h2>
+      <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label" for="admin-bill-overdue-days">{{ app.t('admin.billOverdueDaysLabel') }}</label>
+          <input
+            #billOverdueDaysInput
+            id="admin-bill-overdue-days"
+            class="form-control"
+            type="number"
+            min="1"
+            max="3650"
+            step="1"
+            [value]="app.adminBillOverdueDays()"
+            [disabled]="app.loadingAdminBillOverdueDays() || app.savingAdminBillOverdueDays()"
+          />
+          <div class="form-text">{{ app.t('admin.billOverdueDaysHint') }}</div>
+        </div>
+        <div class="col-md-3">
+          <button
+            class="btn btn-primary"
+            type="button"
+            [disabled]="app.loadingAdminBillOverdueDays() || app.savingAdminBillOverdueDays()"
+            (click)="app.saveAdminBillOverdueDays($any(billOverdueDaysInput).value)"
+          >
+            {{ app.savingAdminBillOverdueDays() ? app.t('common.saving') : app.t('account.saveChanges') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="border rounded p-3 mb-4">
+      <h2 class="h5 mb-3">{{ app.t('admin.appStyleProfileTitle') }}</h2>
+      <p class="form-text mb-3">{{ app.t('admin.appStyleProfileHint') }}</p>
+      <div class="row g-3 align-items-end">
+        <div class="col-md-6">
+          <div class="d-flex flex-column gap-2">
+            <div class="form-check">
+              <input
+                id="admin-app-style-primary"
+                class="form-check-input"
+                type="radio"
+                name="admin-app-style-profile"
+                value="primary"
+                [checked]="app.adminAppStyleProfile() === 'primary'"
+                [disabled]="app.loadingAdminAppStyleProfile() || app.savingAdminAppStyleProfile()"
+                (change)="app.adminAppStyleProfile.set('primary')"
+              />
+              <label class="form-check-label" for="admin-app-style-primary">{{ app.t('admin.appStyleProfilePrimary') }}</label>
+            </div>
+            <div class="form-check">
+              <input
+                id="admin-app-style-secondary"
+                class="form-check-input"
+                type="radio"
+                name="admin-app-style-profile"
+                value="secondary"
+                [checked]="app.adminAppStyleProfile() === 'secondary'"
+                [disabled]="app.loadingAdminAppStyleProfile() || app.savingAdminAppStyleProfile()"
+                (change)="app.adminAppStyleProfile.set('secondary')"
+              />
+              <label class="form-check-label" for="admin-app-style-secondary">{{ app.t('admin.appStyleProfileSecondary') }}</label>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <button
+            class="btn btn-primary"
+            type="button"
+            [disabled]="app.loadingAdminAppStyleProfile() || app.savingAdminAppStyleProfile()"
+            (click)="app.saveAdminAppStyleProfile(app.adminAppStyleProfile())"
+          >
+            {{ app.savingAdminAppStyleProfile() ? app.t('common.saving') : app.t('account.saveChanges') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="border rounded p-3 mb-4">
+      <h2 class="h5 mb-3">{{ app.t('admin.associationsTitle') }}</h2>
+
+      <div class="row g-4">
+        <div class="col-lg-6">
+          <h3 class="h6 mb-3">{{ app.t('admin.clientToVendor') }}</h3>
+
+          <div class="mb-3">
+            <label class="form-label" for="assoc-client-select">{{ app.t('admin.client') }}</label>
+            <select
+              id="assoc-client-select"
+              class="form-select"
+              [value]="app.selectedAdminClientId()"
+              (change)="app.selectedAdminClientId.set($any($event.target).value)"
+            >
+              <option value="">{{ app.t('admin.selectClient') }}</option>
+              @for (client of app.selectableAdminClients(); track client.id) {
+                <option [value]="client.id">{{ client.username }} - {{ client.organisation }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="assoc-vendor-for-client">{{ app.t('admin.vendor') }}</label>
+            <div class="d-flex gap-2">
+              <select
+                id="assoc-vendor-for-client"
+                class="form-select"
+                [value]="app.selectedVendorForClientId()"
+                (change)="app.selectedVendorForClientId.set($any($event.target).value)"
+              >
+                <option value="">{{ app.t('admin.selectVendor') }}</option>
+                @for (vendor of app.selectableAdminVendors(); track vendor.id) {
+                  <option [value]="vendor.id">{{ vendor.username }} - {{ vendor.organisation }}</option>
+                }
+              </select>
+              <button
+                class="btn btn-primary"
+                type="button"
+                [disabled]="app.assigningAssociation() || !app.selectedAdminClientId() || !app.selectedVendorForClientId()"
+                (click)="app.assignVendorToClient(app.selectedAdminClientId(), app.selectedVendorForClientId())"
+              >
+                {{ app.assigningAssociation() ? app.t('admin.assigning') : app.t('admin.assign') }}
+              </button>
+            </div>
+          </div>
+
+          <h4 class="h6">{{ app.t('admin.assignedVendors') }}</h4>
+          @if (app.selectedClientAssignedVendors().length === 0) {
+            <div class="alert alert-light border mb-0">{{ app.t('admin.noAssignedVendors') }}</div>
+          } @else {
+            <ul class="list-group">
+              @for (vendor of app.selectedClientAssignedVendors(); track vendor.id) {
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                  <span>{{ vendor.username }} - {{ vendor.organisation }}</span>
+                  <button
+                    class="btn btn-sm btn-outline-danger"
+                    type="button"
+                    [disabled]="app.isRemovingAssociation(app.selectedAdminClientId() + ':' + vendor.id)"
+                    (click)="app.removeVendorFromClient(app.selectedAdminClientId(), vendor.id)"
+                  >
+                    {{ app.isRemovingAssociation(app.selectedAdminClientId() + ':' + vendor.id) ? app.t('admin.removing') : app.t('admin.deassign') }}
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+
+        <div class="col-lg-6">
+          <h3 class="h6 mb-3">{{ app.t('admin.vendorToClient') }}</h3>
+
+          <div class="mb-3">
+            <label class="form-label" for="assoc-vendor-select">{{ app.t('admin.vendor') }}</label>
+            <select
+              id="assoc-vendor-select"
+              class="form-select"
+              [value]="app.selectedAdminVendorId()"
+              (change)="app.selectedAdminVendorId.set($any($event.target).value)"
+            >
+              <option value="">{{ app.t('admin.selectVendor') }}</option>
+              @for (vendor of app.selectableAdminVendors(); track vendor.id) {
+                <option [value]="vendor.id">{{ vendor.username }} - {{ vendor.organisation }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="assoc-client-for-vendor">{{ app.t('admin.client') }}</label>
+            <div class="d-flex gap-2">
+              <select
+                id="assoc-client-for-vendor"
+                class="form-select"
+                [value]="app.selectedClientForVendorId()"
+                (change)="app.selectedClientForVendorId.set($any($event.target).value)"
+              >
+                <option value="">{{ app.t('admin.selectClient') }}</option>
+                @for (client of app.selectableAdminClients(); track client.id) {
+                  <option [value]="client.id">{{ client.username }} - {{ client.organisation }}</option>
+                }
+              </select>
+              <button
+                class="btn btn-primary"
+                type="button"
+                [disabled]="app.assigningAssociation() || !app.selectedAdminVendorId() || !app.selectedClientForVendorId()"
+                (click)="app.assignVendorToClient(app.selectedClientForVendorId(), app.selectedAdminVendorId())"
+              >
+                {{ app.assigningAssociation() ? app.t('admin.assigning') : app.t('admin.assign') }}
+              </button>
+            </div>
+          </div>
+
+          <h4 class="h6">{{ app.t('admin.assignedClients') }}</h4>
+          @if (app.selectedVendorAssignedClients().length === 0) {
+            <div class="alert alert-light border mb-0">{{ app.t('admin.noAssignedClients') }}</div>
+          } @else {
+            <ul class="list-group">
+              @for (client of app.selectedVendorAssignedClients(); track client.id) {
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                  <span>{{ client.username }} - {{ client.organisation }}</span>
+                  <button
+                    class="btn btn-sm btn-outline-danger"
+                    type="button"
+                    [disabled]="app.isRemovingAssociation(client.id + ':' + app.selectedAdminVendorId())"
+                    (click)="app.removeVendorFromClient(client.id, app.selectedAdminVendorId())"
+                  >
+                    {{ app.isRemovingAssociation(client.id + ':' + app.selectedAdminVendorId()) ? app.t('admin.removing') : app.t('admin.deassign') }}
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (app.isAdmin() && app.pendingUsers().length === 0 && !app.loadingPendingUsers()) {
+    <div class="border rounded p-3 mb-4">
+      <div class="mb-3">
+        <h2 class="h5 mb-0">{{ app.t('admin.pendingApprovalsTitle') }}</h2>
+      </div>
+      <div class="alert alert-light border mb-0">{{ app.t('admin.noPendingUsers') }}</div>
+    </div>
+  }
+
+  @if (app.pendingUsers().length > 0) {
+    <div class="border rounded p-3 mb-4">
+      <div class="mb-3">
+        <h2 class="h5 mb-0">{{ app.t('admin.pendingApprovalsTitle') }}</h2>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-striped align-middle">
+          <thead>
+            <tr>
+              <th scope="col">{{ app.t('admin.role') }}</th>
+              <th scope="col">{{ app.t('admin.organisation') }}</th>
+              <th scope="col">{{ app.t('admin.action') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (pendingUser of app.pendingUsers(); track pendingUser.id) {
+              <tr class="pending-user-row" (click)="app.openPendingUserDetails(pendingUser)">
+                <td>{{ pendingUser.role }}</td>
+                <td>{{ pendingUser.organisation }}</td>
+                <td class="d-flex gap-2">
+                  <button
+                    class="btn btn-sm btn-success"
+                    (click)="app.activateUser(pendingUser.id); $event.stopPropagation()"
+                    [disabled]="app.isActivating(pendingUser.id)"
+                    type="button"
+                  >
+                    {{ app.isActivating(pendingUser.id) ? app.t('admin.activating') : app.t('admin.activate') }}
+                  </button>
+                  <button
+                    class="btn btn-sm btn-outline-danger"
+                    (click)="app.deletePendingUser(pendingUser.id, $event)"
+                    [disabled]="app.isDeletingPendingUser(pendingUser.id)"
+                    type="button"
+                  >
+                    {{ app.isDeletingPendingUser(pendingUser.id) ? app.t('admin.removing') : app.t('admin.deletePendingUser') }}
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  @if (app.showingPendingUserModal() && app.selectedPendingUser(); as pendingUser) {
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 class="modal-title h5 mb-0">{{ app.t('admin.pendingUserDetails') }}</h3>
+            <button class="btn-close" type="button" aria-label="Close" (click)="app.closePendingUserDetails()"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row g-3">
+              <div class="col-md-6"><strong>{{ app.t('admin.role') }}:</strong> {{ pendingUser.role }}</div>
+              <div class="col-md-6"><strong>{{ app.t('admin.username') }}:</strong> {{ pendingUser.username }}</div>
+              <div class="col-md-6"><strong>{{ app.t('admin.organisation') }}:</strong> {{ pendingUser.organisation }}</div>
+              <div class="col-md-6"><strong>{{ app.t('admin.email') }}:</strong> {{ pendingUser.email }}</div>
+              <div class="col-md-6"><strong>{{ app.t('admin.phone') }}:</strong> {{ pendingUser.phoneNumber }}</div>
+              <div class="col-md-6"><strong>{{ app.t('admin.siret') }}:</strong> {{ pendingUser.businessRegistrationId }}</div>
+              <div class="col-md-6"><strong>{{ app.t('account.firstName') }}:</strong> {{ pendingUser.firstName }}</div>
+              <div class="col-md-6"><strong>{{ app.t('account.lastName') }}:</strong> {{ pendingUser.lastName }}</div>
+              <div class="col-md-6"><strong>{{ app.t('account.city') }}:</strong> {{ pendingUser.city }}</div>
+              <div class="col-md-6"><strong>{{ app.t('account.zipcode') }}:</strong> {{ pendingUser.zipcode }}</div>
+              <div class="col-12"><strong>{{ app.t('account.address') }}:</strong> {{ pendingUser.physicalAddress }}</div>
+              <div class="col-12"><strong>{{ app.t('admin.requestedAt') }}:</strong> {{ pendingUser.createdAt | date: 'medium' }}</div>
+            </div>
+          </div>
+          <div class="modal-footer d-flex gap-2">
+            <button
+              class="btn btn-success"
+              type="button"
+              (click)="app.activateUser(pendingUser.id)"
+              [disabled]="app.isActivating(pendingUser.id)"
+            >
+              {{ app.isActivating(pendingUser.id) ? app.t('admin.activating') : app.t('admin.activate') }}
+            </button>
+            <button
+              class="btn btn-outline-danger"
+              type="button"
+              (click)="app.deletePendingUser(pendingUser.id)"
+              [disabled]="app.isDeletingPendingUser(pendingUser.id)"
+            >
+              {{ app.isDeletingPendingUser(pendingUser.id) ? app.t('admin.removing') : app.t('admin.deletePendingUser') }}
+            </button>
+            <button class="btn btn-secondary" type="button" (click)="app.closePendingUserDetails()">{{ app.t('common.close') }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>

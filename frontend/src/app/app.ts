@@ -3,13 +3,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  ElementRef,
   inject,
   OnDestroy,
   OnInit,
-  signal,
-  ViewChild
+  signal
 } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
 import {
   AbstractControl,
   AsyncValidatorFn,
@@ -76,6 +75,14 @@ import {
   normalizePageName
 } from './app.utils';
 import {
+  buildActivatedOrdersChart,
+  buildLocalCartAggregates,
+  buildVendorCategorySalesPie,
+  buildVendorClientSalesBarChart
+} from './app.view-models';
+import { AppHeaderComponent } from './app-header.component';
+import { ToastStackComponent } from './toast-stack.component';
+import {
   browserSupportsAccessKeys,
   startAccessKeyAuthentication,
   startAccessKeyRegistration
@@ -83,14 +90,14 @@ import {
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterOutlet, AppHeaderComponent, ToastStackComponent],
   templateUrl: './app.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class App implements OnInit, OnDestroy {
   private readonly formBuilder = inject(FormBuilder);
   private readonly activatedOrdersStatsPageSize = ACTIVATED_ORDERS_STATS_PAGE_SIZE;
-  @ViewChild('stockImageInput') private stockImageInput?: ElementRef<HTMLInputElement>;
+  private stockImageInput: HTMLInputElement | null = null;
 
   private readonly config: AppBootstrapConfig = window.__APP_CONFIG__ ?? {
     page: 'login',
@@ -136,159 +143,159 @@ export class App implements OnInit, OnDestroy {
     }
   };
 
-  protected readonly page = signal<PageName>(normalizePageName(this.config.page));
-  protected readonly language = signal<LanguageCode>(this.config.language ?? 'en');
-  protected readonly availableLanguages: LanguageCode[] = AVAILABLE_LANGUAGES;
-  protected readonly currentLanguageFlag = computed(() => (this.language() === 'en' ? '🇬🇧' : '🇫🇷'));
-  protected readonly currentLanguageLabel = computed(() => (this.language() === 'en' ? 'English' : 'French'));
-  protected readonly themeMode = signal<ThemeMode>('system');
-  protected readonly currentThemeIcon = computed(() => {
+  public readonly page = signal<PageName>(normalizePageName(this.config.page));
+  public readonly language = signal<LanguageCode>(this.config.language ?? 'en');
+  public readonly availableLanguages: LanguageCode[] = AVAILABLE_LANGUAGES;
+  public readonly currentLanguageFlag = computed(() => (this.language() === 'en' ? '🇬🇧' : '🇫🇷'));
+  public readonly currentLanguageLabel = computed(() => (this.language() === 'en' ? 'English' : 'French'));
+  public readonly themeMode = signal<ThemeMode>('system');
+  public readonly currentThemeIcon = computed(() => {
     const mode = this.themeMode();
     return mode === 'light' ? '☀️' : mode === 'dark' ? '🌙' : '💻';
   });
-  protected readonly currentThemeLabel = computed(() => {
+  public readonly currentThemeLabel = computed(() => {
     const mode = this.themeMode();
     return mode === 'light' ? this.t('theme.light') : mode === 'dark' ? this.t('theme.dark') : this.t('theme.system');
   });
-  protected readonly sessionUser = signal<SessionUser | null>(this.config.sessionUser ?? null);
-  protected readonly roles: SignupRole[] = SIGNUP_ROLES;
+  public readonly sessionUser = signal<SessionUser | null>(this.config.sessionUser ?? null);
+  public readonly roles: SignupRole[] = SIGNUP_ROLES;
 
-  protected readonly pendingUsers = signal<PendingUser[]>([]);
-  protected readonly loadingPendingUsers = signal(false);
-  protected readonly activatingUserIds = signal<string[]>([]);
-  protected readonly deletingPendingUserIds = signal<string[]>([]);
-  protected readonly showingPendingUserModal = signal(false);
-  protected readonly selectedPendingUser = signal<PendingUser | null>(null);
-  protected readonly adminClients = signal<AdminClientAssociation[]>([]);
-  protected readonly adminVendors = signal<AdminVendorAssociation[]>([]);
-  protected readonly loadingAdminAssociations = signal(false);
-  protected readonly loadingAdminBillOverdueDays = signal(false);
-  protected readonly savingAdminBillOverdueDays = signal(false);
-  protected readonly loadingAdminAppStyleProfile = signal(false);
-  protected readonly savingAdminAppStyleProfile = signal(false);
-  protected readonly adminBillOverdueDays = signal(30);
-  protected readonly adminAppStyleProfile = signal<AppStyleProfile>(this.config.appStyleProfile ?? 'primary');
-  protected readonly adminBillGenerationDay = signal(getRelativeIsoDay(0));
-  protected readonly runningAdminBillGeneration = signal(false);
-  protected readonly selectedAdminClientId = signal('');
-  protected readonly selectedAdminVendorId = signal('');
-  protected readonly selectedVendorForClientId = signal('');
-  protected readonly selectedClientForVendorId = signal('');
-  protected readonly assigningAssociation = signal(false);
-  protected readonly removingAssociationKey = signal('');
+  public readonly pendingUsers = signal<PendingUser[]>([]);
+  public readonly loadingPendingUsers = signal(false);
+  public readonly activatingUserIds = signal<string[]>([]);
+  public readonly deletingPendingUserIds = signal<string[]>([]);
+  public readonly showingPendingUserModal = signal(false);
+  public readonly selectedPendingUser = signal<PendingUser | null>(null);
+  public readonly adminClients = signal<AdminClientAssociation[]>([]);
+  public readonly adminVendors = signal<AdminVendorAssociation[]>([]);
+  public readonly loadingAdminAssociations = signal(false);
+  public readonly loadingAdminBillOverdueDays = signal(false);
+  public readonly savingAdminBillOverdueDays = signal(false);
+  public readonly loadingAdminAppStyleProfile = signal(false);
+  public readonly savingAdminAppStyleProfile = signal(false);
+  public readonly adminBillOverdueDays = signal(30);
+  public readonly adminAppStyleProfile = signal<AppStyleProfile>(this.config.appStyleProfile ?? 'primary');
+  public readonly adminBillGenerationDay = signal(getRelativeIsoDay(0));
+  public readonly runningAdminBillGeneration = signal(false);
+  public readonly selectedAdminClientId = signal('');
+  public readonly selectedAdminVendorId = signal('');
+  public readonly selectedVendorForClientId = signal('');
+  public readonly selectedClientForVendorId = signal('');
+  public readonly assigningAssociation = signal(false);
+  public readonly removingAssociationKey = signal('');
 
-  protected readonly stockItems = signal<StockItem[]>([]);
-  protected readonly stockSortKey = signal<StockSortKey>('name');
-  protected readonly stockSortDirection = signal<'asc' | 'desc'>('asc');
-  protected readonly loadingStockItems = signal(false);
-  protected readonly savingStockItem = signal(false);
-  protected readonly deletingStockItemIds = signal<string[]>([]);
-  protected readonly editingStockItemId = signal<string | null>(null);
-  protected readonly selectedStockImageFile = signal<File | null>(null);
+  public readonly stockItems = signal<StockItem[]>([]);
+  public readonly stockSortKey = signal<StockSortKey>('name');
+  public readonly stockSortDirection = signal<'asc' | 'desc'>('asc');
+  public readonly loadingStockItems = signal(false);
+  public readonly savingStockItem = signal(false);
+  public readonly deletingStockItemIds = signal<string[]>([]);
+  public readonly editingStockItemId = signal<string | null>(null);
+  public readonly selectedStockImageFile = signal<File | null>(null);
 
-  protected readonly orderCategories = signal<string[]>([]);
-  protected readonly orderCatalogItems = signal<CatalogItem[]>([]);
-  protected readonly selectedOrderCategory = signal('all');
-  protected readonly selectedOrderVendor = signal('all');
-  protected readonly selectedOrderTab = signal<OrderTab>('catalog');
-  protected readonly favoriteMerchandiseIds = signal<string[]>([]);
-  protected readonly togglingFavoriteItemIds = signal<string[]>([]);
-  protected readonly loadingOrderCatalog = signal(false);
-  protected readonly loadingOrderCart = signal(false);
-  protected readonly orderDeliveryDate = signal(getRelativeIsoDay(0));
-  protected readonly addingToCart = signal(false);
-  protected readonly updatingCartItemIds = signal<string[]>([]);
-  protected readonly removingCartItemIds = signal<string[]>([]);
-  protected readonly validatingCart = signal(false);
-  protected readonly cart = signal<CartData>(EMPTY_CART);
-  protected readonly cartGroupBy = signal<CartGroupBy>('vendor');
-  protected readonly cartValidation = signal<CartValidation | null>(null);
-  protected readonly orderPriceVariations = signal<Record<string, CatalogPriceVariation>>({});
-  protected readonly vendorBillsDate = signal(getRelativeIsoDay(0));
-  protected readonly vendorBillsTab = signal<VendorBillsTab>('by-date');
-  protected readonly vendorBillsRangeFromDate = signal(getRelativeIsoDay(-30));
-  protected readonly vendorBillsRangeToDate = signal(getRelativeIsoDay(0));
-  protected readonly loadingVendorBillClients = signal(false);
-  protected readonly vendorBillClients = signal<VendorBillClientOption[]>([]);
-  protected readonly selectedVendorBillClientId = signal('');
-  protected readonly loadingVendorOrderSummaries = signal(false);
-  protected readonly vendorOrderSummaries = signal<VendorDashboardOrderSummary[]>([]);
-  protected readonly selectedVendorOrderKey = signal('');
-  protected readonly vendorBillsExpanded = signal(false);
-  protected readonly loadingVendorOrderDetails = signal(false);
-  protected readonly vendorOrderDetails = signal<VendorDashboardOrderDetails | null>(null);
-  protected readonly showingVendorOrderModal = signal(false);
-  protected readonly updatingVendorBillSettlement = signal(false);
-  protected readonly loadingVendorBillMessages = signal(false);
-  protected readonly vendorBillMessages = signal<VendorBillMessageSummary[]>([]);
-  protected readonly deletingVendorBillMessageKeys = signal<string[]>([]);
-  protected readonly clientBillsDate = signal(getRelativeIsoDay(0));
-  protected readonly clientBillsTab = signal<'by-date' | 'unpaid'>('by-date');
-  protected readonly loadingClientCartSummaries = signal(false);
-  protected readonly clientCartSummaries = signal<ClientDashboardCartSummary[]>([]);
-  protected readonly selectedClientCartKey = signal('');
-  protected readonly clientBillsExpanded = signal(false);
-  protected readonly loadingClientBillVendors = signal(false);
-  protected readonly clientBillVendors = signal<OrderVendorOption[]>([]);
-  protected readonly selectedClientUnpaidVendorId = signal('');
-  protected readonly loadingClientUnpaidVendorBills = signal(false);
-  protected readonly clientUnpaidVendorBills = signal<ClientUnpaidBillSummary[]>([]);
-  protected readonly loadingClientCartDetails = signal(false);
-  protected readonly clientCartDetails = signal<ClientDashboardCartDetails | null>(null);
-  protected readonly showingClientCartModal = signal(false);
-  protected readonly updatingClientBillSettlement = signal(false);
-  protected readonly clientBillCommentDraft = signal('');
-  protected readonly sendingClientBillComment = signal(false);
-  protected readonly selectedSubscriptionLogoFile = signal<File | null>(null);
-  protected readonly selectedAccountLogoFile = signal<File | null>(null);
-  protected readonly accessKeys = signal<AccessKeySummary[]>([]);
-  protected readonly loadingAccessKeys = signal(false);
-  protected readonly deletingAccessKeyIds = signal<string[]>([]);
-  protected readonly loadingActivatedOrdersStats = signal(false);
-  protected readonly activatedOrdersStats = signal<AdminActivatedOrderStat[]>([]);
-  protected readonly activatedOrdersStatsPage = signal(0);
-  protected readonly vendorStatsFromDate = signal(getRelativeIsoDay(-30));
-  protected readonly vendorStatsToDate = signal(getRelativeIsoDay(0));
-  protected readonly loadingVendorCategorySalesStats = signal(false);
-  protected readonly vendorCategorySalesStats = signal<VendorCategorySalesStat[]>([]);
-  protected readonly vendorClientSalesStats = signal<VendorClientSalesStat[]>([]);
-  protected readonly loadingVendorOverdueBills = signal(false);
-  protected readonly vendorOverdueBillGroups = signal<VendorOverdueBillGroup[]>([]);
-  protected readonly remindedOverdueBillClientIds = signal<string[]>([]);
-  protected readonly sendingUnpaidReminderClientIds = signal<string[]>([]);
-  protected readonly vendorOverdueBillPenaltyPercentByKey = signal<Record<string, number>>({});
-  protected readonly applyingVendorOverduePenaltyKeys = signal<string[]>([]);
-  protected readonly loadingVendorRefundClients = signal(false);
-  protected readonly savingVendorRefund = signal(false);
-  protected readonly vendorRefundClients = signal<VendorRefundClientOption[]>([]);
-  protected readonly loadingVendorMonthlySummaryClients = signal(false);
-  protected readonly loadingVendorMonthlySummary = signal(false);
-  protected readonly vendorMonthlySummaryYear = signal(new Date().getUTCFullYear());
-  protected readonly vendorMonthlySummaryMonth = signal(new Date().getUTCMonth() + 1);
-  protected readonly vendorMonthlySummaryClients = signal<VendorBillClientOption[]>([]);
-  protected readonly selectedVendorMonthlySummaryClientId = signal('');
-  protected readonly vendorMonthlySummaryBills = signal<VendorMonthlySummaryBill[]>([]);
-  protected readonly vendorMonthlySummaryGrandTotal = signal(0);
-  protected readonly vendorMonthlySummaryCurrency = signal('EUR');
-  protected readonly vendorMonthlySummaryLoaded = signal(false);
-  protected readonly loadingClientVendorDiscovery = signal(false);
-  protected readonly clientVendorDiscoveryItems = signal<ClientVendorDiscoveryItem[]>([]);
-  protected readonly assigningClientVendorIds = signal<string[]>([]);
-  protected readonly showingClientVendorDiscoveryModal = signal(false);
-  protected readonly selectedClientVendorDiscoveryItem = signal<ClientVendorDiscoveryItem | null>(null);
-  protected readonly loadingClientUnpaidReminders = signal(false);
-  protected readonly clientUnpaidReminders = signal<ClientUnpaidReminder[]>([]);
+  public readonly orderCategories = signal<string[]>([]);
+  public readonly orderCatalogItems = signal<CatalogItem[]>([]);
+  public readonly selectedOrderCategory = signal('all');
+  public readonly selectedOrderVendor = signal('all');
+  public readonly selectedOrderTab = signal<OrderTab>('catalog');
+  public readonly favoriteMerchandiseIds = signal<string[]>([]);
+  public readonly togglingFavoriteItemIds = signal<string[]>([]);
+  public readonly loadingOrderCatalog = signal(false);
+  public readonly loadingOrderCart = signal(false);
+  public readonly orderDeliveryDate = signal(getRelativeIsoDay(0));
+  public readonly addingToCart = signal(false);
+  public readonly updatingCartItemIds = signal<string[]>([]);
+  public readonly removingCartItemIds = signal<string[]>([]);
+  public readonly validatingCart = signal(false);
+  public readonly cart = signal<CartData>(EMPTY_CART);
+  public readonly cartGroupBy = signal<CartGroupBy>('vendor');
+  public readonly cartValidation = signal<CartValidation | null>(null);
+  public readonly orderPriceVariations = signal<Record<string, CatalogPriceVariation>>({});
+  public readonly vendorBillsDate = signal(getRelativeIsoDay(0));
+  public readonly vendorBillsTab = signal<VendorBillsTab>('by-date');
+  public readonly vendorBillsRangeFromDate = signal(getRelativeIsoDay(-30));
+  public readonly vendorBillsRangeToDate = signal(getRelativeIsoDay(0));
+  public readonly loadingVendorBillClients = signal(false);
+  public readonly vendorBillClients = signal<VendorBillClientOption[]>([]);
+  public readonly selectedVendorBillClientId = signal('');
+  public readonly loadingVendorOrderSummaries = signal(false);
+  public readonly vendorOrderSummaries = signal<VendorDashboardOrderSummary[]>([]);
+  public readonly selectedVendorOrderKey = signal('');
+  public readonly vendorBillsExpanded = signal(false);
+  public readonly loadingVendorOrderDetails = signal(false);
+  public readonly vendorOrderDetails = signal<VendorDashboardOrderDetails | null>(null);
+  public readonly showingVendorOrderModal = signal(false);
+  public readonly updatingVendorBillSettlement = signal(false);
+  public readonly loadingVendorBillMessages = signal(false);
+  public readonly vendorBillMessages = signal<VendorBillMessageSummary[]>([]);
+  public readonly deletingVendorBillMessageKeys = signal<string[]>([]);
+  public readonly clientBillsDate = signal(getRelativeIsoDay(0));
+  public readonly clientBillsTab = signal<'by-date' | 'unpaid'>('by-date');
+  public readonly loadingClientCartSummaries = signal(false);
+  public readonly clientCartSummaries = signal<ClientDashboardCartSummary[]>([]);
+  public readonly selectedClientCartKey = signal('');
+  public readonly clientBillsExpanded = signal(false);
+  public readonly loadingClientBillVendors = signal(false);
+  public readonly clientBillVendors = signal<OrderVendorOption[]>([]);
+  public readonly selectedClientUnpaidVendorId = signal('');
+  public readonly loadingClientUnpaidVendorBills = signal(false);
+  public readonly clientUnpaidVendorBills = signal<ClientUnpaidBillSummary[]>([]);
+  public readonly loadingClientCartDetails = signal(false);
+  public readonly clientCartDetails = signal<ClientDashboardCartDetails | null>(null);
+  public readonly showingClientCartModal = signal(false);
+  public readonly updatingClientBillSettlement = signal(false);
+  public readonly clientBillCommentDraft = signal('');
+  public readonly sendingClientBillComment = signal(false);
+  public readonly selectedSubscriptionLogoFile = signal<File | null>(null);
+  public readonly selectedAccountLogoFile = signal<File | null>(null);
+  public readonly accessKeys = signal<AccessKeySummary[]>([]);
+  public readonly loadingAccessKeys = signal(false);
+  public readonly deletingAccessKeyIds = signal<string[]>([]);
+  public readonly loadingActivatedOrdersStats = signal(false);
+  public readonly activatedOrdersStats = signal<AdminActivatedOrderStat[]>([]);
+  public readonly activatedOrdersStatsPage = signal(0);
+  public readonly vendorStatsFromDate = signal(getRelativeIsoDay(-30));
+  public readonly vendorStatsToDate = signal(getRelativeIsoDay(0));
+  public readonly loadingVendorCategorySalesStats = signal(false);
+  public readonly vendorCategorySalesStats = signal<VendorCategorySalesStat[]>([]);
+  public readonly vendorClientSalesStats = signal<VendorClientSalesStat[]>([]);
+  public readonly loadingVendorOverdueBills = signal(false);
+  public readonly vendorOverdueBillGroups = signal<VendorOverdueBillGroup[]>([]);
+  public readonly remindedOverdueBillClientIds = signal<string[]>([]);
+  public readonly sendingUnpaidReminderClientIds = signal<string[]>([]);
+  public readonly vendorOverdueBillPenaltyPercentByKey = signal<Record<string, number>>({});
+  public readonly applyingVendorOverduePenaltyKeys = signal<string[]>([]);
+  public readonly loadingVendorRefundClients = signal(false);
+  public readonly savingVendorRefund = signal(false);
+  public readonly vendorRefundClients = signal<VendorRefundClientOption[]>([]);
+  public readonly loadingVendorMonthlySummaryClients = signal(false);
+  public readonly loadingVendorMonthlySummary = signal(false);
+  public readonly vendorMonthlySummaryYear = signal(new Date().getUTCFullYear());
+  public readonly vendorMonthlySummaryMonth = signal(new Date().getUTCMonth() + 1);
+  public readonly vendorMonthlySummaryClients = signal<VendorBillClientOption[]>([]);
+  public readonly selectedVendorMonthlySummaryClientId = signal('');
+  public readonly vendorMonthlySummaryBills = signal<VendorMonthlySummaryBill[]>([]);
+  public readonly vendorMonthlySummaryGrandTotal = signal(0);
+  public readonly vendorMonthlySummaryCurrency = signal('EUR');
+  public readonly vendorMonthlySummaryLoaded = signal(false);
+  public readonly loadingClientVendorDiscovery = signal(false);
+  public readonly clientVendorDiscoveryItems = signal<ClientVendorDiscoveryItem[]>([]);
+  public readonly assigningClientVendorIds = signal<string[]>([]);
+  public readonly showingClientVendorDiscoveryModal = signal(false);
+  public readonly selectedClientVendorDiscoveryItem = signal<ClientVendorDiscoveryItem | null>(null);
+  public readonly loadingClientUnpaidReminders = signal(false);
+  public readonly clientUnpaidReminders = signal<ClientUnpaidReminder[]>([]);
 
-  protected readonly alertMessage = signal('');
-  protected readonly alertType = signal<AlertType>('info');
-  protected readonly toasts = signal<AppToast[]>([]);
-  protected readonly wsStatus = signal<'connecting' | 'connected' | 'closed' | 'error'>('connecting');
-  protected readonly updatingAccount = signal(false);
-  protected readonly webAuthnSupported = signal(false);
-  protected readonly enrollingAccessKey = signal(false);
-  protected readonly signingInWithAccessKey = signal(false);
+  public readonly alertMessage = signal('');
+  public readonly alertType = signal<AlertType>('info');
+  public readonly toasts = signal<AppToast[]>([]);
+  public readonly wsStatus = signal<'connecting' | 'connected' | 'closed' | 'error'>('connecting');
+  public readonly updatingAccount = signal(false);
+  public readonly webAuthnSupported = signal(false);
+  public readonly enrollingAccessKey = signal(false);
+  public readonly signingInWithAccessKey = signal(false);
 
-  protected readonly wsBadgeClass = computed(() => {
+  public readonly wsBadgeClass = computed(() => {
     switch (this.wsStatus()) {
       case 'connected':
         return 'text-bg-success';
@@ -301,10 +308,10 @@ export class App implements OnInit, OnDestroy {
     }
   });
 
-  protected readonly isAdmin = computed(() => this.sessionUser()?.role === 'admin');
-  protected readonly isVendor = computed(() => this.sessionUser()?.role === 'vendor');
-  protected readonly isClient = computed(() => this.sessionUser()?.role === 'client');
-  protected readonly selectedVendorBillLabel = computed(() => {
+  public readonly isAdmin = computed(() => this.sessionUser()?.role === 'admin');
+  public readonly isVendor = computed(() => this.sessionUser()?.role === 'vendor');
+  public readonly isClient = computed(() => this.sessionUser()?.role === 'client');
+  public readonly selectedVendorBillLabel = computed(() => {
     const selected = this.vendorOrderSummaries().find((order) => order.key === this.selectedVendorOrderKey());
     if (!selected) {
       return this.t('dashboard.selectBill');
@@ -312,7 +319,7 @@ export class App implements OnInit, OnDestroy {
 
     return `${selected.organisation} - ${selected.totalPrice.toFixed(2)} ${selected.currency === 'EUR' ? '€' : selected.currency}`;
   });
-  protected readonly selectedClientBillLabel = computed(() => {
+  public readonly selectedClientBillLabel = computed(() => {
     const selected = this.clientCartSummaries().find((bill) => bill.key === this.selectedClientCartKey());
     if (!selected) {
       return this.t('dashboard.selectBill');
@@ -320,13 +327,13 @@ export class App implements OnInit, OnDestroy {
 
     return `${selected.organisation} - ${selected.totalPrice.toFixed(2)} ${selected.currency === 'EUR' ? '€' : selected.currency}`;
   });
-  protected readonly selectedAdminClient = computed(() => {
+  public readonly selectedAdminClient = computed(() => {
     return this.adminClients().find((client) => client.id === this.selectedAdminClientId()) ?? null;
   });
-  protected readonly selectedAdminVendor = computed(() => {
+  public readonly selectedAdminVendor = computed(() => {
     return this.adminVendors().find((vendor) => vendor.id === this.selectedAdminVendorId()) ?? null;
   });
-  protected readonly selectedClientAssignedVendors = computed(() => {
+  public readonly selectedClientAssignedVendors = computed(() => {
     const selectedClient = this.selectedAdminClient();
     if (!selectedClient) {
       return [];
@@ -335,7 +342,7 @@ export class App implements OnInit, OnDestroy {
     const vendorIds = new Set(selectedClient.vendorIds);
     return this.adminVendors().filter((vendor) => vendorIds.has(vendor.id));
   });
-  protected readonly selectedVendorAssignedClients = computed(() => {
+  public readonly selectedVendorAssignedClients = computed(() => {
     const selectedVendor = this.selectedAdminVendor();
     if (!selectedVendor) {
       return [];
@@ -344,36 +351,36 @@ export class App implements OnInit, OnDestroy {
     const clientIds = new Set(selectedVendor.clientIds);
     return this.adminClients().filter((client) => clientIds.has(client.id));
   });
-  protected readonly selectableAdminClients = computed(() => {
+  public readonly selectableAdminClients = computed(() => {
     return this.adminClients().filter((client) => client.isActive);
   });
-  protected readonly selectableAdminVendors = computed(() => {
+  public readonly selectableAdminVendors = computed(() => {
     return this.adminVendors().filter((vendor) => vendor.isActive);
   });
-  protected readonly hasUnreadVendorBillMessages = computed(() => {
+  public readonly hasUnreadVendorBillMessages = computed(() => {
     return this.vendorBillMessages().some((message) => !message.isRead);
   });
 
-  protected readonly filteredOrderCatalogItems = computed(() => {
+  public readonly filteredOrderCatalogItems = computed(() => {
     return this.getVisibleOrderCatalogItems(
       this.selectedOrderCategory(),
       this.selectedOrderVendor()
     );
   });
 
-  protected readonly favoriteOrderCatalogItems = computed(() => {
+  public readonly favoriteOrderCatalogItems = computed(() => {
     const favoriteSet = new Set(this.favoriteMerchandiseIds());
     const favoriteItems = this.orderCatalogItems().filter((item) => favoriteSet.has(item.id));
     return this.sortOrderCatalogItems(favoriteItems);
   });
 
-  protected readonly orderItemsForSelectedTab = computed(() => {
+  public readonly orderItemsForSelectedTab = computed(() => {
     return this.selectedOrderTab() === 'favorites'
       ? this.favoriteOrderCatalogItems()
       : this.filteredOrderCatalogItems();
   });
 
-  protected readonly orderVendors = computed<OrderVendorOption[]>(() => {
+  public readonly orderVendors = computed<OrderVendorOption[]>(() => {
     const namesById = new Map<string, string>();
     for (const item of this.orderCatalogItems()) {
       if (!namesById.has(item.vendorId)) {
@@ -386,7 +393,7 @@ export class App implements OnInit, OnDestroy {
       .sort((left, right) => left.name.localeCompare(right.name));
   });
 
-  protected readonly sortedCartItems = computed(() => {
+  public readonly sortedCartItems = computed(() => {
     const groupBy = this.cartGroupBy();
 
     return [...this.cart().items].sort((left, right) => {
@@ -402,7 +409,7 @@ export class App implements OnInit, OnDestroy {
     });
   });
 
-  protected readonly sortedStockItems = computed(() => {
+  public readonly sortedStockItems = computed(() => {
     const key = this.stockSortKey();
     const direction = this.stockSortDirection();
     const factor = direction === 'asc' ? 1 : -1;
@@ -417,238 +424,39 @@ export class App implements OnInit, OnDestroy {
     });
   });
 
-  protected readonly stockCategories = computed(() => {
+  public readonly stockCategories = computed(() => {
     return [...new Set(this.stockItems().map((item) => item.category).filter(Boolean))]
       .sort((left, right) => left.localeCompare(right));
   });
 
-  protected readonly activatedOrdersChart = computed(() => {
-    const rows = this.activatedOrdersStats();
-    if (rows.length === 0) {
-      return null;
-    }
+  public readonly activatedOrdersChart = computed(() => buildActivatedOrdersChart(this.activatedOrdersStats()));
 
-    const width = 860;
-    const height = 320;
-    const marginLeft = 48;
-    const marginRight = 56;
-    const marginTop = 20;
-    const marginBottom = 34;
-    const plotWidth = width - marginLeft - marginRight;
-    const plotHeight = height - marginTop - marginBottom;
-    const maxOrderCount = Math.max(1, ...rows.map((row) => Number(row.orderCount ?? 0)));
-    const maxTotalAmount = Math.max(1, ...rows.map((row) => Number(row.totalAmount ?? 0)));
-    const xDenominator = Math.max(1, rows.length - 1);
-
-    const countPoints = rows.map((row, index) => {
-      const x = marginLeft + (index / xDenominator) * plotWidth;
-      const y = marginTop + (1 - Number(row.orderCount ?? 0) / maxOrderCount) * plotHeight;
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    });
-
-    const amountPoints = rows.map((row, index) => {
-      const x = marginLeft + (index / xDenominator) * plotWidth;
-      const y = marginTop + (1 - Number(row.totalAmount ?? 0) / maxTotalAmount) * plotHeight;
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    });
-
-    const tickCount = 4;
-    const leftTicks = Array.from({ length: tickCount + 1 }, (_unused, index) => {
-      const ratio = index / tickCount;
-      const y = marginTop + (1 - ratio) * plotHeight;
-      const value = Math.round(ratio * maxOrderCount);
-      return { y, label: String(value) };
-    });
-
-    const rightTicks = Array.from({ length: tickCount + 1 }, (_unused, index) => {
-      const ratio = index / tickCount;
-      const y = marginTop + (1 - ratio) * plotHeight;
-      const value = ratio * maxTotalAmount;
-      return { y, label: value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) };
-    });
-
-    return {
-      width,
-      height,
-      marginLeft,
-      marginRight,
-      marginTop,
-      marginBottom,
-      countPolyline: countPoints.join(' '),
-      amountPolyline: amountPoints.join(' '),
-      firstDay: rows[0].day,
-      lastDay: rows[rows.length - 1].day,
-      maxOrderCount,
-      maxTotalAmount,
-      leftTicks,
-      rightTicks
-    };
-  });
-
-  protected readonly sortedActivatedOrdersStatsTableRows = computed(() => {
+  public readonly sortedActivatedOrdersStatsTableRows = computed(() => {
     return [...this.activatedOrdersStats()].sort((left, right) => right.day.localeCompare(left.day));
   });
 
-  protected readonly activatedOrdersStatsPageCount = computed(() => {
+  public readonly activatedOrdersStatsPageCount = computed(() => {
     return Math.max(1, Math.ceil(this.sortedActivatedOrdersStatsTableRows().length / this.activatedOrdersStatsPageSize));
   });
 
-  protected readonly paginatedActivatedOrdersStatsTableRows = computed(() => {
+  public readonly paginatedActivatedOrdersStatsTableRows = computed(() => {
     const pageIndex = Math.min(this.activatedOrdersStatsPage(), this.activatedOrdersStatsPageCount() - 1);
     const start = pageIndex * this.activatedOrdersStatsPageSize;
     return this.sortedActivatedOrdersStatsTableRows().slice(start, start + this.activatedOrdersStatsPageSize);
   });
 
-  protected readonly vendorCategorySalesPie = computed(() => {
-    const rows = this.vendorCategorySalesStats().filter((row) => Number(row.totalAmount ?? 0) > 0);
-    if (rows.length === 0) {
-      return null;
-    }
+  public readonly vendorCategorySalesPie = computed(() => buildVendorCategorySalesPie(this.vendorCategorySalesStats()));
 
-    const totalAmount = rows.reduce((sum, row) => sum + Number(row.totalAmount ?? 0), 0);
-    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
-      return null;
-    }
+  public readonly vendorClientSalesBarChart = computed(() => buildVendorClientSalesBarChart(this.vendorClientSalesStats()));
 
-    const colors = ['#0d6efd', '#198754', '#dc3545', '#fd7e14', '#6f42c1', '#20c997', '#d63384', '#ffc107'];
-    const width = 420;
-    const height = 300;
-    const cx = 150;
-    const cy = 150;
-    const radius = 110;
+  public readonly localCartAggregates = computed(() => buildLocalCartAggregates(this.cart(), this.cartGroupBy()));
 
-    let startAngle = -Math.PI / 2;
-    const slices = rows.map((row, index) => {
-      const amount = Number(row.totalAmount ?? 0);
-      const ratio = amount / totalAmount;
-      const angle = ratio * Math.PI * 2;
-      const endAngle = startAngle + angle;
-      const color = colors[index % colors.length];
-
-      const slice = {
-        category: row.category,
-        amount,
-        percent: ratio * 100,
-        currency: row.currency,
-        color,
-        path: '',
-        fullCircle: false
-      };
-
-      if (rows.length === 1) {
-        slice.fullCircle = true;
-      } else {
-        const x1 = cx + radius * Math.cos(startAngle);
-        const y1 = cy + radius * Math.sin(startAngle);
-        const x2 = cx + radius * Math.cos(endAngle);
-        const y2 = cy + radius * Math.sin(endAngle);
-        const largeArcFlag = angle > Math.PI ? 1 : 0;
-        slice.path = `M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
-      }
-
-      startAngle = endAngle;
-      return slice;
-    });
-
-    return {
-      width,
-      height,
-      cx,
-      cy,
-      radius,
-      totalAmount: Number(totalAmount.toFixed(2)),
-      slices
-    };
-  });
-
-  protected readonly vendorClientSalesBarChart = computed(() => {
-    const rows = this.vendorClientSalesStats().filter((row) => Number(row.totalAmount ?? 0) > 0);
-    if (rows.length === 0) {
-      return null;
-    }
-
-    const width = 860;
-    const height = 360;
-    const marginLeft = 56;
-    const marginRight = 20;
-    const marginTop = 20;
-    const marginBottom = 90;
-    const plotWidth = width - marginLeft - marginRight;
-    const plotHeight = height - marginTop - marginBottom;
-    const maxAmount = Math.max(1, ...rows.map((row) => Number(row.totalAmount ?? 0)));
-    const barGap = 8;
-    const barWidth = Math.max(10, (plotWidth - barGap * (rows.length - 1)) / rows.length);
-
-    const bars = rows.map((row, index) => {
-      const x = marginLeft + index * (barWidth + barGap);
-      const value = Number(row.totalAmount ?? 0);
-      const barHeight = (value / maxAmount) * plotHeight;
-      const y = marginTop + (plotHeight - barHeight);
-      const label = row.clientName.length > 18 ? `${row.clientName.slice(0, 15)}...` : row.clientName;
-      return {
-        clientId: row.clientId,
-        clientName: row.clientName,
-        label,
-        amount: value,
-        x,
-        y,
-        width: barWidth,
-        height: barHeight
-      };
-    });
-
-    const yTicks = Array.from({ length: 5 }, (_unused, index) => {
-      const ratio = index / 4;
-      const y = marginTop + (1 - ratio) * plotHeight;
-      const value = ratio * maxAmount;
-      return {
-        y,
-        label: value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-      };
-    });
-
-    return {
-      width,
-      height,
-      marginLeft,
-      marginRight,
-      marginTop,
-      marginBottom,
-      plotHeight,
-      bars,
-      yTicks
-    };
-  });
-
-  protected readonly localCartAggregates = computed(() => {
-    const groupBy = this.cartGroupBy();
-    const groups = new Map<string, { key: string; label: string; total: number }>();
-
-    for (const item of this.cart().items) {
-      const key = groupBy === 'vendor' ? item.vendorId : item.category;
-      const label = groupBy === 'vendor' ? item.vendorName : item.category;
-      const current = groups.get(key);
-
-      if (current) {
-        current.total = Number((current.total + item.lineTotal).toFixed(2));
-      } else {
-        groups.set(key, {
-          key,
-          label,
-          total: Number(item.lineTotal.toFixed(2))
-        });
-      }
-    }
-
-    return [...groups.values()].sort((left, right) => left.label.localeCompare(right.label));
-  });
-
-  protected readonly loginForm = this.formBuilder.nonNullable.group({
+  public readonly loginForm = this.formBuilder.nonNullable.group({
     username: ['', [Validators.required]],
     password: ['', [Validators.required]]
   });
 
-  protected readonly subscriptionForm = this.formBuilder.nonNullable.group({
+  public readonly subscriptionForm = this.formBuilder.nonNullable.group({
     role: 'vendor' as SignupRole,
     username: this.formBuilder.nonNullable.control('', {
       validators: [Validators.required],
@@ -667,7 +475,7 @@ export class App implements OnInit, OnDestroy {
     password: ['', [Validators.required, Validators.minLength(8)]]
   });
 
-  protected readonly accountForm = this.formBuilder.nonNullable.group({
+  public readonly accountForm = this.formBuilder.nonNullable.group({
     firstName: ['', [Validators.required]],
     lastName: ['', [Validators.required]],
     organisation: ['', [Validators.required]],
@@ -680,7 +488,7 @@ export class App implements OnInit, OnDestroy {
     businessRegistrationId: ['', [Validators.required, Validators.pattern(/^\d{13}$/)]]
   });
 
-  protected readonly stockForm = this.formBuilder.nonNullable.group({
+  public readonly stockForm = this.formBuilder.nonNullable.group({
     name: ['', [Validators.required]],
     reference: ['', [Validators.required]],
     price: [0, [Validators.required, Validators.min(0)]],
@@ -689,12 +497,12 @@ export class App implements OnInit, OnDestroy {
     category: ['', [Validators.required]]
   });
 
-  protected readonly addToCartForm = this.formBuilder.nonNullable.group({
+  public readonly addToCartForm = this.formBuilder.nonNullable.group({
     merchandiseId: ['', [Validators.required]],
     quantity: [1, [Validators.required, Validators.min(1)]]
   });
 
-  protected readonly vendorRefundForm = this.formBuilder.nonNullable.group({
+  public readonly vendorRefundForm = this.formBuilder.nonNullable.group({
     clientId: ['', [Validators.required]],
     amount: [0.01, [Validators.required, Validators.min(0.01)]],
     comment: ['', [Validators.required, Validators.maxLength(32)]]
@@ -710,17 +518,6 @@ export class App implements OnInit, OnDestroy {
       }
     });
     this.connectSocket();
-
-    if (this.page() === 'admin') {
-      void this.loadPendingUsers();
-      void this.loadAdminAssociations();
-      void this.loadAdminBillOverdueDays();
-      void this.loadAdminAppStyleProfile();
-    }
-
-    if (this.page() === 'statistics') {
-      void this.loadActivatedOrdersStats();
-    }
 
     if (this.page() === 'vendor-statistics') {
       void this.loadVendorCategorySalesStats();
@@ -742,11 +539,6 @@ export class App implements OnInit, OnDestroy {
       void this.loadClientVendorDiscovery();
     }
 
-    if (this.page() === 'dashboard' && this.isClient()) {
-      void this.loadClientUnpaidReminders();
-      void this.loadClientBillVendors();
-    }
-
     if (this.page() === 'account') {
       const user = this.sessionUser();
       if (user) {
@@ -764,6 +556,52 @@ export class App implements OnInit, OnDestroy {
         });
       }
       void this.loadAccessKeys();
+    }
+  }
+
+  public activateRoutedPage(page: PageName): void {
+    this.page.set(page);
+
+    if (page === 'admin') {
+      void this.loadPendingUsers();
+      void this.loadAdminAssociations();
+      void this.loadAdminBillOverdueDays();
+      void this.loadAdminAppStyleProfile();
+      return;
+    }
+
+    if (page === 'statistics') {
+      void this.loadActivatedOrdersStats();
+      return;
+    }
+
+    if (page === 'stocks') {
+      if (this.socket?.readyState === WebSocket.OPEN) {
+        void this.loadStocks();
+      }
+      return;
+    }
+
+    if (page === 'order') {
+      if (this.socket?.readyState === WebSocket.OPEN) {
+        void this.refreshOrderPage();
+      }
+      return;
+    }
+
+    if (page === 'dashboard') {
+      if (this.isClient()) {
+        void this.loadClientUnpaidReminders();
+        if (this.socket?.readyState === WebSocket.OPEN) {
+          void this.loadClientDashboardCarts();
+          void this.loadClientBillVendors();
+        }
+      }
+
+      if (this.isVendor() && this.socket?.readyState === WebSocket.OPEN) {
+        void this.refreshVendorBillsView();
+        void this.loadVendorBillMessages();
+      }
     }
   }
 
@@ -799,7 +637,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected dismissToast(toastId: number): void {
+  public dismissToast(toastId: number): void {
     const timer = this.toastTimers.get(toastId);
     if (timer) {
       clearTimeout(timer);
@@ -809,7 +647,7 @@ export class App implements OnInit, OnDestroy {
     this.toasts.set(this.toasts().filter((toast) => toast.id !== toastId));
   }
 
-  protected async submitLogin(): Promise<void> {
+  public async submitLogin(): Promise<void> {
     if (this.loginForm.invalid) {
       this.setAlert('danger', this.t('alerts.login.enterCredentials'));
       return;
@@ -833,7 +671,7 @@ export class App implements OnInit, OnDestroy {
     window.location.assign(payload.redirect ?? '/dashboard');
   }
 
-  protected async signInWithAccessKey(): Promise<void> {
+  public async signInWithAccessKey(): Promise<void> {
     if (!this.webAuthnSupported()) {
       this.setAlert('danger', this.t('alerts.webauthn.notSupported'));
       return;
@@ -875,7 +713,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async submitSubscription(): Promise<void> {
+  public async submitSubscription(): Promise<void> {
     const usernameControl = this.subscriptionForm.controls.username;
     this.subscriptionForm.markAllAsTouched();
     usernameControl.markAsTouched();
@@ -924,7 +762,7 @@ export class App implements OnInit, OnDestroy {
     }, 1200);
   }
 
-  protected async submitAccount(): Promise<void> {
+  public async submitAccount(): Promise<void> {
     if (!this.sessionUser()) {
       window.location.assign('/login');
       return;
@@ -975,7 +813,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async enrollAccessKey(): Promise<void> {
+  public async enrollAccessKey(): Promise<void> {
     if (!this.sessionUser()) {
       window.location.assign('/login');
       return;
@@ -1022,7 +860,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async loadAccessKeys(): Promise<void> {
+  public async loadAccessKeys(): Promise<void> {
     if (!this.sessionUser()) {
       return;
     }
@@ -1043,11 +881,11 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected isDeletingAccessKey(accessKeyId: string): boolean {
+  public isDeletingAccessKey(accessKeyId: string): boolean {
     return this.deletingAccessKeyIds().includes(accessKeyId);
   }
 
-  protected async removeAccessKey(accessKeyId: string): Promise<void> {
+  public async removeAccessKey(accessKeyId: string): Promise<void> {
     if (this.isDeletingAccessKey(accessKeyId)) {
       return;
     }
@@ -1071,7 +909,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async loadActivatedOrdersStats(): Promise<void> {
+  public async loadActivatedOrdersStats(): Promise<void> {
     if (!this.isAdmin()) {
       this.setAlert('danger', this.t('admin.onlyAdmins'));
       return;
@@ -1094,7 +932,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected showPreviousActivatedOrdersStatsPage(): void {
+  public showPreviousActivatedOrdersStatsPage(): void {
     if (this.activatedOrdersStatsPage() === 0) {
       return;
     }
@@ -1102,7 +940,7 @@ export class App implements OnInit, OnDestroy {
     this.activatedOrdersStatsPage.update((page) => Math.max(0, page - 1));
   }
 
-  protected showNextActivatedOrdersStatsPage(): void {
+  public showNextActivatedOrdersStatsPage(): void {
     if (this.activatedOrdersStatsPage() >= this.activatedOrdersStatsPageCount() - 1) {
       return;
     }
@@ -1110,17 +948,17 @@ export class App implements OnInit, OnDestroy {
     this.activatedOrdersStatsPage.update((page) => Math.min(this.activatedOrdersStatsPageCount() - 1, page + 1));
   }
 
-  protected setVendorStatsFromDate(value: string): void {
+  public setVendorStatsFromDate(value: string): void {
     this.vendorStatsFromDate.set(value);
     void this.loadVendorCategorySalesStats();
   }
 
-  protected setVendorStatsToDate(value: string): void {
+  public setVendorStatsToDate(value: string): void {
     this.vendorStatsToDate.set(value);
     void this.loadVendorCategorySalesStats();
   }
 
-  protected async loadVendorCategorySalesStats(): Promise<void> {
+  public async loadVendorCategorySalesStats(): Promise<void> {
     if (!this.isVendor()) {
       this.setAlert('danger', this.t('stocks.onlyVendors'));
       return;
@@ -1163,7 +1001,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async loadVendorOverdueBills(): Promise<void> {
+  public async loadVendorOverdueBills(): Promise<void> {
     if (!this.isVendor()) {
       this.setAlert('danger', this.t('stocks.onlyVendors'));
       return;
@@ -1190,7 +1028,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async loadVendorRefundClients(): Promise<void> {
+  public async loadVendorRefundClients(): Promise<void> {
     if (!this.isVendor()) {
       this.setAlert('danger', this.t('alerts.refunds.onlyVendorsAccess'));
       return;
@@ -1216,7 +1054,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async loadVendorMonthlySummaryClients(): Promise<void> {
+  public async loadVendorMonthlySummaryClients(): Promise<void> {
     if (!this.isVendor()) {
       this.setAlert('danger', this.t('stocks.onlyVendors'));
       return;
@@ -1241,7 +1079,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async loadVendorMonthlySummary(): Promise<void> {
+  public async loadVendorMonthlySummary(): Promise<void> {
     if (!this.isVendor()) {
       this.setAlert('danger', this.t('stocks.onlyVendors'));
       return;
@@ -1291,7 +1129,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async submitVendorRefund(): Promise<void> {
+  public async submitVendorRefund(): Promise<void> {
     if (!this.isVendor()) {
       this.setAlert('danger', this.t('alerts.refunds.onlyVendorsAccess'));
       return;
@@ -1348,15 +1186,15 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected isSendingUnpaidReminder(clientId: string): boolean {
+  public isSendingUnpaidReminder(clientId: string): boolean {
     return this.sendingUnpaidReminderClientIds().includes(clientId);
   }
 
-  protected isReminderSentForClient(clientId: string): boolean {
+  public isReminderSentForClient(clientId: string): boolean {
     return this.remindedOverdueBillClientIds().includes(clientId);
   }
 
-  protected async sendUnpaidReminder(group: VendorOverdueBillGroup): Promise<void> {
+  public async sendUnpaidReminder(group: VendorOverdueBillGroup): Promise<void> {
     if (!this.isVendor()) {
       this.setAlert('danger', this.t('stocks.onlyVendors'));
       return;
@@ -1395,12 +1233,12 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected getVendorOverdueBillPenaltyPercent(key: string): number {
+  public getVendorOverdueBillPenaltyPercent(key: string): number {
     const value = this.vendorOverdueBillPenaltyPercentByKey()[key];
     return Number.isInteger(value) && value >= 1 && value <= 50 ? value : 10;
   }
 
-  protected setVendorOverdueBillPenaltyPercent(key: string, rawValue: string): void {
+  public setVendorOverdueBillPenaltyPercent(key: string, rawValue: string): void {
     const numeric = Number(rawValue);
     const nextValue = Number.isInteger(numeric) && numeric >= 1 && numeric <= 50 ? numeric : 10;
     this.vendorOverdueBillPenaltyPercentByKey.set({
@@ -1409,11 +1247,11 @@ export class App implements OnInit, OnDestroy {
     });
   }
 
-  protected isApplyingVendorOverduePenalty(key: string): boolean {
+  public isApplyingVendorOverduePenalty(key: string): boolean {
     return this.applyingVendorOverduePenaltyKeys().includes(key);
   }
 
-  protected async applyVendorOverdueBillPenalty(bill: VendorOverdueBill, event?: Event): Promise<void> {
+  public async applyVendorOverdueBillPenalty(bill: VendorOverdueBill, event?: Event): Promise<void> {
     event?.stopPropagation();
 
     if (!this.isVendor()) {
@@ -1466,7 +1304,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async loadClientUnpaidReminders(): Promise<void> {
+  public async loadClientUnpaidReminders(): Promise<void> {
     if (!this.isClient()) {
       return;
     }
@@ -1486,7 +1324,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async loadClientVendorDiscovery(): Promise<void> {
+  public async loadClientVendorDiscovery(): Promise<void> {
     if (!this.isClient()) {
       this.setAlert('danger', this.t('findVendors.onlyClients'));
       return;
@@ -1507,11 +1345,11 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected isAssigningClientVendor(vendorId: string): boolean {
+  public isAssigningClientVendor(vendorId: string): boolean {
     return this.assigningClientVendorIds().includes(vendorId);
   }
 
-  protected async assignClientVendor(vendorId: string, event?: Event): Promise<void> {
+  public async assignClientVendor(vendorId: string, event?: Event): Promise<void> {
     event?.stopPropagation();
 
     if (!this.isClient()) {
@@ -1556,17 +1394,17 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected openClientVendorDiscoveryDetails(vendor: ClientVendorDiscoveryItem): void {
+  public openClientVendorDiscoveryDetails(vendor: ClientVendorDiscoveryItem): void {
     this.selectedClientVendorDiscoveryItem.set(vendor);
     this.showingClientVendorDiscoveryModal.set(true);
   }
 
-  protected closeClientVendorDiscoveryDetails(): void {
+  public closeClientVendorDiscoveryDetails(): void {
     this.showingClientVendorDiscoveryModal.set(false);
     this.selectedClientVendorDiscoveryItem.set(null);
   }
 
-  protected onSubscriptionLogoSelected(event: Event): void {
+  public onSubscriptionLogoSelected(event: Event): void {
     const input = event.target as HTMLInputElement | null;
     const file = input?.files?.[0] ?? null;
     if (!file) {
@@ -1586,7 +1424,7 @@ export class App implements OnInit, OnDestroy {
     this.selectedSubscriptionLogoFile.set(file);
   }
 
-  protected onAccountLogoSelected(event: Event): void {
+  public onAccountLogoSelected(event: Event): void {
     const input = event.target as HTMLInputElement | null;
     const file = input?.files?.[0] ?? null;
     if (!file) {
@@ -1606,7 +1444,7 @@ export class App implements OnInit, OnDestroy {
     this.selectedAccountLogoFile.set(file);
   }
 
-  protected openAccountPage(): void {
+  public openAccountPage(): void {
     if (!this.sessionUser()) {
       return;
     }
@@ -1614,19 +1452,19 @@ export class App implements OnInit, OnDestroy {
     window.location.assign('/account');
   }
 
-  protected setLanguage(language: LanguageCode): void {
+  public setLanguage(language: LanguageCode): void {
     this.language.set(language);
     document.cookie = `lang=${language}; Path=/; Max-Age=31536000; SameSite=Lax`;
   }
 
-  protected cycleLanguage(): void {
+  public cycleLanguage(): void {
     const languages = this.availableLanguages;
     const currentIndex = languages.indexOf(this.language());
     const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % languages.length : 0;
     this.setLanguage(languages[nextIndex]);
   }
 
-  protected setThemeMode(mode: ThemeMode): void {
+  public setThemeMode(mode: ThemeMode): void {
     this.themeMode.set(mode);
     try {
       localStorage.setItem('theme-mode', mode);
@@ -1636,13 +1474,13 @@ export class App implements OnInit, OnDestroy {
     this.applyTheme();
   }
 
-  protected cycleThemeMode(): void {
+  public cycleThemeMode(): void {
     const mode = this.themeMode();
     const nextMode: ThemeMode = mode === 'light' ? 'dark' : mode === 'dark' ? 'system' : 'light';
     this.setThemeMode(nextMode);
   }
 
-  protected t(key: string): string {
+  public t(key: string): string {
     return this.config.translations?.[this.language()]?.[key] ?? key;
   }
 
@@ -1665,7 +1503,7 @@ export class App implements OnInit, OnDestroy {
     };
   }
 
-  protected async logout(): Promise<void> {
+  public async logout(): Promise<void> {
     if (!this.sessionUser()) {
       window.location.assign('/login');
       return;
@@ -1684,7 +1522,7 @@ export class App implements OnInit, OnDestroy {
     window.location.assign(payload?.redirect ?? '/login');
   }
 
-  protected async loadPendingUsers(): Promise<void> {
+  public async loadPendingUsers(): Promise<void> {
     if (!this.isAdmin()) {
       this.setAlert('danger', this.t('alerts.admin.onlyAdminsLoad'));
       return;
@@ -1728,15 +1566,15 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected isActivating(userId: string): boolean {
+  public isActivating(userId: string): boolean {
     return this.activatingUserIds().includes(userId);
   }
 
-  protected isDeletingPendingUser(userId: string): boolean {
+  public isDeletingPendingUser(userId: string): boolean {
     return this.deletingPendingUserIds().includes(userId);
   }
 
-  protected async activateUser(userId: string): Promise<void> {
+  public async activateUser(userId: string): Promise<void> {
     if (this.isActivating(userId)) {
       return;
     }
@@ -1761,16 +1599,16 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected openPendingUserDetails(user: PendingUser): void {
+  public openPendingUserDetails(user: PendingUser): void {
     this.selectedPendingUser.set(user);
     this.showingPendingUserModal.set(true);
   }
 
-  protected closePendingUserDetails(): void {
+  public closePendingUserDetails(): void {
     this.showingPendingUserModal.set(false);
   }
 
-  protected async deletePendingUser(userId: string, event?: Event): Promise<void> {
+  public async deletePendingUser(userId: string, event?: Event): Promise<void> {
     event?.stopPropagation();
     if (this.isDeletingPendingUser(userId)) {
       return;
@@ -1799,11 +1637,11 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected isRemovingAssociation(key: string): boolean {
+  public isRemovingAssociation(key: string): boolean {
     return this.removingAssociationKey() === key;
   }
 
-  protected async loadAdminAssociations(): Promise<void> {
+  public async loadAdminAssociations(): Promise<void> {
     if (!this.isAdmin()) {
       return;
     }
@@ -1847,7 +1685,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async loadAdminBillOverdueDays(): Promise<void> {
+  public async loadAdminBillOverdueDays(): Promise<void> {
     if (!this.isAdmin()) {
       return;
     }
@@ -1870,7 +1708,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async loadAdminAppStyleProfile(): Promise<void> {
+  public async loadAdminAppStyleProfile(): Promise<void> {
     if (!this.isAdmin()) {
       return;
     }
@@ -1892,7 +1730,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async saveAdminBillOverdueDays(rawValue: string): Promise<void> {
+  public async saveAdminBillOverdueDays(rawValue: string): Promise<void> {
     if (!this.isAdmin() || this.savingAdminBillOverdueDays()) {
       return;
     }
@@ -1925,7 +1763,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async saveAdminAppStyleProfile(profile: AppStyleProfile): Promise<void> {
+  public async saveAdminAppStyleProfile(profile: AppStyleProfile): Promise<void> {
     if (!this.isAdmin() || this.savingAdminAppStyleProfile()) {
       return;
     }
@@ -1959,7 +1797,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async runAdminDailyBillGeneration(rawDay: string): Promise<void> {
+  public async runAdminDailyBillGeneration(rawDay: string): Promise<void> {
     if (!this.isAdmin() || this.runningAdminBillGeneration()) {
       return;
     }
@@ -1992,7 +1830,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async assignVendorToClient(clientId: string, vendorId: string): Promise<void> {
+  public async assignVendorToClient(clientId: string, vendorId: string): Promise<void> {
     if (!clientId || !vendorId || this.assigningAssociation()) {
       return;
     }
@@ -2018,7 +1856,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async removeVendorFromClient(clientId: string, vendorId: string): Promise<void> {
+  public async removeVendorFromClient(clientId: string, vendorId: string): Promise<void> {
     if (!clientId || !vendorId) {
       return;
     }
@@ -2043,11 +1881,11 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected isDeletingStockItem(itemId: string): boolean {
+  public isDeletingStockItem(itemId: string): boolean {
     return this.deletingStockItemIds().includes(itemId);
   }
 
-  protected setStockSort(key: StockSortKey): void {
+  public setStockSort(key: StockSortKey): void {
     if (this.stockSortKey() === key) {
       this.stockSortDirection.set(this.stockSortDirection() === 'asc' ? 'desc' : 'asc');
       return;
@@ -2057,7 +1895,7 @@ export class App implements OnInit, OnDestroy {
     this.stockSortDirection.set('asc');
   }
 
-  protected startStockEdition(item: StockItem): void {
+  public startStockEdition(item: StockItem): void {
     this.editingStockItemId.set(item.id);
     this.selectedStockImageFile.set(null);
     this.resetStockImageInput();
@@ -2074,7 +1912,7 @@ export class App implements OnInit, OnDestroy {
     });
   }
 
-  protected cancelStockEdition(): void {
+  public cancelStockEdition(): void {
     this.editingStockItemId.set(null);
     this.selectedStockImageFile.set(null);
     this.resetStockImageInput();
@@ -2088,13 +1926,13 @@ export class App implements OnInit, OnDestroy {
     });
   }
 
-  protected onStockImageSelected(event: Event): void {
+  public onStockImageSelected(event: Event): void {
     const input = event.target as HTMLInputElement | null;
     const file = input?.files?.[0] ?? null;
     this.selectedStockImageFile.set(file);
   }
 
-  protected async loadStocks(): Promise<void> {
+  public async loadStocks(): Promise<void> {
     if (!this.isVendor()) {
       this.setAlert('danger', this.t('alerts.stocks.onlyVendorsAccess'));
       return;
@@ -2122,7 +1960,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async submitStock(): Promise<void> {
+  public async submitStock(): Promise<void> {
     if (!this.isVendor()) {
       this.setAlert('danger', this.t('alerts.stocks.onlyVendorsModify'));
       return;
@@ -2198,7 +2036,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async deleteStock(itemId: string): Promise<void> {
+  public async deleteStock(itemId: string): Promise<void> {
     if (this.isDeletingStockItem(itemId)) {
       return;
     }
@@ -2220,7 +2058,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected setVendorBillsDate(value: string): void {
+  public setVendorBillsDate(value: string): void {
     this.vendorBillsDate.set(value);
 
     if (!value) {
@@ -2235,7 +2073,7 @@ export class App implements OnInit, OnDestroy {
     void this.loadVendorDashboardOrders();
   }
 
-  protected setVendorBillsTab(value: string): void {
+  public setVendorBillsTab(value: string): void {
     const nextTab: VendorBillsTab = value === 'by-client-range' ? 'by-client-range' : 'by-date';
     if (this.vendorBillsTab() === nextTab) {
       return;
@@ -2252,21 +2090,21 @@ export class App implements OnInit, OnDestroy {
     void this.loadVendorDashboardOrders();
   }
 
-  protected setVendorBillsRangeFromDate(value: string): void {
+  public setVendorBillsRangeFromDate(value: string): void {
     this.vendorBillsRangeFromDate.set(value);
     if (this.vendorBillsTab() === 'by-client-range') {
       void this.loadVendorBillClientsForRange();
     }
   }
 
-  protected setVendorBillsRangeToDate(value: string): void {
+  public setVendorBillsRangeToDate(value: string): void {
     this.vendorBillsRangeToDate.set(value);
     if (this.vendorBillsTab() === 'by-client-range') {
       void this.loadVendorBillClientsForRange();
     }
   }
 
-  protected setSelectedVendorBillClientId(clientId: string): void {
+  public setSelectedVendorBillClientId(clientId: string): void {
     this.selectedVendorBillClientId.set(clientId);
     this.vendorBillsExpanded.set(false);
     if (!clientId) {
@@ -2282,7 +2120,7 @@ export class App implements OnInit, OnDestroy {
     void this.loadVendorDashboardOrdersByClientRange();
   }
 
-  protected async loadVendorDashboardOrders(): Promise<void> {
+  public async loadVendorDashboardOrders(): Promise<void> {
     if (!this.isVendor()) {
       this.setAlert('danger', this.t('alerts.bills.onlyVendors'));
       return;
@@ -2317,7 +2155,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async loadVendorBillClientsForRange(): Promise<void> {
+  public async loadVendorBillClientsForRange(): Promise<void> {
     if (!this.isVendor()) {
       this.setAlert('danger', this.t('alerts.bills.onlyVendors'));
       return;
@@ -2358,7 +2196,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async loadVendorDashboardOrdersByClientRange(): Promise<void> {
+  public async loadVendorDashboardOrdersByClientRange(): Promise<void> {
     if (!this.isVendor()) {
       this.setAlert('danger', this.t('alerts.bills.onlyVendors'));
       return;
@@ -2397,7 +2235,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async loadVendorBillMessages(): Promise<void> {
+  public async loadVendorBillMessages(): Promise<void> {
     if (!this.isVendor()) {
       return;
     }
@@ -2416,7 +2254,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async openVendorOrderDetails(selectedKey: string): Promise<void> {
+  public async openVendorOrderDetails(selectedKey: string): Promise<void> {
     this.vendorBillsExpanded.set(false);
     this.selectedVendorOrderKey.set(selectedKey);
 
@@ -2447,11 +2285,11 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected closeVendorOrderDetailsModal(): void {
+  public closeVendorOrderDetailsModal(): void {
     this.showingVendorOrderModal.set(false);
   }
 
-  protected openVendorBillMessage(key: string): void {
+  public openVendorBillMessage(key: string): void {
     this.vendorBillMessages.set(
       this.vendorBillMessages().map((message) =>
         message.key === key
@@ -2463,11 +2301,11 @@ export class App implements OnInit, OnDestroy {
     void this.openVendorOrderDetails(key);
   }
 
-  protected isDeletingVendorBillMessage(key: string): boolean {
+  public isDeletingVendorBillMessage(key: string): boolean {
     return this.deletingVendorBillMessageKeys().includes(key);
   }
 
-  protected async dismissVendorBillMessage(key: string): Promise<void> {
+  public async dismissVendorBillMessage(key: string): Promise<void> {
     if (!this.isVendor() || !key || this.isDeletingVendorBillMessage(key)) {
       return;
     }
@@ -2485,14 +2323,14 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected toggleVendorBillsExpanded(): void {
+  public toggleVendorBillsExpanded(): void {
     if (this.vendorOrderSummaries().length === 0) {
       return;
     }
     this.vendorBillsExpanded.set(!this.vendorBillsExpanded());
   }
 
-  protected openVendorBillPdf(): void {
+  public openVendorBillPdf(): void {
     const billKey = this.vendorOrderDetails()?.key || this.selectedVendorOrderKey();
     if (!billKey) {
       this.setAlert('danger', this.t('alerts.bills.selectBeforePrint'));
@@ -2502,7 +2340,7 @@ export class App implements OnInit, OnDestroy {
     window.open(`/api/bills/vendor/${encodeURIComponent(billKey)}/pdf`, '_blank', 'noopener');
   }
 
-  protected async setVendorBillSettled(settled: boolean): Promise<void> {
+  public async setVendorBillSettled(settled: boolean): Promise<void> {
     const details = this.vendorOrderDetails();
     if (!details || this.updatingVendorBillSettlement()) {
       return;
@@ -2530,7 +2368,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected setClientBillsDate(value: string): void {
+  public setClientBillsDate(value: string): void {
     this.clientBillsDate.set(value);
 
     if (!value) {
@@ -2545,7 +2383,7 @@ export class App implements OnInit, OnDestroy {
     void this.loadClientDashboardCarts();
   }
 
-  protected setClientBillsTab(value: string): void {
+  public setClientBillsTab(value: string): void {
     const nextTab = value === 'unpaid' ? 'unpaid' : 'by-date';
     this.clientBillsTab.set(nextTab);
 
@@ -2563,7 +2401,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async loadClientBillVendors(): Promise<void> {
+  public async loadClientBillVendors(): Promise<void> {
     if (!this.isClient()) {
       return;
     }
@@ -2593,7 +2431,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected setClientUnpaidVendorId(vendorId: string): void {
+  public setClientUnpaidVendorId(vendorId: string): void {
     this.selectedClientUnpaidVendorId.set(vendorId);
     this.clientUnpaidVendorBills.set([]);
     if (!vendorId) {
@@ -2603,7 +2441,7 @@ export class App implements OnInit, OnDestroy {
     void this.loadClientUnpaidVendorBills(vendorId);
   }
 
-  protected async loadClientUnpaidVendorBills(vendorId: string): Promise<void> {
+  public async loadClientUnpaidVendorBills(vendorId: string): Promise<void> {
     if (!this.isClient() || !vendorId) {
       return;
     }
@@ -2623,7 +2461,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async loadClientDashboardCarts(): Promise<void> {
+  public async loadClientDashboardCarts(): Promise<void> {
     if (!this.isClient()) {
       this.setAlert('danger', this.t('alerts.bills.onlyClients'));
       return;
@@ -2658,7 +2496,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async openClientCartDetails(selectedKey: string): Promise<void> {
+  public async openClientCartDetails(selectedKey: string): Promise<void> {
     this.clientBillsExpanded.set(false);
     this.selectedClientCartKey.set(selectedKey);
 
@@ -2691,19 +2529,19 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected closeClientCartDetailsModal(): void {
+  public closeClientCartDetailsModal(): void {
     this.showingClientCartModal.set(false);
     this.clientBillCommentDraft.set('');
   }
 
-  protected toggleClientBillsExpanded(): void {
+  public toggleClientBillsExpanded(): void {
     if (this.clientCartSummaries().length === 0) {
       return;
     }
     this.clientBillsExpanded.set(!this.clientBillsExpanded());
   }
 
-  protected openClientBillPdf(): void {
+  public openClientBillPdf(): void {
     const billKey = this.clientCartDetails()?.key || this.selectedClientCartKey();
     if (!billKey) {
       this.setAlert('danger', this.t('alerts.bills.selectBeforePrint'));
@@ -2713,7 +2551,7 @@ export class App implements OnInit, OnDestroy {
     window.open(`/api/bills/client/${encodeURIComponent(billKey)}/pdf`, '_blank', 'noopener');
   }
 
-  protected async setClientBillSettled(settled: boolean): Promise<void> {
+  public async setClientBillSettled(settled: boolean): Promise<void> {
     const details = this.clientCartDetails();
     if (!details || this.updatingClientBillSettlement()) {
       return;
@@ -2741,7 +2579,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async sendClientBillComment(): Promise<void> {
+  public async sendClientBillComment(): Promise<void> {
     const details = this.clientCartDetails();
     if (!details || this.sendingClientBillComment()) {
       return;
@@ -2936,34 +2774,34 @@ export class App implements OnInit, OnDestroy {
     this.vendorBillMessages.set(this.vendorBillMessages().filter((message) => message.key !== key));
   }
 
-  protected setSelectedOrderTab(tab: string): void {
+  public setSelectedOrderTab(tab: string): void {
     this.selectedOrderTab.set(tab === 'favorites' ? 'favorites' : 'catalog');
     this.ensureSelectedOrderItemIsVisible();
   }
 
-  protected setSelectedOrderCategory(category: string): void {
+  public setSelectedOrderCategory(category: string): void {
     this.selectedOrderCategory.set(category);
     this.ensureSelectedOrderItemIsVisible();
   }
 
-  protected setSelectedOrderVendor(vendorId: string): void {
+  public setSelectedOrderVendor(vendorId: string): void {
     this.selectedOrderVendor.set(vendorId);
     this.ensureSelectedOrderItemIsVisible();
   }
 
-  protected selectCatalogItem(merchandiseId: string): void {
+  public selectCatalogItem(merchandiseId: string): void {
     this.addToCartForm.controls.merchandiseId.setValue(merchandiseId);
   }
 
-  protected isFavoriteItem(merchandiseId: string): boolean {
+  public isFavoriteItem(merchandiseId: string): boolean {
     return this.favoriteMerchandiseIds().includes(merchandiseId);
   }
 
-  protected isTogglingFavorite(merchandiseId: string): boolean {
+  public isTogglingFavorite(merchandiseId: string): boolean {
     return this.togglingFavoriteItemIds().includes(merchandiseId);
   }
 
-  protected async toggleFavorite(merchandiseId: string, event?: Event): Promise<void> {
+  public async toggleFavorite(merchandiseId: string, event?: Event): Promise<void> {
     event?.stopPropagation();
 
     if (!this.isClient()) {
@@ -2996,25 +2834,25 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected getOrderPriceVariation(itemId: string): CatalogPriceVariation | null {
+  public getOrderPriceVariation(itemId: string): CatalogPriceVariation | null {
     return this.orderPriceVariations()[itemId] ?? null;
   }
 
-  protected setCartGroupBy(value: string): void {
+  public setCartGroupBy(value: string): void {
     const groupBy: CartGroupBy = value === 'category' ? 'category' : 'vendor';
     this.cartGroupBy.set(groupBy);
     this.cartValidation.set(null);
   }
 
-  protected isUpdatingCartItem(merchandiseId: string): boolean {
+  public isUpdatingCartItem(merchandiseId: string): boolean {
     return this.updatingCartItemIds().includes(merchandiseId);
   }
 
-  protected isRemovingCartItem(merchandiseId: string): boolean {
+  public isRemovingCartItem(merchandiseId: string): boolean {
     return this.removingCartItemIds().includes(merchandiseId);
   }
 
-  protected async setOrderDeliveryDate(value: string): Promise<void> {
+  public async setOrderDeliveryDate(value: string): Promise<void> {
     const normalizedValue = (value || '').trim() || getRelativeIsoDay(0);
     const previousDate = this.orderDeliveryDate();
     if (normalizedValue === previousDate) {
@@ -3047,7 +2885,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async refreshOrderPage(): Promise<void> {
+  public async refreshOrderPage(): Promise<void> {
     await Promise.all([this.loadOrderCatalog(), this.loadOrderCart()]);
   }
 
@@ -3064,7 +2902,7 @@ export class App implements OnInit, OnDestroy {
     await this.loadVendorDashboardOrders();
   }
 
-  protected async loadOrderCatalog(): Promise<void> {
+  public async loadOrderCatalog(): Promise<void> {
     if (!this.isClient()) {
       this.setAlert('danger', this.t('alerts.order.onlyClientsOrdering'));
       return;
@@ -3093,7 +2931,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async loadOrderCart(): Promise<void> {
+  public async loadOrderCart(): Promise<void> {
     if (!this.isClient()) {
       this.setAlert('danger', this.t('alerts.order.onlyClientsCarts'));
       return;
@@ -3128,7 +2966,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async addToCart(): Promise<void> {
+  public async addToCart(): Promise<void> {
     if (this.addToCartForm.invalid) {
       this.setAlert('danger', this.t('alerts.order.selectItemQuantity'));
       return;
@@ -3163,7 +3001,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async updateCartQuantity(item: CartItem, rawQuantity: string): Promise<void> {
+  public async updateCartQuantity(item: CartItem, rawQuantity: string): Promise<void> {
     if (this.isUpdatingCartItem(item.merchandiseId)) {
       return;
     }
@@ -3196,7 +3034,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async removeFromCart(item: CartItem): Promise<void> {
+  public async removeFromCart(item: CartItem): Promise<void> {
     if (this.isRemovingCartItem(item.merchandiseId)) {
       return;
     }
@@ -3222,7 +3060,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  protected async validateCart(): Promise<void> {
+  public async validateCart(): Promise<void> {
     if (!this.isClient()) {
       this.setAlert('danger', this.t('alerts.order.onlyClientsValidate'));
       return;
@@ -3914,8 +3752,12 @@ export class App implements OnInit, OnDestroy {
     return this.systemThemeMediaQuery?.matches ? 'dark' : 'light';
   }
 
+  public setStockImageInput(input: HTMLInputElement | null): void {
+    this.stockImageInput = input;
+  }
+
   private resetStockImageInput(): void {
-    const input = this.stockImageInput?.nativeElement;
+    const input = this.stockImageInput;
     if (input) {
       input.value = '';
     }

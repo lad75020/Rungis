@@ -211,7 +211,7 @@
           <div class="d-flex flex-column gap-2">
             @for (reminder of app.clientUnpaidReminders(); track reminder.vendorId + ':' + reminder.createdAt) {
               <div class="border rounded p-2 client-unpaid-reminder-row">
-                <span class="me-2">🔔</span>
+                <span class="me-2">!</span>
                 <span class="fw-bold text-danger me-2">{{ reminder.vendorName }}</span>
                 <span class="fw-bold text-danger">
                   {{ reminder.totalAmount | number: '1.2-2' }} {{ reminder.currency === 'EUR' ? '€' : reminder.currency }}
@@ -486,7 +486,7 @@
                 [attr.title]="app.t('dashboard.sendComment')"
                 (click)="app.sendClientBillComment()"
               >
-                📨
+                Send
               </button>
             </div>
           </div>

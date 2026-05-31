@@ -3096,8 +3096,10 @@ export class App implements OnInit, OnDestroy {
     }
 
     if (!this.config.wsToken) {
-      this.wsStatus.set('error');
-      this.setAlert('danger', this.t('alerts.ws.notAvailableOnPage'));
+      this.wsStatus.set('closed');
+      if (this.sessionUser()) {
+        this.setAlert('danger', this.t('alerts.ws.notAvailableOnPage'));
+      }
       return;
     }
 

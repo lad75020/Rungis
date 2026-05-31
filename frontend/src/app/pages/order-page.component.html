@@ -119,7 +119,7 @@
                   [attr.aria-label]="app.isFavoriteItem(item.id) ? app.t('order.removeFavorite') : app.t('order.addFavorite')"
                   (click)="app.toggleFavorite(item.id, $event)"
                 >
-                  ⭐
+                  ★
                 </button>
               </div>
             }
@@ -136,7 +136,7 @@
             @if (app.addingToCart()) {
               {{ app.t('order.adding') }}
             } @else {
-              <span class="order-add-plus-emoji" aria-hidden="true">➕</span>
+              <span class="order-add-plus-emoji" aria-hidden="true">+</span>
             }
           </button>
         </div>
@@ -216,7 +216,7 @@
                       (click)="app.updateCartQuantity(item, qtyInput.value)"
                       [disabled]="app.isUpdatingCartItem(item.merchandiseId)"
                     >
-                      {{ app.isUpdatingCartItem(item.merchandiseId) ? app.t('order.updating') : '🔄' }}
+                      {{ app.isUpdatingCartItem(item.merchandiseId) ? app.t('order.updating') : 'Update' }}
                     </button>
 
                     <button
@@ -227,7 +227,7 @@
                       (click)="app.removeFromCart(item)"
                       [disabled]="app.isRemovingCartItem(item.merchandiseId)"
                     >
-                      {{ app.isRemovingCartItem(item.merchandiseId) ? app.t('order.removing') : '🗑️' }}
+                      {{ app.isRemovingCartItem(item.merchandiseId) ? app.t('order.removing') : 'Delete' }}
                     </button>
                   </td>
                 </tr>

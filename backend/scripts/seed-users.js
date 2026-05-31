@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
-const mongoUrl = process.env.MONGO_URL ?? 'mongodb://127.0.0.1:27017/rungis';
+const mongoUrl = process.env.MONGO_URL ?? 'mongodb://192.168.1.80:27017/rungis';
 
 function randomIntInclusive(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;

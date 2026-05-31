@@ -1,4 +1,5 @@
 import type { PageName } from './app.types';
+import { SUPPORTED_PAGES } from './app.constants';
 
 const SUPPORTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif']);
 
@@ -21,22 +22,5 @@ export function isSupportedImageFile(file: File): boolean {
 }
 
 export function normalizePageName(value: string): PageName {
-  if (
-    value === 'subscribe' ||
-    value === 'dashboard' ||
-    value === 'admin' ||
-    value === 'statistics' ||
-    value === 'vendor-statistics' ||
-    value === 'vendor-monthly-summary' ||
-    value === 'vendor-overdue-bills' ||
-    value === 'vendor-refunds' ||
-    value === 'find-vendors' ||
-    value === 'stocks' ||
-    value === 'order' ||
-    value === 'account'
-  ) {
-    return value;
-  }
-
-  return 'login';
+  return SUPPORTED_PAGES.has(value as PageName) ? (value as PageName) : 'login';
 }

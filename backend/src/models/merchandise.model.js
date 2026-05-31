@@ -58,5 +58,6 @@ const merchandiseSchema = new mongoose.Schema(
 );
 
 merchandiseSchema.index({ category: 1, name: 1, reference: 1, vendorId: 1 }, { unique: true });
+merchandiseSchema.index({ vendorId: 1, createdAt: -1 });
 
 export const Merchandise = mongoose.model('Merchandise', merchandiseSchema);

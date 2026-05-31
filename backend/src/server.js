@@ -1,7 +1,5 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import fs from 'node:fs/promises';
-import { randomBytes } from 'node:crypto';
 
 import cookie from '@fastify/cookie';
 import formBody from '@fastify/formbody';
@@ -17,7 +15,11 @@ import Fastify from 'fastify';
 import mongoose from 'mongoose';
 import { createClient } from 'redis';
 
+import { createAngularAssetResolver } from './lib/angular-assets.js';
 import { closeAppSettingsStore, migrateLegacyAppSettingsFromMongo } from './lib/app-settings-store.js';
+import { registerSecurityHeaders } from './lib/http-security.js';
+import { loadRuntimeConfig } from './lib/runtime-config.js';
+import { createTranslationResolver } from './lib/translations.js';
 import { registerRoutes } from './routes/index.js';
 
 dotenv.config();
@@ -25,16 +27,7 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const env = {
-  host: process.env.HOST ?? '127.0.0.1',
-  port: Number(process.env.PORT ?? 3199),
-  mongoUrl: process.env.MONGO_URL ?? 'mongodb://127.0.0.1:27017/rungis',
-  redisUrl: process.env.REDIS_URL ?? 'redis://127.0.0.1:6379/5',
-  sessionSecret: process.env.SESSION_SECRET ?? 'dev-session-secret-change-me',
-  jwtSecret: process.env.JWT_SECRET ?? 'dev-jwt-secret-change-me',
-  nodeEnv: process.env.NODE_ENV ?? 'development',
-  trustProxy: ['1', 'true', 'yes', 'on'].includes((process.env.TRUST_PROXY ?? '').toLowerCase())
-};
+const env = loadRuntimeConfig();
 
 const app = Fastify({
   logger: true,
@@ -90,104 +83,14 @@ await app.register(staticPlugin, {
   prefix: '/public/'
 });
 
-app.addHook('onRequest', async (_request, reply) => {
-  const nonce = randomBytes(16).toString('base64');
-  const csp = [
-    "script-src 'nonce-" + nonce + "' https://static.cloudflareinsights.com",
-    "script-src-attr 'none'",
-    "object-src 'none'",
-    "base-uri 'self'"
-  ].join('; ');
-
-  reply.header('x-csp-nonce', nonce);
-  reply.header('content-security-policy', csp);
-  reply.locals.nonce = nonce;
-});
+registerSecurityHeaders(app);
 
 const angularBrowserPath = path.join(__dirname, 'public', 'angular', 'browser');
 const angularIndexPath = path.join(angularBrowserPath, 'index.html');
 const translationsPath = path.join(__dirname, 'i18n', 'translations.json');
-let cachedAngularAssets = {
-  mainJs: '/public/angular/browser/main.js',
-  primaryStylesCss: '/public/angular/browser/styles.css',
-  secondaryStylesCss: '/public/angular/browser/styles-secondary.css'
-};
-let cachedAngularAssetsMtimeMs = 0;
-let cachedTranslations = {
-  en: {},
-  fr: {}
-};
-let cachedTranslationsMtimeMs = 0;
 
-app.decorate('getAngularAssets', async () => {
-  try {
-    const stats = await fs.stat(angularIndexPath);
-    if (cachedAngularAssetsMtimeMs === stats.mtimeMs) {
-      return cachedAngularAssets;
-    }
-
-    const indexHtml = await fs.readFile(angularIndexPath, 'utf8');
-    const styleMatch = indexHtml.match(
-      /<link[^>]+rel=["']stylesheet["'][^>]+href=["']([^"']+)["']/i
-    );
-    const scriptMatch = indexHtml.match(
-      /<script[^>]+src=["']([^"']+)["'][^>]*type=["']module["'][^>]*><\/script>/i
-    ) ?? indexHtml.match(/<script[^>]+type=["']module["'][^>]+src=["']([^"']+)["'][^>]*><\/script>/i);
-
-    const toPublicPath = (assetPath, fallback) => {
-      if (!assetPath || typeof assetPath !== 'string') {
-        return fallback;
-      }
-
-      if (assetPath.startsWith('/public/')) {
-        return assetPath;
-      }
-
-      if (assetPath.startsWith('/')) {
-        return `/public/angular/browser${assetPath}`;
-      }
-
-      return `/public/angular/browser/${assetPath}`;
-    };
-
-    const browserFiles = await fs.readdir(angularBrowserPath);
-    const secondaryStyleFile = browserFiles.find((filename) => /^styles-secondary(?:-[^/]+)?\.css$/i.test(filename));
-
-    cachedAngularAssets = {
-      primaryStylesCss: toPublicPath(styleMatch?.[1], '/public/angular/browser/styles.css'),
-      secondaryStylesCss: secondaryStyleFile
-        ? `/public/angular/browser/${secondaryStyleFile}`
-        : '/public/angular/browser/styles-secondary.css',
-      mainJs: toPublicPath(scriptMatch?.[1], '/public/angular/browser/main.js')
-    };
-    cachedAngularAssetsMtimeMs = stats.mtimeMs;
-  } catch {
-    // Use static fallback if Angular build artifacts are unavailable.
-  }
-
-  return cachedAngularAssets;
-});
-
-app.decorate('getTranslations', async () => {
-  try {
-    const stats = await fs.stat(translationsPath);
-    if (cachedTranslationsMtimeMs === stats.mtimeMs) {
-      return cachedTranslations;
-    }
-
-    const raw = await fs.readFile(translationsPath, 'utf8');
-    const parsed = JSON.parse(raw);
-    cachedTranslations = {
-      en: parsed?.en ?? {},
-      fr: parsed?.fr ?? {}
-    };
-    cachedTranslationsMtimeMs = stats.mtimeMs;
-  } catch {
-    // Keep defaults if file is missing or invalid.
-  }
-
-  return cachedTranslations;
-});
+app.decorate('getAngularAssets', createAngularAssetResolver({ angularBrowserPath, angularIndexPath }));
+app.decorate('getTranslations', createTranslationResolver(translationsPath));
 
 app.decorate('issueWsToken', (request, page) => {
   const sessionUser = request.session.user;

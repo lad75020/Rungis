@@ -206,5 +206,6 @@ const billSchema = new mongoose.Schema(
 );
 
 billSchema.index({ date: 1, vendorId: 1, clientId: 1 }, { unique: true });
+billSchema.index({ vendorId: 1, clientId: 1, date: 1 });
 
 export const Bill = mongoose.model('Bill', billSchema);

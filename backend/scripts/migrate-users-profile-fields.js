@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
-const mongoUrl = process.env.MONGO_URL ?? 'mongodb://127.0.0.1:27017/rungis';
+const mongoUrl = process.env.MONGO_URL ?? 'mongodb://192.168.1.80:27017/rungis';
 
 const FIRST_NAMES = ['Emma', 'Noah', 'Lea', 'Hugo', 'Lina', 'Lucas', 'Chloe', 'Louis', 'Nora', 'Jules'];
 const LAST_NAMES = ['Martin', 'Bernard', 'Dubois', 'Thomas', 'Robert', 'Petit', 'Durand', 'Moreau', 'Laurent', 'Simon'];

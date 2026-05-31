@@ -165,4 +165,7 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+userSchema.index({ role: 1, isActive: 1, username: 1 });
+userSchema.index({ role: 1, isActive: 1, organisation: 1, username: 1 });
+
 export const User = mongoose.model('User', userSchema);

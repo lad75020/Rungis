@@ -1,5 +1,15 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, ElementRef, inject, OnDestroy, OnInit, signal, ViewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  ElementRef,
+  inject,
+  OnDestroy,
+  OnInit,
+  signal,
+  ViewChild
+} from '@angular/core';
 import {
   AbstractControl,
   AsyncValidatorFn,
@@ -8,7 +18,7 @@ import {
   ValidationErrors,
   Validators
 } from '@angular/forms';
-import { browserSupportsWebAuthn, startAuthentication, startRegistration } from '@simplewebauthn/browser';
+
 import {
   ACTIVATED_ORDERS_STATS_PAGE_SIZE,
   AVAILABLE_LANGUAGES,
@@ -65,11 +75,17 @@ import {
   isSupportedImageFile,
   normalizePageName
 } from './app.utils';
+import {
+  browserSupportsAccessKeys,
+  startAccessKeyAuthentication,
+  startAccessKeyRegistration
+} from './webauthn-client';
 
 @Component({
   selector: 'app-root',
   imports: [CommonModule, ReactiveFormsModule],
-  templateUrl: './app.html'
+  templateUrl: './app.html',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class App implements OnInit, OnDestroy {
   private readonly formBuilder = inject(FormBuilder);
@@ -687,7 +703,12 @@ export class App implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.applyAppStyleProfile(this.config.appStyleProfile ?? 'primary');
     this.initializeThemeMode();
-    this.webAuthnSupported.set(browserSupportsWebAuthn());
+    void browserSupportsAccessKeys().then((isSupported) => {
+      this.webAuthnSupported.set(isSupported);
+      if (!isSupported && this.page() === 'account') {
+        this.setAccountToast('warning', this.t('account.accessKeyNotSupported'));
+      }
+    });
     this.connectSocket();
 
     if (this.page() === 'admin') {
@@ -741,9 +762,6 @@ export class App implements OnInit, OnDestroy {
           businessDescription: user.businessDescription ?? '',
           businessRegistrationId: String(user.businessRegistrationId)
         });
-      }
-      if (!this.webAuthnSupported()) {
-        this.setAccountToast('warning', this.t('account.accessKeyNotSupported'));
       }
       void this.loadAccessKeys();
     }
@@ -833,9 +851,7 @@ export class App implements OnInit, OnDestroy {
         return;
       }
 
-      const authenticationResponse = await startAuthentication({
-        optionsJSON: optionsPayload.options
-      });
+      const authenticationResponse = await startAccessKeyAuthentication(optionsPayload.options);
 
       const verifyResponse = await fetch('/api/webauthn/authentication/verify', {
         method: 'POST',
@@ -982,9 +998,7 @@ export class App implements OnInit, OnDestroy {
         return;
       }
 
-      const registrationResponse = await startRegistration({
-        optionsJSON: optionsPayload.options
-      });
+      const registrationResponse = await startAccessKeyRegistration(optionsPayload.options);
 
       const verifyResponse = await fetch('/api/webauthn/enrollment/verify', {
         method: 'POST',

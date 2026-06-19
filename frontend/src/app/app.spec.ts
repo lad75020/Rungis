@@ -74,6 +74,20 @@ describe('App', () => {
     fixture.destroy();
   });
 
+  it('announces routed page changes on the open websocket', () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance as any;
+    const send = vi.fn();
+
+    vi.spyOn(app, 'loadStocks').mockResolvedValue(undefined);
+    app.socket = { readyState: WebSocket.OPEN, send, close: vi.fn() };
+
+    app.activateRoutedPage('stocks');
+
+    expect(send).toHaveBeenCalledWith(JSON.stringify({ type: 'ping', page: 'stocks' }));
+    fixture.destroy();
+  });
+
   it('uses a 10 second success toast for the client dashboard comment-sent message', () => {
     const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
     const fixture = TestBed.createComponent(App);

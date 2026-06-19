@@ -87,25 +87,36 @@ export function registerWebsocketRoutes(app, context, deps) {
         })
       );
 
-      if (decoded.page === 'order' && decoded.role === 'client' && mongoose.Types.ObjectId.isValid(decoded.sub)) {
-        orderConnections.set(socket, { clientId: decoded.sub.toString() });
-      }
+      const syncSocketPageRegistration = (pageInput) => {
+        const activePage = normalizeString(pageInput || decoded.page);
+        dropOrderConnection(socket);
+        dropStockConnection(socket);
+        dropAdminConnection(socket);
+        dropClientDashboardConnection(socket);
+        dropVendorDashboardConnection(socket);
 
-      if (decoded.page === 'stocks' && decoded.role === 'vendor' && mongoose.Types.ObjectId.isValid(decoded.sub)) {
-        stockConnections.set(socket, { vendorId: decoded.sub.toString() });
-      }
+        if (activePage === 'order' && decoded.role === 'client' && mongoose.Types.ObjectId.isValid(decoded.sub)) {
+          orderConnections.set(socket, { clientId: decoded.sub.toString() });
+        }
 
-      if (decoded.page === 'admin' && decoded.role === 'admin') {
-        adminConnections.set(socket, {});
-      }
+        if (activePage === 'stocks' && decoded.role === 'vendor' && mongoose.Types.ObjectId.isValid(decoded.sub)) {
+          stockConnections.set(socket, { vendorId: decoded.sub.toString() });
+        }
 
-      if (decoded.page === 'dashboard' && decoded.role === 'client' && mongoose.Types.ObjectId.isValid(decoded.sub)) {
-        clientDashboardConnections.set(socket, { clientId: decoded.sub.toString() });
-      }
+        if (activePage === 'admin' && decoded.role === 'admin') {
+          adminConnections.set(socket, {});
+        }
 
-      if (decoded.page === 'dashboard' && decoded.role === 'vendor' && mongoose.Types.ObjectId.isValid(decoded.sub)) {
-        vendorDashboardConnections.set(socket, { vendorId: decoded.sub.toString() });
-      }
+        if (activePage === 'dashboard' && decoded.role === 'client' && mongoose.Types.ObjectId.isValid(decoded.sub)) {
+          clientDashboardConnections.set(socket, { clientId: decoded.sub.toString() });
+        }
+
+        if (activePage === 'dashboard' && decoded.role === 'vendor' && mongoose.Types.ObjectId.isValid(decoded.sub)) {
+          vendorDashboardConnections.set(socket, { vendorId: decoded.sub.toString() });
+        }
+      };
+
+      syncSocketPageRegistration(decoded.page);
 
       const keepAliveTimer = setInterval(() => {
         try {
@@ -144,6 +155,7 @@ export function registerWebsocketRoutes(app, context, deps) {
           }
 
           if (payload.type === 'ping') {
+            syncSocketPageRegistration(payload.page);
             socket.send(JSON.stringify({ type: 'pong', at: new Date().toISOString() }));
             return;
           }

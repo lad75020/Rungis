@@ -1,10 +1,13 @@
 import {
   getAppSettingValueNumber,
-  setAppSettingValueNumber
+  getAppSettingValueString,
+  setAppSettingValueNumber,
+  setAppSettingValueString
 } from '../../lib/app-settings-store.js';
 
 export const RUNGIS_FEE_RATE_SETTING_KEY = 'rungisFeeRate';
 export const RUNGIS_VAT_RATE_SETTING_KEY = 'rungisVatRate';
+export const RUNGIS_PROCESSED_MONTHS_SETTING_KEY = 'rungisProcessedMonths';
 
 export function roundMoney(value) {
   const number = Number(value);
@@ -34,6 +37,7 @@ export function getPreviousUtcCalendarMonth(referenceDate = new Date()) {
   return {
     applicableYear: periodStart.getUTCFullYear(),
     applicableMonth: periodStart.getUTCMonth() + 1,
+    monthKey: formatRungisMonth(periodStart.getUTCFullYear(), periodStart.getUTCMonth() + 1),
     periodStart,
     periodEnd
   };
@@ -59,9 +63,49 @@ export function parseRungisMonth(value) {
   return {
     applicableYear,
     applicableMonth,
+    monthKey: formatRungisMonth(applicableYear, applicableMonth),
     periodStart: new Date(Date.UTC(applicableYear, applicableMonth - 1, 1)),
     periodEnd: new Date(Date.UTC(applicableYear, applicableMonth, 1))
   };
+}
+
+function normalizeProcessedMonthList(value) {
+  if (typeof value !== 'string' || !value.trim()) {
+    return [];
+  }
+  let parsed = [];
+  try {
+    const decoded = JSON.parse(value);
+    parsed = Array.isArray(decoded) ? decoded : [];
+  } catch {
+    parsed = value.split(',');
+  }
+  return [...new Set(parsed
+    .map((month) => parseRungisMonth(String(month ?? '').trim())?.monthKey)
+    .filter(Boolean))].sort();
+}
+
+export function getProcessedRungisBillMonths() {
+  return normalizeProcessedMonthList(getAppSettingValueString(RUNGIS_PROCESSED_MONTHS_SETTING_KEY));
+}
+
+export function hasProcessedRungisBillMonth(month) {
+  const parsed = parseRungisMonth(month);
+  return Boolean(parsed && getProcessedRungisBillMonths().includes(parsed.monthKey));
+}
+
+export function persistProcessedRungisBillMonth(month) {
+  const parsed = parseRungisMonth(month);
+  if (!parsed) {
+    return null;
+  }
+  const months = getProcessedRungisBillMonths();
+  if (!months.includes(parsed.monthKey)) {
+    months.push(parsed.monthKey);
+    months.sort();
+    setAppSettingValueString(RUNGIS_PROCESSED_MONTHS_SETTING_KEY, JSON.stringify(months));
+  }
+  return months;
 }
 
 export function getRungisBillingSettings() {
@@ -70,7 +114,8 @@ export function getRungisBillingSettings() {
   return {
     rungisFeeRate,
     vatRate,
-    configured: rungisFeeRate !== null && vatRate !== null
+    configured: rungisFeeRate !== null && vatRate !== null,
+    processedMonths: getProcessedRungisBillMonths()
   };
 }
 
@@ -82,5 +127,5 @@ export function setRungisBillingSettings(input) {
   }
   setAppSettingValueNumber(RUNGIS_FEE_RATE_SETTING_KEY, rungisFeeRate);
   setAppSettingValueNumber(RUNGIS_VAT_RATE_SETTING_KEY, vatRate);
-  return { rungisFeeRate, vatRate, configured: true };
+  return { rungisFeeRate, vatRate, configured: true, processedMonths: getProcessedRungisBillMonths() };
 }

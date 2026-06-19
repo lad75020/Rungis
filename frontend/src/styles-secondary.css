@@ -678,6 +678,18 @@ app-root .bill-list-panel {
   box-shadow: var(--app-shadow-1);
 }
 
+app-root .rungis-unpaid-bills-panel {
+  max-height: 28rem;
+  overflow-y: auto;
+}
+
+app-root .rungis-unpaid-bills-panel thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--app-surface);
+}
+
 app-root .bill-list-item {
   width: 100%;
   border: 0;

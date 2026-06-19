@@ -25,8 +25,11 @@ export function registerManagementRoutes(app, context, deps) {
     requireVendorApi,
     roundToTwoDecimals,
     getRungisBillingSettings,
+    getProcessedRungisBillMonths,
     generateRungisBillsForPreviousMonth,
+    hasProcessedRungisBillMonth,
     markRungisBillPaid,
+    persistProcessedRungisBillMonth,
     searchUnpaidRungisBills,
     setAppStyleProfileSetting,
     setBillOverdueDaysSetting,
@@ -134,17 +137,29 @@ export function registerManagementRoutes(app, context, deps) {
 
   app.post('/api/admin/rungis-bills/send', { preHandler: requireAdminApi }, async (request, reply) => {
     try {
+      const month = normalizeString(request.body?.month);
+      if (hasProcessedRungisBillMonth(month)) {
+        return reply.code(409).send({
+          ok: false,
+          month,
+          processedMonths: getProcessedRungisBillMonths(),
+          message: `Rungis bills for ${month} have already been processed.`
+        });
+      }
       const result = await generateRungisBillsForPreviousMonth({
         RungisBill,
         User,
         ValidatedOrder,
         adminUserId: request.session.user.id,
-        settings: getRungisBillingSettings()
+        settings: getRungisBillingSettings(),
+        month
       });
+      const processedMonths = persistProcessedRungisBillMonth(result.monthKey);
       return reply.send({
         ok: true,
         ...result,
-        message: `Rungis bills completed: ${result.generated} generated, ${result.updated} updated, ${result.skippedPaid} paid skipped.`
+        processedMonths,
+        message: `Rungis bills completed for ${result.monthKey}: ${result.generated} generated, ${result.updated} updated, ${result.skippedPaid} paid skipped.`
       });
     } catch (error) {
       const statusCode = Number.isInteger(error?.statusCode) ? error.statusCode : 500;

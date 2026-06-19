@@ -46,7 +46,7 @@ test('searchUnpaidRungisBills filters by month and escaped organization query', 
   assert.equal(calls[0].paid, false);
   assert.equal(calls[0].applicableYear, 2026);
   assert.equal(calls[0].applicableMonth, 5);
-  assert.match(String(calls[0].userOrganisationName.$regex), /Market/);
+  assert.match(String(calls[0].userOrganisationName.$regex), /^\^Market/);
 });
 
 test('markRungisBillPaid sets paid fields atomically', async () => {

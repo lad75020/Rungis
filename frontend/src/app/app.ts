@@ -137,6 +137,7 @@ export class App implements OnInit, OnDestroy {
   private stockListRequestSeq = 0;
   private cartSnapshotVersion = 0;
   private cartLoadRequestSeq = 0;
+  private adminRungisBillSearchRequestSeq = 0;
   private isDestroying = false;
   private systemThemeMediaQuery: MediaQueryList | null = null;
   private readonly toastTimers = new Map<number, ReturnType<typeof setTimeout>>();
@@ -183,6 +184,8 @@ export class App implements OnInit, OnDestroy {
   public readonly adminRungisFeeRate = signal(0);
   public readonly adminRungisVatRate = signal(0);
   public readonly sendingRungisBills = signal(false);
+  public readonly adminRungisBillGenerationMonth = signal(this.previousMonthInputValue());
+  public readonly processedRungisBillMonths = signal<string[]>([]);
   public readonly adminRungisBillSearchMonth = signal(this.previousMonthInputValue());
   public readonly adminRungisBillSearchOrganization = signal('');
   public readonly loadingAdminRungisBillSearch = signal(false);
@@ -333,6 +336,9 @@ export class App implements OnInit, OnDestroy {
   public readonly isAdmin = computed(() => this.sessionUser()?.role === 'admin');
   public readonly isVendor = computed(() => this.sessionUser()?.role === 'vendor');
   public readonly isClient = computed(() => this.sessionUser()?.role === 'client');
+  public readonly adminSelectedRungisBillMonthProcessed = computed(() =>
+    this.processedRungisBillMonths().includes(this.adminRungisBillGenerationMonth())
+  );
   public readonly selectedVendorBillLabel = computed(() => {
     const selected = this.vendorOrderSummaries().find((order) => order.key === this.selectedVendorOrderKey());
     if (!selected) {
@@ -588,6 +594,7 @@ export class App implements OnInit, OnDestroy {
 
   public activateRoutedPage(page: PageName): void {
     this.page.set(page);
+    this.announceActiveSocketPage();
 
     if (page === 'admin') {
       void this.loadPendingUsers();
@@ -1846,6 +1853,7 @@ export class App implements OnInit, OnDestroy {
       }
       this.adminRungisFeeRate.set(Number(payload?.rungisFeeRate ?? 0));
       this.adminRungisVatRate.set(Number(payload?.vatRate ?? 0));
+      this.processedRungisBillMonths.set(this.normalizeProcessedRungisBillMonths(payload?.processedMonths));
     } finally {
       this.loadingAdminRungisBillingSettings.set(false);
     }
@@ -1877,6 +1885,7 @@ export class App implements OnInit, OnDestroy {
       }
       this.adminRungisFeeRate.set(Number(payload?.rungisFeeRate ?? rungisFeeRate));
       this.adminRungisVatRate.set(Number(payload?.vatRate ?? vatRate));
+      this.processedRungisBillMonths.set(this.normalizeProcessedRungisBillMonths(payload?.processedMonths));
       this.setAlert('success', payload?.message ?? this.t('alerts.admin.rungisBillingSettingsSaved'));
     } finally {
       this.savingAdminRungisBillingSettings.set(false);
@@ -1887,14 +1896,32 @@ export class App implements OnInit, OnDestroy {
     if (!this.isAdmin() || this.sendingRungisBills()) {
       return;
     }
+    const month = this.adminRungisBillGenerationMonth();
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      this.setAlert('danger', this.t('alerts.admin.rungisBillSearchInvalidMonth'));
+      return;
+    }
+    if (this.processedRungisBillMonths().includes(month)) {
+      this.setAlert('info', this.t('alerts.admin.rungisBillsAlreadyProcessed'));
+      return;
+    }
     this.sendingRungisBills.set(true);
     try {
-      const response = await fetch('/api/admin/rungis-bills/send', { method: 'POST' });
+      const response = await fetch('/api/admin/rungis-bills/send', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ month })
+      });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
+        if (Array.isArray(payload?.processedMonths)) {
+          this.processedRungisBillMonths.set(this.normalizeProcessedRungisBillMonths(payload.processedMonths));
+        }
         this.setAlert('danger', payload?.message ?? this.t('alerts.admin.rungisBillsSendFailed'));
         return;
       }
+      this.processedRungisBillMonths.set(this.normalizeProcessedRungisBillMonths(payload?.processedMonths));
+      this.adminRungisBillSearchMonth.set(String(payload?.monthKey ?? month));
       this.setAlert('success', payload?.message ?? this.t('alerts.admin.rungisBillsSent'));
       await this.searchAdminRungisBills();
     } finally {
@@ -1902,18 +1929,25 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
+  public setAdminRungisBillGenerationMonth(value: string): void {
+    this.adminRungisBillGenerationMonth.set(value);
+  }
+
   public setAdminRungisBillSearchMonth(value: string): void {
     this.adminRungisBillSearchMonth.set(value);
+    void this.searchAdminRungisBills();
   }
 
   public setAdminRungisBillSearchOrganization(value: string): void {
     this.adminRungisBillSearchOrganization.set(value);
+    void this.searchAdminRungisBills();
   }
 
   public async searchAdminRungisBills(): Promise<void> {
-    if (!this.isAdmin() || this.loadingAdminRungisBillSearch()) {
+    if (!this.isAdmin()) {
       return;
     }
+    const requestSeq = ++this.adminRungisBillSearchRequestSeq;
     const month = this.adminRungisBillSearchMonth();
     if (!/^\d{4}-\d{2}$/.test(month)) {
       this.setAlert('danger', this.t('alerts.admin.rungisBillSearchInvalidMonth'));
@@ -1928,13 +1962,18 @@ export class App implements OnInit, OnDestroy {
       }
       const response = await fetch(`/api/admin/rungis-bills?${params.toString()}`);
       const payload = await response.json().catch(() => null);
+      if (requestSeq !== this.adminRungisBillSearchRequestSeq) {
+        return;
+      }
       if (!response.ok) {
         this.setAlert('danger', payload?.message ?? this.t('alerts.admin.rungisBillSearchFailed'));
         return;
       }
       this.adminRungisBillSearchRows.set(Array.isArray(payload?.rows) ? payload.rows : []);
     } finally {
-      this.loadingAdminRungisBillSearch.set(false);
+      if (requestSeq === this.adminRungisBillSearchRequestSeq) {
+        this.loadingAdminRungisBillSearch.set(false);
+      }
     }
   }
 
@@ -3517,7 +3556,7 @@ export class App implements OnInit, OnDestroy {
       this.clearTransientWebSocketAlert();
       this.reconnectAttempts = 0;
       this.lastPongAt = Date.now();
-      socket.send(JSON.stringify({ type: 'ping', page: this.page() }));
+      this.announceActiveSocketPage();
       this.startSocketHeartbeat();
 
       if (this.page() === 'stocks') {
@@ -3803,8 +3842,17 @@ export class App implements OnInit, OnDestroy {
         return;
       }
 
-      socket.send(JSON.stringify({ type: 'ping', page: this.page() }));
+      this.announceActiveSocketPage();
     }, 25000);
+  }
+
+  private announceActiveSocketPage(): void {
+    const socket = this.socket;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    socket.send(JSON.stringify({ type: 'ping', page: this.page() }));
   }
 
   private stopSocketHeartbeat(): void {
@@ -3826,6 +3874,15 @@ export class App implements OnInit, OnDestroy {
       this.reconnectTimer = null;
       this.connectSocket();
     }, delayMs);
+  }
+
+  private normalizeProcessedRungisBillMonths(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return [...new Set(value
+      .map((month) => String(month ?? '').trim())
+      .filter((month) => /^\d{4}-\d{2}$/.test(month)))].sort();
   }
 
   private previousMonthInputValue(): string {

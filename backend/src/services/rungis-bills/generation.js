@@ -15,6 +15,10 @@ function ensureObjectId(value, label) {
   return new mongoose.Types.ObjectId(id);
 }
 
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function buildAmounts(grossAmountBeforeTax, rungisFeeRate, vatRate) {
   const gross = roundMoney(grossAmountBeforeTax);
   const payableAmountBeforeTax = calculatePercentageAmount(gross, rungisFeeRate);
@@ -60,12 +64,13 @@ async function aggregateClientTotals(ValidatedOrder, periodStart, periodEnd) {
   ]);
 }
 
-export async function generateRungisBillsForPreviousMonth({
+export async function generateRungisBillsForMonth({
   RungisBill,
   User,
   ValidatedOrder,
   adminUserId,
   settings,
+  month,
   referenceDate = new Date()
 }) {
   if (!settings?.configured) {
@@ -74,7 +79,12 @@ export async function generateRungisBillsForPreviousMonth({
     throw error;
   }
 
-  const period = getPreviousUtcCalendarMonth(referenceDate);
+  const period = month ? parseRungisMonth(month) : getPreviousUtcCalendarMonth(referenceDate);
+  if (!period) {
+    const error = new Error('Month must use YYYY-MM format.');
+    error.statusCode = 400;
+    throw error;
+  }
   const adminUser = await User.findById(adminUserId).lean();
   const adminPartySnapshot = normalizePartySnapshot(adminUser);
   if (!adminPartySnapshot) {
@@ -158,6 +168,10 @@ export async function generateRungisBillsForPreviousMonth({
   };
 }
 
+export async function generateRungisBillsForPreviousMonth(options) {
+  return generateRungisBillsForMonth(options);
+}
+
 export async function searchUnpaidRungisBills({ RungisBill, month, organization = '' }) {
   const parsed = parseRungisMonth(month);
   if (!parsed) {
@@ -172,7 +186,7 @@ export async function searchUnpaidRungisBills({ RungisBill, month, organization 
   };
   const query = String(organization ?? '').trim();
   if (query) {
-    filter.userOrganisationName = { $regex: query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+    filter.userOrganisationName = { $regex: `^${escapeRegex(query)}`, $options: 'i' };
   }
   const bills = await RungisBill.find(filter).sort({ userOrganisationName: 1, role: 1 }).lean();
   return bills.map(mapRungisBillSummary);

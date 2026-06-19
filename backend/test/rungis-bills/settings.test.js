@@ -25,9 +25,19 @@ test('normalizes valid percentages and rejects invalid values', () => {
 
 test('persists Rungis fee and VAT settings in SQLite', () => {
   const saved = settings.setRungisBillingSettings({ rungisFeeRate: 2.5, vatRate: 20 });
-  assert.deepEqual(saved, { rungisFeeRate: 2.5, vatRate: 20, configured: true });
-  assert.deepEqual(settings.getRungisBillingSettings(), { rungisFeeRate: 2.5, vatRate: 20, configured: true });
+  assert.deepEqual(saved, { rungisFeeRate: 2.5, vatRate: 20, configured: true, processedMonths: [] });
+  assert.deepEqual(settings.getRungisBillingSettings(), { rungisFeeRate: 2.5, vatRate: 20, configured: true, processedMonths: [] });
   assert.equal(settings.setRungisBillingSettings({ rungisFeeRate: 200, vatRate: 20 }), null);
+});
+
+test('persists processed Rungis bill months in SQLite', () => {
+  assert.deepEqual(settings.getProcessedRungisBillMonths(), []);
+  assert.deepEqual(settings.persistProcessedRungisBillMonth('2026-05'), ['2026-05']);
+  assert.equal(settings.hasProcessedRungisBillMonth('2026-05'), true);
+  assert.deepEqual(settings.persistProcessedRungisBillMonth('2026-05'), ['2026-05']);
+  assert.deepEqual(settings.persistProcessedRungisBillMonth('2026-04'), ['2026-04', '2026-05']);
+  assert.equal(settings.persistProcessedRungisBillMonth('2026-13'), null);
+  assert.deepEqual(settings.getRungisBillingSettings().processedMonths, ['2026-04', '2026-05']);
 });
 
 test('calculates previous UTC calendar month', () => {

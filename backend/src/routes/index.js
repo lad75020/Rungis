@@ -37,7 +37,10 @@ import {
   searchUnpaidRungisBills
 } from '../services/rungis-bills/generation.js';
 import {
+  getProcessedRungisBillMonths,
   getRungisBillingSettings,
+  hasProcessedRungisBillMonth,
+  persistProcessedRungisBillMonth,
   setRungisBillingSettings
 } from '../services/rungis-bills/settings.js';
 import {
@@ -2812,6 +2815,7 @@ export async function registerRoutes(app) {
     getLoginCooldownRemainingMs,
     getMerchandiseImageUrl,
     getOrCreatePersistedBillUuid,
+    getProcessedRungisBillMonths,
     getRedisCart,
     getRequestLanguage,
     getRungisBillingSettings,
@@ -2826,6 +2830,7 @@ export async function registerRoutes(app) {
     getWebAuthnRpId,
     getWebAuthnRpName,
     hasDangerousInputKeys,
+    hasProcessedRungisBillMonth,
     isWebAuthnUserVerificationRequired,
     itemImagesDir,
     listClientUnpaidReminders,
@@ -2852,6 +2857,7 @@ export async function registerRoutes(app) {
     parseSiretValue,
     parseVendorDayOrderKey,
     path,
+    persistProcessedRungisBillMonth,
     randomUUID,
     REFUND_COMMENT_MAX_LENGTH,
     Refund,

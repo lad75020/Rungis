@@ -1321,7 +1321,7 @@ export function registerWebsocketRoutes(app, context, deps) {
 
                     await broadcastOrderCatalogUpsert(
                       merchandise,
-                      decoded.username ?? currentUserId.toString()
+                      normalizeString(request.session?.user?.organisation) || normalizeString(request.session?.user?.username) || normalizeString(decoded.username) || currentUserId.toString()
                     );
                     await broadcastStocksSnapshot(currentUserId.toString());
 
@@ -1393,13 +1393,13 @@ export function registerWebsocketRoutes(app, context, deps) {
 
                     await broadcastOrderCatalogUpsert(
                       updated,
-                      decoded.username ?? currentUserId.toString()
+                      normalizeString(request.session?.user?.organisation) || normalizeString(request.session?.user?.username) || normalizeString(decoded.username) || currentUserId.toString()
                     );
 
                     if (existing.price !== updated.price || normalizeVatRate(existing.vatRate) !== normalizeVatRate(updated.vatRate)) {
                       await broadcastOrderPriceUpdate(
                         updated,
-                        decoded.username ?? currentUserId.toString()
+                        normalizeString(request.session?.user?.organisation) || normalizeString(request.session?.user?.username) || normalizeString(decoded.username) || currentUserId.toString()
                       );
                     }
 
@@ -1479,10 +1479,13 @@ export function registerWebsocketRoutes(app, context, deps) {
                     }
 
                     const vendors = await User.find({ _id: { $in: vendorIds } })
-                      .select({ username: 1 })
+                      .select({ username: 1, organisation: 1 })
                       .lean();
                     const vendorNameById = new Map(
-                      vendors.map((vendor) => [vendor._id.toString(), vendor.username])
+                      vendors.map((vendor) => [
+                        vendor._id.toString(),
+                        normalizeString(vendor.organisation) || normalizeString(vendor.username) || vendor._id.toString()
+                      ])
                     );
 
                     const merchandises = await Merchandise.find({ vendorId: { $in: vendorIds } })
@@ -1642,9 +1645,9 @@ export function registerWebsocketRoutes(app, context, deps) {
                     }
 
                     const vendor = await User.findById(merchandise.vendorId)
-                      .select({ username: 1 })
+                      .select({ username: 1, organisation: 1 })
                       .lean();
-                    const vendorName = vendor?.username ?? merchandiseVendorId;
+                    const vendorName = normalizeString(vendor?.organisation) || normalizeString(vendor?.username) || merchandiseVendorId;
 
                     const cart = await getRedisCart(redisClient, currentUserId.toString(), deliveryDate);
 

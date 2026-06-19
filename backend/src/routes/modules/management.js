@@ -11,6 +11,7 @@ export function registerManagementRoutes(app, context, deps) {
     generateBillsForDay,
     getAppStyleProfileSetting,
     getBillOverdueDaysSetting,
+    getOrCreatePersistedBillUuid,
     getUserLogoUrl,
     listClientUnpaidReminders,
     mapPendingUser,
@@ -370,7 +371,7 @@ export function registerManagementRoutes(app, context, deps) {
       }
     })
       .sort({ date: 1 })
-      .select({ uuid: 1, date: 1, totalPrice: 1, currency: 1 })
+      .select({ uuid: 1, date: 1, clientId: 1, totalPrice: 1, currency: 1 })
       .lean();
 
     if (bills.length === 0) {
@@ -415,15 +416,21 @@ export function registerManagementRoutes(app, context, deps) {
       ])
     );
 
-    const rows = bills.map((bill) => {
+    const rows = await Promise.all(bills.map(async (bill) => {
       const day = new Date(bill.date).toISOString().slice(0, 10);
+      const billId = await getOrCreatePersistedBillUuid({
+        day,
+        vendorId: currentUserId,
+        clientId: bill.clientId?.toString?.() ?? clientId
+      });
       return {
-        billId: normalizeString(bill.uuid) || '',
+        key: buildVendorDayOrderKey(clientId, day),
+        billId,
         deliveryDate: deliveryDateByDay.get(day) ?? null,
         totalAmount: roundToTwoDecimals(Number(bill.totalPrice ?? 0)),
         currency: normalizeString(bill.currency) || 'EUR'
       };
-    });
+    }));
 
     return reply.send({
       ok: true,

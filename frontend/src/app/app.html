@@ -578,9 +578,17 @@
                             </tr>
                           </thead>
                           <tbody>
-                            @for (bill of vendorMonthlySummaryBills(); track bill.billId) {
+                            @for (bill of vendorMonthlySummaryBills(); track bill.key) {
                               <tr>
-                                <td><code>{{ bill.billId }}</code></td>
+                                <td>
+                                  <button
+                                    class="btn btn-link p-0 align-baseline"
+                                    type="button"
+                                    (click)="openVendorOrderDetails(bill.key)"
+                                  >
+                                    <code>{{ bill.billId }}</code>
+                                  </button>
+                                </td>
                                 <td>{{ bill.deliveryDate ? (bill.deliveryDate | date: 'dd/MM/yyyy' : 'UTC') : '—' }}</td>
                                 <td class="text-end">{{ bill.totalAmount | number: '1.2-2' }} {{ bill.currency === 'EUR' ? '€' : bill.currency }}</td>
                               </tr>
@@ -596,6 +604,86 @@
                       </div>
                     }
                   </div>
+
+                  @if (showingVendorOrderModal() && vendorOrderDetails(); as details) {
+                    <div class="modal-backdrop fade show"></div>
+                    <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true">
+                      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                        <div class="modal-content">
+                          <div class="modal-header">
+                            <h3 class="modal-title h5 mb-0">{{ t('dashboard.billDetails') }}</h3>
+                            <button class="btn-close" type="button" aria-label="Close" (click)="closeVendorOrderDetailsModal()"></button>
+                          </div>
+                          <div class="modal-body">
+                            <p class="mb-2"><strong>{{ t('dashboard.client') }}:</strong> {{ details.clientUsername }}</p>
+                            <p class="mb-3"><strong>{{ t('dashboard.day') }}:</strong> {{ details.day }}</p>
+
+                            <div class="bill-settlement-box mb-3">
+                              <div class="small mb-2">
+                                <strong>{{ t('dashboard.billSettlementStatus') }}:</strong>
+                                {{ details.vendorSettled ? t('dashboard.billConfirmed') : t('dashboard.billPending') }}
+                                /
+                                {{ details.clientSettled ? t('dashboard.billConfirmed') : t('dashboard.billPending') }}
+                              </div>
+                              <div class="form-check">
+                                <input
+                                  id="vendor-monthly-summary-bill-settled"
+                                  class="form-check-input bill-settlement-checkbox"
+                                  type="checkbox"
+                                  [checked]="details.vendorSettled"
+                                  [disabled]="updatingVendorBillSettlement()"
+                                  (change)="setVendorBillSettled($any($event.target).checked)"
+                                />
+                                <label class="form-check-label" for="vendor-monthly-summary-bill-settled">
+                                  {{ t('dashboard.vendorSettlementCheckbox') }}
+                                </label>
+                              </div>
+                            </div>
+
+                            <div class="table-responsive">
+                              <table class="table table-striped align-middle">
+                                <thead>
+                                  <tr>
+                                    <th scope="col">{{ t('order.item') }}</th>
+                                    <th scope="col">{{ t('order.category') }}</th>
+                                    <th scope="col">{{ t('order.unitPriceEur') }}</th>
+                                    <th scope="col">{{ t('order.qty') }}</th>
+                                    <th scope="col">{{ t('order.lineTotalEur') }}</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  @for (item of details.items; track item.merchandiseId + '-' + item.unitPrice) {
+                                    <tr>
+                                      <td>{{ item.reference ? item.name + ' (' + item.reference + ')' : item.name }}</td>
+                                      <td>{{ item.category }}</td>
+                                      <td>{{ item.unitPrice | number: '1.2-2' }}</td>
+                                      <td>{{ item.quantity ?? '—' }}</td>
+                                      <td>{{ item.lineTotal | number: '1.2-2' }}</td>
+                                    </tr>
+                                  }
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                          <div class="modal-footer d-flex justify-content-between">
+                            <strong>{{ t('common.total') }}: {{ details.totalPrice | number: '1.2-2' }} {{ details.currency }}</strong>
+                            <div class="d-flex gap-2">
+                              <button class="btn btn-outline-primary" type="button" (click)="openVendorBillPdf()">{{ t('common.printPdf') }}</button>
+                              <button
+                                class="btn btn-outline-success"
+                                type="button"
+                                [disabled]="downloadingVendorFacturX()"
+                                (click)="downloadVendorFacturX()"
+                              >
+                                {{ downloadingVendorFacturX() ? t('common.downloading') : t('common.downloadFacturX') }}
+                              </button>
+                              <button class="btn btn-secondary" type="button" (click)="closeVendorOrderDetailsModal()">{{ t('common.close') }}</button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  }
                 }
               </div>
             }

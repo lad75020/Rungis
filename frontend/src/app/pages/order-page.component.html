@@ -68,8 +68,8 @@
         </div>
       }
 
-      <form [formGroup]="app.addToCartForm" (ngSubmit)="app.addToCart()" class="row g-3 align-items-end" novalidate>
-        <div class="col-md-7">
+      <form [formGroup]="app.addToCartForm" (ngSubmit)="app.addToCart()" class="order-add-form" novalidate>
+        <div class="order-item-table-column">
           <label class="form-label mb-2">
             {{ app.selectedOrderTab() === 'favorites' ? app.t('order.favoriteItems') : app.t('order.item') }}
           </label>
@@ -85,35 +85,45 @@
                   class="btn order-item-select-btn text-start p-0 border-0 bg-transparent flex-grow-1"
                   (click)="app.selectCatalogItem(item.id)"
                 >
-                  <span class="order-item-with-image-tooltip">
-                    {{ item.name }} ({{ item.reference }}) - {{ item.vendorName }} - {{ item.price | number: '1.2-2' }} EUR / {{ item.priceIncludingVat | number: '1.2-2' }} EUR {{ app.t('order.includingVatShort') }}
-                    @if (item.imageUrl) {
-                      <span class="order-item-image-tooltip">
-                        <img [src]="item.imageUrl" [alt]="item.name" width="100" />
-                      </span>
-                    }
+                  <span class="order-item-main-line">
+                    <span class="order-item-name">{{ item.name }}</span>
+                    <span class="order-item-price">
+                      @if (item.imageUrl) {
+                        <button
+                          type="button"
+                          class="btn btn-sm order-item-image-button flex-shrink-0"
+                          [attr.aria-label]="'View image for ' + item.name"
+                          (click)="openOrderItemImage(item.imageUrl, item.name)"
+                        >
+                          🖼&nbsp;
+                        </button>
+                      }
+                      {{ item.price | number: '1.2-2' }} EUR
+                      @if (item.minimumStockThreshold !== null && item.stock <= item.minimumStockThreshold) {
+                        <span class="order-low-stock-indicator ms-2" [attr.title]="app.t('order.lowStock')">
+                          ★
+                          <span class="order-low-stock-tooltip">
+                            {{ app.t('order.remainingStock') }}: {{ item.stock }}
+                          </span>
+                        </span>
+                      }
+                      @if (app.getOrderPriceVariation(item.id); as variation) {
+                        <span
+                          class="ms-2 small fw-semibold"
+                          [class.text-danger]="variation.direction === 'up'"
+                          [class.text-success]="variation.direction === 'down'"
+                        >
+                          {{ variation.direction === 'up' ? '▲' : '▼' }} {{ variation.percent }}%
+                        </span>
+                      }
+                    </span>
                   </span>
-                  @if (item.minimumStockThreshold !== null && item.stock <= item.minimumStockThreshold) {
-                    <span class="order-low-stock-indicator ms-2" [attr.title]="app.t('order.lowStock')">
-                      ★
-                      <span class="order-low-stock-tooltip">
-                        {{ app.t('order.remainingStock') }}: {{ item.stock }}
-                      </span>
-                    </span>
-                  }
-                  @if (app.getOrderPriceVariation(item.id); as variation) {
-                    <span
-                      class="ms-2 small fw-semibold"
-                      [class.text-danger]="variation.direction === 'up'"
-                      [class.text-success]="variation.direction === 'down'"
-                    >
-                      {{ variation.direction === 'up' ? '▲' : '▼' }} {{ variation.percent }}%
-                    </span>
-                  }
+                  <span class="order-item-meta-line">{{ item.vendorName }} · {{ item.reference }}</span>
                 </button>
+
                 <button
                   type="button"
-                  class="btn btn-sm order-favorite-star"
+                  class="btn btn-sm order-favorite-star flex-shrink-0"
                   [class.order-favorite-star-active]="app.isFavoriteItem(item.id)"
                   [disabled]="app.isTogglingFavorite(item.id)"
                   [attr.aria-label]="app.isFavoriteItem(item.id) ? app.t('order.removeFavorite') : app.t('order.addFavorite')"
@@ -126,13 +136,30 @@
           </div>
         </div>
 
-        <div class="col-md-2">
-          <label class="form-label" for="order-quantity">{{ app.t('order.quantity') }}</label>
-          <input id="order-quantity" class="form-control" type="number" min="1" step="1" formControlName="quantity" />
-        </div>
+        <div class="order-add-controls">
+          <div class="order-quantity-field">
+            <label class="form-label" for="order-quantity">{{ app.t('order.quantity') }}</label>
+            <input
+              id="order-quantity"
+              class="form-control order-quantity-input"
+              type="number"
+              min="1"
+              max="999"
+              maxlength="3"
+              step="1"
+              inputmode="numeric"
+              formControlName="quantity"
+              (input)="app.limitAddToCartQuantityInput($any($event.target))"
+            />
+          </div>
 
-        <div class="col-md-3">
-          <button class="btn btn-success w-100" [disabled]="app.addingToCart()" type="submit">
+          <button
+            class="btn btn-success order-add-button"
+            [disabled]="app.addingToCart()"
+            type="submit"
+            [attr.aria-label]="app.t('order.addToCart')"
+            [attr.title]="app.t('order.addToCart')"
+          >
             @if (app.addingToCart()) {
               {{ app.t('order.adding') }}
             } @else {
@@ -141,6 +168,32 @@
           </button>
         </div>
       </form>
+
+      @if (selectedOrderItemImage(); as image) {
+        <div
+          class="order-item-image-modal-backdrop"
+          role="presentation"
+          (click)="closeOrderItemImage()"
+        >
+          <div
+            class="order-item-image-modal"
+            role="dialog"
+            aria-modal="true"
+            [attr.aria-label]="image.alt"
+            (click)="$event.stopPropagation()"
+          >
+            <button
+              class="order-item-image-modal-close"
+              type="button"
+              aria-label="Close image preview"
+              (click)="closeOrderItemImage()"
+            >
+              ×
+            </button>
+            <img [src]="image.url" [alt]="image.alt" />
+          </div>
+        </div>
+      }
 
       @if (app.orderItemsForSelectedTab().length === 0 && !app.loadingOrderCatalog()) {
         <div class="alert alert-light border mt-3 mb-0">

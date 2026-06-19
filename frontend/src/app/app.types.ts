@@ -186,6 +186,7 @@ export type VendorRefundClientOption = {
 };
 
 export type VendorMonthlySummaryBill = {
+  key: string;
   billId: string;
   deliveryDate: string | null;
   totalAmount: number;

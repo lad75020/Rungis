@@ -1113,6 +1113,75 @@ function addUtcDays(date, amount) {
   return shifted;
 }
 
+function formatCompactUtcDay(dateInput) {
+  const date = new Date(dateInput);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const year = String(date.getUTCFullYear());
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}${month}${day}`;
+}
+
+function normalizeBillPartyUniqueId(value) {
+  const normalized = normalizeString(String(value ?? '')).replace(/\D/g, '');
+  return normalized || '';
+}
+
+function buildBillUniqueIdFromMap({ billDate, vendorId, clientId, partyUniqueIdById }) {
+  const day = formatCompactUtcDay(billDate);
+  const vendorUniqueId = partyUniqueIdById.get(vendorId.toString()) || '';
+  const clientUniqueId = partyUniqueIdById.get(clientId.toString()) || '';
+
+  if (!day || !vendorUniqueId || !clientUniqueId) {
+    throw new Error('Unable to build bill unique id.');
+  }
+
+  return `${day}${vendorUniqueId}${clientUniqueId}`;
+}
+
+async function getBillPartyUniqueIdById(userIds) {
+  const validIds = [...new Set(
+    userIds
+      .map((userId) => userId?.toString?.() ?? normalizeString(userId))
+      .filter((userId) => mongoose.Types.ObjectId.isValid(userId))
+  )];
+
+  if (validIds.length === 0) {
+    return new Map();
+  }
+
+  const users = await User.find({
+    _id: { $in: validIds.map((userId) => new mongoose.Types.ObjectId(userId)) }
+  })
+    .select({ _id: 1, businessRegistrationId: 1 })
+    .lean();
+
+  return new Map(
+    users.map((user) => [
+      user._id.toString(),
+      normalizeBillPartyUniqueId(user.businessRegistrationId)
+    ])
+  );
+}
+
+async function buildBillUniqueId({ day, vendorId, clientId }) {
+  const billDate = parseIsoDayUtc(normalizeString(day));
+  if (!billDate || !mongoose.Types.ObjectId.isValid(vendorId) || !mongoose.Types.ObjectId.isValid(clientId)) {
+    throw new Error('Invalid bill identity.');
+  }
+
+  const partyUniqueIdById = await getBillPartyUniqueIdById([vendorId, clientId]);
+  return buildBillUniqueIdFromMap({
+    billDate,
+    vendorId,
+    clientId,
+    partyUniqueIdById
+  });
+}
+
 function formatLocalIsoDay(dateInput = new Date()) {
   const date = new Date(dateInput);
   const year = String(date.getFullYear());
@@ -1213,10 +1282,20 @@ async function generateBillsForDay(dayInput) {
     groups.set(key, existing);
   }
 
+  const billPartyUniqueIdById = await getBillPartyUniqueIdById(
+    [...groups.values()].flatMap((group) => [group.vendorId, group.clientId])
+  );
+
   const operations = [...groups.values()].map((group) => {
     const refundLines = [...group.refundLines];
     const refundTotal = getRefundLineTotal(refundLines);
     const refundTotalIncludingVat = getBillLineTotalIncludingVat(refundLines);
+    const billUniqueId = buildBillUniqueIdFromMap({
+      billDate: dayStart,
+      vendorId: group.vendorId,
+      clientId: group.clientId,
+      partyUniqueIdById: billPartyUniqueIdById
+    });
     return {
     updateOne: {
       filter: {
@@ -1226,7 +1305,6 @@ async function generateBillsForDay(dayInput) {
       },
       update: {
         $setOnInsert: {
-          uuid: randomUUID(),
           vendorSettled: false,
           clientSettled: false
         },
@@ -1234,6 +1312,7 @@ async function generateBillsForDay(dayInput) {
           date: dayStart,
           vendorId: group.vendorId,
           clientId: group.clientId,
+          uuid: billUniqueId,
           totalPrice: roundToTwoDecimals(group.orderTotalPrice + refundTotal),
           totalPriceIncludingVat: roundToTwoDecimals(group.orderTotalPriceIncludingVat + refundTotalIncludingVat),
           totalQuantity: group.orderTotalQuantity,
@@ -1413,6 +1492,7 @@ async function getOrCreatePersistedBillUuid({ day, vendorId, clientId }) {
 
   const vendorObjectId = new mongoose.Types.ObjectId(vendorId);
   const clientObjectId = new mongoose.Types.ObjectId(clientId);
+  const billUniqueId = await buildBillUniqueId({ day, vendorId, clientId });
 
   try {
     const bill = await Bill.findOneAndUpdate(
@@ -1425,8 +1505,10 @@ async function getOrCreatePersistedBillUuid({ day, vendorId, clientId }) {
         $setOnInsert: {
           date: billDate,
           vendorId: vendorObjectId,
-          clientId: clientObjectId,
-          uuid: randomUUID()
+          clientId: clientObjectId
+        },
+        $set: {
+          uuid: billUniqueId
         }
       },
       {
@@ -1445,11 +1527,15 @@ async function getOrCreatePersistedBillUuid({ day, vendorId, clientId }) {
   } catch (error) {
     // Handle rare concurrent insert race on unique composite index.
     if (error?.code === 11000) {
-      const existing = await Bill.findOne({
-        date: billDate,
-        vendorId: vendorObjectId,
-        clientId: clientObjectId
-      })
+      const existing = await Bill.findOneAndUpdate(
+        {
+          date: billDate,
+          vendorId: vendorObjectId,
+          clientId: clientObjectId
+        },
+        { $set: { uuid: billUniqueId } },
+        { new: true }
+      )
         .select({ uuid: 1 })
         .lean();
       if (existing?.uuid) {
@@ -1573,11 +1659,11 @@ async function setBillSettlement({ day, vendorId, clientId, role, settled }) {
   }
 
   const updateField = role === 'vendor' ? 'vendorSettled' : 'clientSettled';
+  const billUniqueId = await buildBillUniqueId({ day, vendorId, clientId });
   const setOnInsert = {
     date: billDate,
     vendorId: new mongoose.Types.ObjectId(vendorId),
-    clientId: new mongoose.Types.ObjectId(clientId),
-    uuid: randomUUID()
+    clientId: new mongoose.Types.ObjectId(clientId)
   };
   // Avoid Mongo upsert path conflicts: a field cannot be in both $set and $setOnInsert.
   if (role === 'vendor') {
@@ -1595,7 +1681,8 @@ async function setBillSettlement({ day, vendorId, clientId, role, settled }) {
     {
       $setOnInsert: setOnInsert,
       $set: {
-        [updateField]: Boolean(settled)
+        [updateField]: Boolean(settled),
+        uuid: billUniqueId
       }
     },
     {
@@ -1625,6 +1712,7 @@ async function setBillClientComment({ day, vendorId, clientId, comment }) {
   }
 
   const now = new Date();
+  const billUniqueId = await buildBillUniqueId({ day, vendorId, clientId });
   const bill = await Bill.findOneAndUpdate(
     {
       date: billDate,
@@ -1636,11 +1724,11 @@ async function setBillClientComment({ day, vendorId, clientId, comment }) {
         date: billDate,
         vendorId: new mongoose.Types.ObjectId(vendorId),
         clientId: new mongoose.Types.ObjectId(clientId),
-        uuid: randomUUID(),
         vendorSettled: false,
         clientSettled: false
       },
       $set: {
+        uuid: billUniqueId,
         clientComment: normalizedComment,
         clientCommentSentAt: now,
         vendorMessageReadAt: null,

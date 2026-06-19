@@ -11,3 +11,6 @@ backend/.env
 backend/scripts/randomize-merchandise-vat.js
 /playwright-report
 /test-results
+.gitignore
+backend/src/public/angular/browser/*
+.gitignore

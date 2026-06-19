@@ -504,7 +504,7 @@ export class App implements OnInit, OnDestroy {
 
   public readonly addToCartForm = this.formBuilder.nonNullable.group({
     merchandiseId: ['', [Validators.required]],
-    quantity: [1, [Validators.required, Validators.min(1)]]
+    quantity: [1, [Validators.required, Validators.min(1), Validators.max(999)]]
   });
 
   public readonly vendorRefundForm = this.formBuilder.nonNullable.group({
@@ -2909,6 +2909,16 @@ export class App implements OnInit, OnDestroy {
     this.addToCartForm.controls.merchandiseId.setValue(merchandiseId);
   }
 
+  public limitAddToCartQuantityInput(input: HTMLInputElement): void {
+    const limitedValue = input.value.replace(/\D/g, '').slice(0, 3);
+    if (input.value === limitedValue) {
+      return;
+    }
+
+    input.value = limitedValue;
+    this.addToCartForm.controls.quantity.setValue(limitedValue ? Number(limitedValue) : 0);
+  }
+
   public isFavoriteItem(merchandiseId: string): boolean {
     return this.favoriteMerchandiseIds().includes(merchandiseId);
   }
@@ -3091,7 +3101,7 @@ export class App implements OnInit, OnDestroy {
     const payload = this.addToCartForm.getRawValue();
     const quantity = Number(payload.quantity);
 
-    if (!Number.isInteger(quantity) || quantity < 1) {
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
       this.setAlert('danger', this.t('alerts.order.quantityIntegerPositive'));
       return;
     }

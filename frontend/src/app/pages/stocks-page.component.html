@@ -119,7 +119,6 @@
               <th scope="col" class="text-center">{{ app.t('stocks.image') }}</th>
               <th scope="col">{{ app.t('stocks.price') }}</th>
               <th scope="col">{{ app.t('stocks.vatRate') }}</th>
-              <th scope="col">{{ app.t('stocks.priceIncludingVat') }}</th>
               <th scope="col">{{ app.t('stocks.stock') }}</th>
               <th scope="col">{{ app.t('stocks.actions') }}</th>
             </tr>
@@ -133,7 +132,7 @@
                 <td class="text-center">
                   @if (item.imageUrl) {
                     <span class="stock-item-image-indicator" [attr.aria-label]="app.t('stocks.image')" [attr.title]="app.t('stocks.image')">
-                      View
+                      🏞️
                       <span class="stock-item-image-tooltip">
                         <img [src]="item.imageUrl" [alt]="item.name" loading="lazy" />
                       </span>
@@ -142,7 +141,6 @@
                 </td>
                 <td>{{ item.price | number: '1.2-2' }}</td>
                 <td>{{ item.vatRate | number: '1.0-2' }}%</td>
-                <td>{{ item.priceIncludingVat | number: '1.2-2' }}</td>
                 <td>{{ item.stock }}</td>
                 <td class="d-flex gap-2">
                   <button
@@ -152,7 +150,7 @@
                     [attr.title]="app.t('common.edit')"
                     (click)="app.startStockEdition(item)"
                   >
-                    Edit
+                    📝
                   </button>
                   <button
                     class="btn btn-sm btn-outline-danger"
@@ -162,7 +160,7 @@
                     (click)="app.deleteStock(item.id)"
                     [disabled]="app.isDeletingStockItem(item.id)"
                   >
-                    {{ app.isDeletingStockItem(item.id) ? app.t('stocks.deleting') : 'Delete' }}
+                    {{ app.isDeletingStockItem(item.id) ? app.t('stocks.deleting') : '❌' }}
                   </button>
                 </td>
               </tr>

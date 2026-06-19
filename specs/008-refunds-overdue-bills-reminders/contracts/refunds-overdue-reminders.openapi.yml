@@ -1,0 +1,77 @@
+openapi: 3.0.3
+info:
+  title: Refunds Overdue Bills and Reminders
+  version: 1.0.0
+paths:
+  /api/vendor/refunds/clients:
+    get:
+      summary: Refunds Overdue Bills and Reminders GET /api/vendor/refunds/clients
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/vendor/refunds:
+    post:
+      summary: Refunds Overdue Bills and Reminders POST /api/vendor/refunds
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/vendor/bills/overdue-unsettled:
+    get:
+      summary: Refunds Overdue Bills and Reminders GET /api/vendor/bills/overdue-unsettled
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/vendor/bills/penalty-lines:
+    post:
+      summary: Refunds Overdue Bills and Reminders POST /api/vendor/bills/penalty-lines
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/vendor/unpaid-reminders:
+    post:
+      summary: Refunds Overdue Bills and Reminders POST /api/vendor/unpaid-reminders
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/client/unpaid-reminders:
+    get:
+      summary: Refunds Overdue Bills and Reminders GET /api/client/unpaid-reminders
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden

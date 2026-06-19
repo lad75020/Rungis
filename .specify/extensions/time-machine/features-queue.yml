@@ -1,7 +1,7 @@
 analyzed_at: '2026-06-19T01:29:52Z'
 project_root: /Volumes/WDBlack4TB/Code/rungis
 total_features: 10
-completed: 7
+completed: 8
 features:
 - id: account-authentication
   name: Account Authentication
@@ -149,12 +149,12 @@ features:
   - frontend/src/app/app.ts
   - frontend/src/app/app.types.ts
   - frontend/src/app/pages/dashboard-page.component.ts
-  status: pending
+  status: done
   current_phase: null
-  branch: null
-  pushed: null
-  started_at: null
-  completed_at: null
+  branch: feature/time-machine-refunds-overdue-reminders
+  pushed: false
+  started_at: '2026-06-19T02:22:16Z'
+  completed_at: '2026-06-19T02:22:16Z'
 - id: analytics-reporting
   name: Analytics and Reporting
   description: Admins and vendors view activated-order, category sales, client sales,

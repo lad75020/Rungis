@@ -1,0 +1,41 @@
+openapi: 3.0.3
+info:
+  title: Billing Settlement and PDF Export
+  version: 1.0.0
+paths:
+  /api/admin/bills/run-daily-generation:
+    post:
+      summary: Billing Settlement and PDF Export POST /api/admin/bills/run-daily-generation
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/bills/vendor/{key}/pdf:
+    get:
+      summary: Billing Settlement and PDF Export GET /api/bills/vendor/{key}/pdf
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/bills/client/{key}/pdf:
+    get:
+      summary: Billing Settlement and PDF Export GET /api/bills/client/{key}/pdf
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden

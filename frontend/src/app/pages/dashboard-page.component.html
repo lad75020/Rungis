@@ -9,28 +9,6 @@
       <div class="col-md-6"><strong>{{ app.t('dashboard.siret') }}:</strong> {{ user.businessRegistrationId }}</div>
     </div>
 
-    @if (user.role === 'vendor' || user.role === 'client') {
-      <div class="border rounded p-3 mb-4">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <h2 class="h5 mb-0">{{ app.t('dashboard.rungisInvoices') }}</h2>
-          <button class="btn btn-sm btn-outline-secondary" type="button" [disabled]="app.loadingCurrentRungisBills()" (click)="app.loadCurrentRungisBills()">
-            {{ app.loadingCurrentRungisBills() ? app.t('admin.refreshing') : app.t('admin.refresh') }}
-          </button>
-        </div>
-        @if (app.currentRungisBills().length === 0 && !app.loadingCurrentRungisBills()) {
-          <div class="alert alert-light border mb-0">{{ app.t('dashboard.noRungisInvoice') }}</div>
-        } @else {
-          <div class="d-flex flex-column gap-2">
-            @for (bill of app.currentRungisBills(); track bill.id) {
-              <button class="btn btn-outline-primary text-start" type="button" [disabled]="app.loadingRungisInvoice()" (click)="app.openRungisInvoice(bill.id)">
-                € {{ bill.applicableMonth }}/{{ bill.applicableYear }} - {{ bill.payableAmountIncludingVat | number: '1.2-2' }} {{ bill.currency }}
-              </button>
-            }
-          </div>
-        }
-      </div>
-    }
-
     @if (user.role === 'admin') {
       <div class="mb-4 d-flex gap-2">
         <a class="btn btn-outline-primary" routerLink="/admin">{{ app.t('dashboard.openAdmin') }}</a>
@@ -366,6 +344,35 @@
               }
             </div>
           }
+        }
+      </div>
+    }
+
+    @if (user.role === 'vendor' || user.role === 'client') {
+      <div class="border rounded p-3 mb-4 rungis-bills-section">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h2 class="h5 mb-0">{{ app.t('dashboard.rungisInvoices') }}</h2>
+          <button
+            class="btn btn-sm btn-outline-secondary refresh-icon-btn"
+            type="button"
+            [disabled]="app.loadingCurrentRungisBills()"
+            [attr.aria-label]="app.loadingCurrentRungisBills() ? app.t('admin.refreshing') : app.t('admin.refresh')"
+            [attr.title]="app.loadingCurrentRungisBills() ? app.t('admin.refreshing') : app.t('admin.refresh')"
+            (click)="app.loadCurrentRungisBills()"
+          >
+            <span aria-hidden="true">{{ app.loadingCurrentRungisBills() ? '⏳' : '↻' }}</span>
+          </button>
+        </div>
+        @if (app.currentRungisBills().length === 0 && !app.loadingCurrentRungisBills()) {
+          <div class="alert alert-light border mb-0">{{ app.t('dashboard.noRungisInvoice') }}</div>
+        } @else {
+          <div class="d-flex flex-column gap-2">
+            @for (bill of app.currentRungisBills(); track bill.id) {
+              <button class="btn btn-outline-primary text-start" type="button" [disabled]="app.loadingRungisInvoice()" (click)="app.openRungisInvoice(bill.id)">
+                € {{ bill.applicableMonth }}/{{ bill.applicableYear }} - {{ bill.payableAmountIncludingVat | number: '1.2-2' }} {{ bill.currency }}
+              </button>
+            }
+          </div>
         }
       </div>
     }

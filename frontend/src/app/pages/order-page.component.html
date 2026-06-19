@@ -89,14 +89,12 @@
                     <span class="order-item-name">{{ item.name }}</span>
                     <span class="order-item-price">
                       @if (item.imageUrl) {
-                        <button
-                          type="button"
-                          class="btn btn-sm order-item-image-button flex-shrink-0"
-                          [attr.aria-label]="'View image for ' + item.name"
-                          (click)="openOrderItemImage(item.imageUrl, item.name)"
-                        >
-                          🖼&nbsp;
-                        </button>
+                    <span class="stock-item-image-indicator" >
+                      🏞️
+                      <span class="stock-item-image-tooltip">
+                        <img [src]="item.imageUrl" [alt]="item.name" loading="lazy" />
+                      </span>
+                    </span>
                       }
                       {{ item.price | number: '1.2-2' }} EUR
                       @if (item.minimumStockThreshold !== null && item.stock <= item.minimumStockThreshold) {

@@ -1,0 +1,198 @@
+analyzed_at: '2026-06-19T01:29:52Z'
+project_root: /Volumes/WDBlack4TB/Code/rungis
+total_features: 10
+completed: 3
+features:
+- id: account-authentication
+  name: Account Authentication
+  description: Users can sign up, log in, manage their account profile, and use passkeys
+    for secure access.
+  files:
+  - backend/src/routes/modules/auth.js
+  - backend/src/models/user.model.js
+  - backend/src/routes/modules/pages.js
+  - frontend/src/app/webauthn-client.ts
+  - frontend/src/app/app.ts
+  - frontend/src/app/app.html
+  - frontend/src/app/app.types.ts
+  - e2e/auth.functional.spec.js
+  status: done
+  current_phase: null
+  branch: feature/time-machine-account-authentication
+  pushed: true
+  started_at: '2026-06-19T01:34:19Z'
+  completed_at: '2026-06-19T01:45:25Z'
+- id: admin-user-management
+  name: Admin User Management
+  description: Admins approve pending accounts, remove inactive users, manage role
+    permissions, and configure core administrative settings.
+  files:
+  - backend/src/routes/modules/management.js
+  - backend/src/models/user.model.js
+  - backend/src/lib/app-settings-store.js
+  - frontend/src/app/pages/admin-page.component.ts
+  - frontend/src/app/pages/admin-page.component.html
+  - frontend/src/app/app.ts
+  - frontend/src/app/app.types.ts
+  - e2e/role-access.functional.spec.js
+  status: done
+  current_phase: null
+  branch: feature/time-machine-admin-user-management
+  pushed: false
+  started_at: '2026-06-19T01:46:00Z'
+  completed_at: '2026-06-19T01:54:42Z'
+- id: vendor-client-relationships
+  name: Vendor Client Relationships
+  description: Admins and clients maintain vendor-client associations that control
+    catalog visibility and business workflows.
+  files:
+  - backend/src/routes/modules/management.js
+  - backend/src/models/user.model.js
+  - frontend/src/app/pages/admin-page.component.ts
+  - frontend/src/app/pages/admin-page.component.html
+  - frontend/src/app/app.ts
+  - frontend/src/app/app.types.ts
+  status: done
+  current_phase: null
+  branch: feature/time-machine-vendor-client-relationships
+  pushed: false
+  started_at: '2026-06-19T02:21:54Z'
+  completed_at: '2026-06-19T02:21:54Z'
+- id: realtime-websocket-platform
+  name: Realtime WebSocket Platform
+  description: Role-scoped websocket connections power live APIs, broadcasts, stock
+    snapshots, dashboard messages, and system status updates.
+  files:
+  - backend/src/routes/modules/websocket.js
+  - backend/src/routes/index.js
+  - backend/src/server.js
+  - backend/src/services/system-maintenance.service.js
+  - frontend/src/app/app.ts
+  - frontend/src/app/app.types.ts
+  - backend/test/system-maintenance.service.test.js
+  status: pending
+  current_phase: null
+  branch: null
+  pushed: null
+  started_at: null
+  completed_at: null
+- id: vendor-catalog-stock
+  name: Vendor Catalog and Stock
+  description: Vendors manage merchandise, prices, stock levels, minimum thresholds,
+    categories, and item images shown to clients.
+  files:
+  - backend/src/models/merchandise.model.js
+  - backend/src/routes/modules/websocket.js
+  - backend/src/routes/modules/auth.js
+  - backend/src/lib/angular-assets.js
+  - frontend/src/app/pages/stocks-page.component.ts
+  - frontend/src/app/pages/stocks-page.component.html
+  - frontend/src/app/app.ts
+  - frontend/src/app/app.types.ts
+  status: pending
+  current_phase: null
+  branch: null
+  pushed: null
+  started_at: null
+  completed_at: null
+- id: client-ordering-cart
+  name: Client Ordering and Cart
+  description: Clients browse assigned-vendor catalog items, manage favorites and
+    Redis-backed carts, then validate carts into persisted orders.
+  files:
+  - backend/src/models/cart.model.js
+  - backend/src/models/validated-order.model.js
+  - backend/src/routes/modules/websocket.js
+  - backend/src/services/cart-validation.service.js
+  - frontend/src/app/pages/order-page.component.ts
+  - frontend/src/app/pages/order-page.component.html
+  - frontend/src/app/app.ts
+  - frontend/src/app/app.types.ts
+  - backend/test/cart-validation.service.test.js
+  - e2e/workflows-ux.functional.spec.js
+  status: pending
+  current_phase: null
+  branch: null
+  pushed: null
+  started_at: null
+  completed_at: null
+- id: billing-settlement-pdf
+  name: Billing Settlement and PDF Export
+  description: Daily bills are generated from validated orders and both vendors and
+    clients can review, settle, comment on, and export them as PDFs.
+  files:
+  - backend/src/models/bill.model.js
+  - backend/src/routes/modules/bills.js
+  - backend/src/routes/modules/management.js
+  - backend/src/routes/modules/websocket.js
+  - backend/src/routes/index.js
+  - frontend/src/app/pages/dashboard-page.component.ts
+  - frontend/src/app/pages/dashboard-page.component.html
+  - frontend/src/app/app.ts
+  - frontend/src/app/app.types.ts
+  status: pending
+  current_phase: null
+  branch: null
+  pushed: null
+  started_at: null
+  completed_at: null
+- id: refunds-overdue-reminders
+  name: Refunds Overdue Bills and Reminders
+  description: Vendors queue refunds, monitor overdue unpaid bills, add penalties,
+    and send payment reminders to clients.
+  files:
+  - backend/src/models/refund.model.js
+  - backend/src/models/bill.model.js
+  - backend/src/routes/modules/refunds.js
+  - backend/src/routes/modules/management.js
+  - backend/src/routes/modules/websocket.js
+  - frontend/src/app/app.ts
+  - frontend/src/app/app.types.ts
+  - frontend/src/app/pages/dashboard-page.component.ts
+  status: pending
+  current_phase: null
+  branch: null
+  pushed: null
+  started_at: null
+  completed_at: null
+- id: analytics-reporting
+  name: Analytics and Reporting
+  description: Admins and vendors view activated-order, category sales, client sales,
+    and monthly summary reports.
+  files:
+  - backend/src/routes/modules/management.js
+  - backend/src/models/validated-order.model.js
+  - backend/src/models/bill.model.js
+  - frontend/src/app/pages/statistics-page.component.ts
+  - frontend/src/app/pages/statistics-page.component.html
+  - frontend/src/app/app.view-models.ts
+  - frontend/src/app/app.ts
+  - frontend/src/app/app.types.ts
+  status: pending
+  current_phase: null
+  branch: null
+  pushed: null
+  started_at: null
+  completed_at: null
+- id: localization-presentation
+  name: Localization and Presentation
+  description: The application provides English/French translations, theme controls,
+    style profiles, shared Angular shells, and generated frontend assets.
+  files:
+  - backend/src/i18n/translations.json
+  - backend/src/lib/translations.js
+  - backend/src/lib/angular-assets.js
+  - backend/src/routes/modules/pages.js
+  - frontend/src/app/app.constants.ts
+  - frontend/src/app/app.config.ts
+  - frontend/src/app/app.css
+  - frontend/src/styles.css
+  - frontend/src/styles-primary.css
+  - frontend/src/styles-secondary.css
+  - frontend/angular.json
+  status: pending
+  current_phase: null
+  branch: null
+  pushed: null
+  started_at: null
+  completed_at: null

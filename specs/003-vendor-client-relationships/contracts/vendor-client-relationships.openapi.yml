@@ -1,0 +1,87 @@
+openapi: 3.0.3
+info:
+  title: Vendor Client Relationships
+  version: 1.0.0
+paths:
+  /api/admin/associations:
+    get:
+      summary: Vendor Client Relationships GET /api/admin/associations
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/admin/associations/client/{clientId}/vendor/{vendorId}:
+    post:
+      summary: Vendor Client Relationships POST /api/admin/associations/client/{clientId}/vendor/{vendorId}
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+    delete:
+      summary: Vendor Client Relationships DELETE /api/admin/associations/client/{clientId}/vendor/{vendorId}
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/admin/associations/vendor/{vendorId}/client/{clientId}:
+    post:
+      summary: Vendor Client Relationships POST /api/admin/associations/vendor/{vendorId}/client/{clientId}
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+    delete:
+      summary: Vendor Client Relationships DELETE /api/admin/associations/vendor/{vendorId}/client/{clientId}
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/client/find-vendors:
+    get:
+      summary: Vendor Client Relationships GET /api/client/find-vendors
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/client/find-vendors/{vendorId}/assign:
+    post:
+      summary: Vendor Client Relationships POST /api/client/find-vendors/{vendorId}/assign
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden

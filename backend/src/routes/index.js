@@ -1130,7 +1130,7 @@ function normalizeBillPartyUniqueId(value) {
   return normalized || '';
 }
 
-function buildBillUniqueIdFromMap({ billDate, vendorId, clientId, partyUniqueIdById }) {
+export function buildBillUniqueIdFromMap({ billDate, vendorId, clientId, partyUniqueIdById }) {
   const day = formatCompactUtcDay(billDate);
   const vendorUniqueId = partyUniqueIdById.get(vendorId.toString()) || '';
   const clientUniqueId = partyUniqueIdById.get(clientId.toString()) || '';
@@ -1142,7 +1142,7 @@ function buildBillUniqueIdFromMap({ billDate, vendorId, clientId, partyUniqueIdB
   return `${day}${vendorUniqueId}${clientUniqueId}`;
 }
 
-async function getBillPartyUniqueIdById(userIds) {
+export async function getBillPartyUniqueIdById(userIds) {
   const validIds = [...new Set(
     userIds
       .map((userId) => userId?.toString?.() ?? normalizeString(userId))
@@ -1156,13 +1156,13 @@ async function getBillPartyUniqueIdById(userIds) {
   const users = await User.find({
     _id: { $in: validIds.map((userId) => new mongoose.Types.ObjectId(userId)) }
   })
-    .select({ _id: 1, businessRegistrationId: 1 })
+    .select({ _id: 1, uniqueId: 1 })
     .lean();
 
   return new Map(
     users.map((user) => [
       user._id.toString(),
-      normalizeBillPartyUniqueId(user.businessRegistrationId)
+      normalizeBillPartyUniqueId(user.uniqueId)
     ])
   );
 }

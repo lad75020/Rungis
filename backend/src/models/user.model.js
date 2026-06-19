@@ -14,6 +14,18 @@ const userSchema = new mongoose.Schema(
       trim: true,
       lowercase: true
     },
+    uniqueId: {
+      type: String,
+      trim: true,
+      unique: true,
+      sparse: true,
+      validate: {
+        validator(value) {
+          return !value || /^\d{5}$/.test(value);
+        },
+        message: 'Unique ID must be exactly 5 digits when provided.'
+      }
+    },
     organisation: {
       type: String,
       required: true,

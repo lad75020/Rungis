@@ -30,6 +30,22 @@ test('normalizes complete bill data into EN 16931 Factur-X invoice data', () => 
   assert.equal(invoice.totals.amountDue, 26.38);
 });
 
+test('derives a French seller VAT ID from SIRET when the vendor VAT field is empty', () => {
+  const invoice = normalizeBillToFacturXData({
+    role: 'vendor',
+    title: 'Vendor Bill',
+    ...fixtures.simple,
+    vendor: {
+      ...fixtures.simple.vendor,
+      businessId: '9132963425358',
+      vatId: ''
+    }
+  });
+
+  assert.equal(invoice.seller.legalRegistrationId, '9132963425358');
+  assert.equal(invoice.seller.taxRegistrationId, 'FR72913296342');
+});
+
 test('preserves refund and penalty signs while reconciling totals', () => {
   const invoice = normalizeBillToFacturXData({
     role: 'vendor',

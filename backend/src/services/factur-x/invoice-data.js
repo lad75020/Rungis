@@ -40,6 +40,20 @@ function normalizeSiret(value, label, details) {
   return normalized;
 }
 
+function normalizeVatId(value) {
+  return normalizeString(value).replace(/\s+/g, '').toUpperCase();
+}
+
+function deriveFrenchVatIdFromSiret(siret) {
+  if (!/^\d{13}$/.test(siret)) {
+    return '';
+  }
+
+  const siren = siret.slice(0, 9);
+  const key = (12 + 3 * (Number(siren) % 97)) % 97;
+  return `FR${String(key).padStart(2, '0')}${siren}`;
+}
+
 export function roundMoney(value) {
   const numeric = Number(value ?? 0);
   if (!Number.isFinite(numeric)) {
@@ -71,7 +85,7 @@ function normalizeParty(input, roleLabel, details) {
   const postCode = requireString(input?.zipcode, `${roleLabel} zipcode`, details);
   const city = requireString(input?.city, `${roleLabel} city`, details);
   const legalRegistrationId = normalizeSiret(input?.businessId, roleLabel, details);
-  const taxRegistrationId = normalizeString(input?.vatId);
+  const taxRegistrationId = normalizeVatId(input?.vatId) || deriveFrenchVatIdFromSiret(legalRegistrationId);
   if (roleLabel === 'Seller' && !taxRegistrationId) {
     details.push('Seller VAT ID is required.');
   }

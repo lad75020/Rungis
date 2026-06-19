@@ -14,3 +14,8 @@ backend/scripts/randomize-merchandise-vat.js
 .gitignore
 backend/src/public/angular/browser/*
 .gitignore
+backend/src/public/angular/browser/chunk-B4AMEnSz.js
+backend/src/public/angular/browser/chunk-B4AMEnSz.js
+backend/src/public/angular/browser/chunk-B7eDNOG7.js
+backend/src/public/angular/browser/chunk-BJ4X30g6.js
+backend/scripts/update-demo-data-identifiers.js

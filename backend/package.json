@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "test": "node --test test/**/*.test.js"
+    "test": "node --test test/**/*.test.js",
+    "vat:randomize-merchandise": "node scripts/randomize-merchandise-vat.js"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

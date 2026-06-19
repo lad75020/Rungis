@@ -6,3 +6,6 @@ node_modules/
 package-lock.json
 /.specify
 specs/1. FACTUR-X 1.09 2026 06 10 EN.pdf
+backend/.env
+backend/.env
+backend/scripts/randomize-merchandise-vat.js

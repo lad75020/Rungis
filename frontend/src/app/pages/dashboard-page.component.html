@@ -426,6 +426,14 @@
           <strong>{{ app.t('common.total') }}: {{ details.totalPrice | number: '1.2-2' }} {{ details.currency }}</strong>
           <div class="d-flex gap-2">
             <button class="btn btn-outline-primary" type="button" (click)="app.openVendorBillPdf()">{{ app.t('common.printPdf') }}</button>
+            <button
+              class="btn btn-outline-success"
+              type="button"
+              [disabled]="app.downloadingVendorFacturX()"
+              (click)="app.downloadVendorFacturX()"
+            >
+              {{ app.downloadingVendorFacturX() ? app.t('common.downloading') : app.t('common.downloadFacturX') }}
+            </button>
             <button class="btn btn-secondary" type="button" (click)="app.closeVendorOrderDetailsModal()">{{ app.t('common.close') }}</button>
           </div>
         </div>
@@ -522,6 +530,14 @@
           <strong>{{ app.t('common.total') }}: {{ details.totalPrice | number: '1.2-2' }} {{ details.currency }}</strong>
           <div class="d-flex gap-2">
             <button class="btn btn-outline-primary" type="button" (click)="app.openClientBillPdf()">{{ app.t('common.printPdf') }}</button>
+            <button
+              class="btn btn-outline-success"
+              type="button"
+              [disabled]="app.downloadingClientFacturX()"
+              (click)="app.downloadClientFacturX()"
+            >
+              {{ app.downloadingClientFacturX() ? app.t('common.downloading') : app.t('common.downloadFacturX') }}
+            </button>
             <button class="btn btn-secondary" type="button" (click)="app.closeClientCartDetailsModal()">{{ app.t('common.close') }}</button>
           </div>
         </div>

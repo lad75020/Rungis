@@ -413,7 +413,13 @@
     "alerts.validation.passwordMinLength": "Password must be at least 8 characters.",
     "alerts.validation.siret13Digits": "SIRET must be exactly 13 digits.",
     "alerts.validation.emailInvalid": "Email format is invalid.",
-    "alerts.validation.fillRequiredSubscription": "Fill in all required subscription fields."
+    "alerts.validation.fillRequiredSubscription": "Fill in all required subscription fields.",
+    "common.downloadFacturX": "Download Factur-X",
+    "common.downloading": "Downloading...",
+    "alerts.facturX.downloadFailed": "Factur-X download failed.",
+    "alerts.facturX.missingInvoiceData": "The bill is missing legal data required for a Factur-X download.",
+    "alerts.facturX.denied": "You are not allowed to download this Factur-X bill.",
+    "alerts.facturX.generationFailed": "The Factur-X bill could not be generated. Please try again later."
   },
   "fr": {
     "app.title": "Rungis Online",
@@ -829,6 +835,12 @@
     "alerts.validation.passwordMinLength": "Le mot de passe doit comporter au moins 8 caractères.",
     "alerts.validation.siret13Digits": "SIRET doit être exactement 13 chiffres.",
     "alerts.validation.emailInvalid": "Email invalide.",
-    "alerts.validation.fillRequiredSubscription": "Remplir tous les champs requis."
+    "alerts.validation.fillRequiredSubscription": "Remplir tous les champs requis.",
+    "common.downloadFacturX": "Télécharger Factur-X",
+    "common.downloading": "Téléchargement...",
+    "alerts.facturX.downloadFailed": "Le téléchargement Factur-X a échoué.",
+    "alerts.facturX.missingInvoiceData": "Des informations légales requises pour Factur-X manquent sur cette facture.",
+    "alerts.facturX.denied": "Vous ne pouvez pas télécharger cette facture Factur-X.",
+    "alerts.facturX.generationFailed": "La facture Factur-X n’a pas pu être générée. Réessayez plus tard."
   }
 }

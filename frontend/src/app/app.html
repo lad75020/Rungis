@@ -757,6 +757,14 @@
                             <strong>{{ t('common.total') }}: {{ details.totalPrice | number: '1.2-2' }} {{ details.currency }}</strong>
                             <div class="d-flex gap-2">
                               <button class="btn btn-outline-primary" type="button" (click)="openVendorBillPdf()">{{ t('common.printPdf') }}</button>
+                              <button
+                                class="btn btn-outline-success"
+                                type="button"
+                                [disabled]="downloadingVendorFacturX()"
+                                (click)="downloadVendorFacturX()"
+                              >
+                                {{ downloadingVendorFacturX() ? t('common.downloading') : t('common.downloadFacturX') }}
+                              </button>
                               <button class="btn btn-secondary" type="button" (click)="closeVendorOrderDetailsModal()">{{ t('common.close') }}</button>
                             </div>
                           </div>

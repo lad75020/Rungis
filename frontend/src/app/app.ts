@@ -226,6 +226,7 @@ export class App implements OnInit, OnDestroy {
   public readonly vendorOrderDetails = signal<VendorDashboardOrderDetails | null>(null);
   public readonly showingVendorOrderModal = signal(false);
   public readonly updatingVendorBillSettlement = signal(false);
+  public readonly downloadingVendorFacturX = signal(false);
   public readonly loadingVendorBillMessages = signal(false);
   public readonly vendorBillMessages = signal<VendorBillMessageSummary[]>([]);
   public readonly deletingVendorBillMessageKeys = signal<string[]>([]);
@@ -244,6 +245,7 @@ export class App implements OnInit, OnDestroy {
   public readonly clientCartDetails = signal<ClientDashboardCartDetails | null>(null);
   public readonly showingClientCartModal = signal(false);
   public readonly updatingClientBillSettlement = signal(false);
+  public readonly downloadingClientFacturX = signal(false);
   public readonly clientBillCommentDraft = signal('');
   public readonly sendingClientBillComment = signal(false);
   public readonly selectedSubscriptionLogoFile = signal<File | null>(null);
@@ -2340,6 +2342,89 @@ export class App implements OnInit, OnDestroy {
     window.open(`/api/bills/vendor/${encodeURIComponent(billKey)}/pdf`, '_blank', 'noopener');
   }
 
+  public async downloadVendorFacturX(): Promise<void> {
+    const billKey = this.vendorOrderDetails()?.key || this.selectedVendorOrderKey();
+    if (!billKey) {
+      this.setAlert('danger', this.t('alerts.bills.selectBeforePrint'));
+      return;
+    }
+    if (this.downloadingVendorFacturX()) {
+      return;
+    }
+
+    this.downloadingVendorFacturX.set(true);
+    try {
+      await this.downloadFacturX('vendor', billKey);
+    } finally {
+      this.downloadingVendorFacturX.set(false);
+    }
+  }
+
+  private async downloadFacturX(role: 'vendor' | 'client', billKey: string): Promise<void> {
+    try {
+      const response = await fetch(`/api/bills/${role}/${encodeURIComponent(billKey)}/factur-x`, {
+        method: 'GET',
+        headers: { Accept: 'application/pdf, application/json' }
+      });
+      if (!response.ok) {
+        let message = this.t('alerts.facturX.downloadFailed');
+        try {
+          const data = (await response.json()) as { message?: string; error?: string; details?: string[] };
+          message = data?.message || this.facturXErrorMessage(data?.error);
+          if (Array.isArray(data?.details) && data.details.length > 0) {
+            message = `${message} ${data.details.join(' ')}`;
+          }
+        } catch {
+          const text = await response.text().catch(() => '');
+          message = text || message;
+        }
+        throw new Error(message);
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get('content-disposition') ?? '';
+      const filename = this.filenameFromContentDisposition(disposition) ?? `bill-factur-x.pdf`;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.rel = 'noopener';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      this.setAlert('danger', errorToMessage(error, this.t('alerts.facturX.downloadFailed')));
+    }
+  }
+
+  private facturXErrorMessage(errorCode?: string): string {
+    switch (errorCode) {
+      case 'missing_invoice_data':
+        return this.t('alerts.facturX.missingInvoiceData');
+      case 'unauthorized':
+        return this.t('alerts.facturX.denied');
+      case 'validation_failed':
+      case 'generation_failed':
+        return this.t('alerts.facturX.generationFailed');
+      default:
+        return this.t('alerts.facturX.downloadFailed');
+    }
+  }
+
+  private filenameFromContentDisposition(disposition: string): string | null {
+    const match = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(disposition);
+    const encoded = match?.[1] ?? match?.[2];
+    if (!encoded) {
+      return null;
+    }
+    try {
+      return decodeURIComponent(encoded);
+    } catch {
+      return encoded;
+    }
+  }
+
   public async setVendorBillSettled(settled: boolean): Promise<void> {
     const details = this.vendorOrderDetails();
     if (!details || this.updatingVendorBillSettlement()) {
@@ -2549,6 +2634,24 @@ export class App implements OnInit, OnDestroy {
     }
 
     window.open(`/api/bills/client/${encodeURIComponent(billKey)}/pdf`, '_blank', 'noopener');
+  }
+
+  public async downloadClientFacturX(): Promise<void> {
+    const billKey = this.clientCartDetails()?.key || this.selectedClientCartKey();
+    if (!billKey) {
+      this.setAlert('danger', this.t('alerts.bills.selectBeforePrint'));
+      return;
+    }
+    if (this.downloadingClientFacturX()) {
+      return;
+    }
+
+    this.downloadingClientFacturX.set(true);
+    try {
+      await this.downloadFacturX('client', billKey);
+    } finally {
+      this.downloadingClientFacturX.set(false);
+    }
   }
 
   public async setClientBillSettled(settled: boolean): Promise<void> {

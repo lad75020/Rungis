@@ -1,0 +1,158 @@
+openapi: 3.0.3
+info:
+  title: Download Factur-X Bill
+  version: 1.0.0
+  description: Role-scoped endpoints for downloading Factur-X formatted versions of vendor and client bills.
+paths:
+  /api/bills/vendor/{key}/factur-x:
+    get:
+      summary: Download a vendor-side Factur-X bill
+      description: Returns a Factur-X hybrid PDF for the authenticated vendor's bill perspective. The existing vendor PDF display endpoint remains unchanged.
+      operationId: downloadVendorFacturXBill
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: Existing vendor bill key from the bill details view.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Factur-X bill generated and validated successfully.
+          headers:
+            Content-Disposition:
+              description: Attachment filename identifying the vendor bill and Factur-X format.
+              schema:
+                type: string
+                example: attachment; filename="vendor-bill-2026-06-19-client-factur-x.pdf"
+            Cache-Control:
+              description: Bill downloads are not cached by shared caches.
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Invalid bill key or required invoice data is missing/incomplete.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacturXError'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Current user is not allowed to download this vendor bill.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacturXError'
+        '404':
+          description: Bill details were not found for the selected client/day.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacturXError'
+        '422':
+          description: Bill exists but cannot produce a valid Factur-X invoice.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacturXError'
+        '500':
+          description: Temporary generation or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacturXError'
+  /api/bills/client/{key}/factur-x:
+    get:
+      summary: Download a client-side Factur-X bill
+      description: Returns a Factur-X hybrid PDF for the authenticated client's bill perspective. The existing client PDF display endpoint remains unchanged.
+      operationId: downloadClientFacturXBill
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: Existing client bill key from the bill details view.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Factur-X bill generated and validated successfully.
+          headers:
+            Content-Disposition:
+              description: Attachment filename identifying the client bill and Factur-X format.
+              schema:
+                type: string
+                example: attachment; filename="client-bill-2026-06-19-vendor-factur-x.pdf"
+            Cache-Control:
+              description: Bill downloads are not cached by shared caches.
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Invalid bill key or required invoice data is missing/incomplete.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacturXError'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Current user is not allowed to download this client bill.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacturXError'
+        '404':
+          description: Bill details were not found for the selected vendor/day.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacturXError'
+        '422':
+          description: Bill exists but cannot produce a valid Factur-X invoice.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacturXError'
+        '500':
+          description: Temporary generation or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacturXError'
+components:
+  schemas:
+    FacturXError:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Stable error category for frontend handling.
+          enum:
+            - invalid_bill_key
+            - unauthorized
+            - bill_not_found
+            - missing_invoice_data
+            - validation_failed
+            - generation_failed
+        message:
+          type: string
+          description: User-safe localized or localizable failure message.
+        details:
+          type: array
+          description: Optional non-sensitive validation details safe for an authorized user.
+          items:
+            type: string

@@ -1,0 +1,98 @@
+{
+  "simple": {
+    "billIdentifier": "BILL-2026-06-19-001",
+    "bill": {
+      "key": "client-1::2026-06-19",
+      "day": "2026-06-19",
+      "orderedAt": "2026-06-19T08:00:00.000Z",
+      "deliveryDate": "2026-06-20T00:00:00.000Z",
+      "items": [
+        {
+          "merchandiseId": "item-1",
+          "name": "Tomatoes",
+          "reference": "TOM-001",
+          "category": "Vegetables",
+          "unitPrice": 12.5,
+          "quantity": 2,
+          "lineTotal": 25
+        }
+      ],
+      "totalPrice": 25,
+      "currency": "EUR"
+    },
+    "vendor": {
+      "organisation": "Vendor SAS",
+      "address": "1 Market Street",
+      "zipcode": "75001",
+      "city": "Paris",
+      "phoneNumber": "0102030405",
+      "businessId": "1234567890123"
+    },
+    "client": {
+      "organisation": "Client SARL",
+      "address": "2 Client Avenue",
+      "zipcode": "75002",
+      "city": "Paris",
+      "businessId": "9876543210987"
+    }
+  },
+  "refund": {
+    "billIdentifier": "BILL-2026-06-20-001",
+    "bill": {
+      "key": "client-1::2026-06-20",
+      "day": "2026-06-20",
+      "orderedAt": "2026-06-20T08:00:00.000Z",
+      "deliveryDate": "2026-06-21T00:00:00.000Z",
+      "items": [
+        { "merchandiseId": "item-1", "name": "Tomatoes", "reference": "TOM-001", "category": "Vegetables", "unitPrice": 20, "quantity": 1, "lineTotal": 20 },
+        { "kind": "refund", "merchandiseId": "refund-1", "name": "Refund", "reference": "Damaged crate", "category": "Refund", "unitPrice": -5, "quantity": null, "lineTotal": -5 },
+        { "kind": "penalty", "merchandiseId": "penalty-1", "name": "Late payment penalty", "reference": "5%", "category": "Penalty", "unitPrice": 2, "quantity": null, "lineTotal": 2 }
+      ],
+      "totalPrice": 17,
+      "currency": "EUR"
+    },
+    "vendor": {
+      "organisation": "Vendor SAS",
+      "address": "1 Market Street",
+      "zipcode": "75001",
+      "city": "Paris",
+      "phoneNumber": "0102030405",
+      "businessId": "1234567890123"
+    },
+    "client": {
+      "organisation": "Client SARL",
+      "address": "2 Client Avenue",
+      "zipcode": "75002",
+      "city": "Paris",
+      "businessId": "9876543210987"
+    }
+  },
+  "missingLegal": {
+    "billIdentifier": "BILL-2026-06-21-001",
+    "bill": {
+      "key": "client-1::2026-06-21",
+      "day": "2026-06-21",
+      "orderedAt": "2026-06-21T08:00:00.000Z",
+      "deliveryDate": "2026-06-22T00:00:00.000Z",
+      "items": [
+        { "merchandiseId": "item-1", "name": "Tomatoes", "reference": "TOM-001", "category": "Vegetables", "unitPrice": 12.5, "quantity": 2, "lineTotal": 25 }
+      ],
+      "totalPrice": 25,
+      "currency": "EUR"
+    },
+    "vendor": {
+      "organisation": "Vendor SAS",
+      "address": "",
+      "zipcode": "75001",
+      "city": "Paris",
+      "businessId": "123"
+    },
+    "client": {
+      "organisation": "Client SARL",
+      "address": "2 Client Avenue",
+      "zipcode": "75002",
+      "city": "Paris",
+      "businessId": "9876543210987"
+    }
+  }
+}

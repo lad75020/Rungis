@@ -4,6 +4,12 @@ import { App } from './app';
 
 describe('App', () => {
   beforeEach(async () => {
+    if (!('createObjectURL' in URL)) {
+      Object.defineProperty(URL, 'createObjectURL', { value: () => 'blob:test', configurable: true });
+    }
+    if (!('revokeObjectURL' in URL)) {
+      Object.defineProperty(URL, 'revokeObjectURL', { value: () => undefined, configurable: true });
+    }
     await TestBed.configureTestingModule({
       imports: [App],
     }).compileComponents();
@@ -261,6 +267,132 @@ describe('App', () => {
         clientCommentSentAt: '2026-03-07T10:00:00.000Z'
       })
     );
+    fixture.destroy();
+  });
+
+  it('keeps the PDF action unchanged and downloads vendor Factur-X as a blob', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance as any;
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:factur-x');
+    const revokeObjectUrlSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(new Blob(['pdf'], { type: 'application/pdf' }), {
+        status: 200,
+        headers: { 'content-disposition': 'attachment; filename="vendor-factur-x.pdf"' }
+      })
+    );
+
+    app.vendorOrderDetails.set({
+      key: 'client-1::2026-03-07',
+      clientId: 'client-1',
+      clientOrganisation: 'Client',
+      clientUsername: 'client',
+      day: '2026-03-07',
+      orderedAt: '2026-03-07T10:00:00.000Z',
+      deliveryDate: '2026-03-08',
+      items: [],
+      totalPrice: 0,
+      currency: 'EUR',
+      clientComment: '',
+      clientCommentSentAt: null,
+      vendorSettled: false,
+      clientSettled: false,
+      isSettled: false
+    });
+
+    app.openVendorBillPdf();
+    await app.downloadVendorFacturX();
+
+    expect(openSpy).toHaveBeenCalledWith('/api/bills/vendor/client-1%3A%3A2026-03-07/pdf', '_blank', 'noopener');
+    expect(fetchSpy).toHaveBeenCalledWith('/api/bills/vendor/client-1%3A%3A2026-03-07/factur-x', {
+      method: 'GET',
+      headers: { Accept: 'application/pdf, application/json' }
+    });
+    expect(createObjectUrlSpy).toHaveBeenCalledWith(expect.any(Blob));
+    expect(clickSpy).toHaveBeenCalled();
+    expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:factur-x');
+    expect(app.downloadingVendorFacturX()).toBe(false);
+    fixture.destroy();
+  });
+
+  it('downloads client Factur-X and guards repeated clicks while a download is running', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance as any;
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:client-factur-x');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    let resolveFetch!: (value: Response) => void;
+    const fetchPromise = new Promise<Response>((resolve) => { resolveFetch = resolve; });
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockReturnValue(fetchPromise);
+
+    app.clientCartDetails.set({
+      key: 'vendor-1::2026-03-07',
+      vendorId: 'vendor-1',
+      vendorName: 'Vendor',
+      day: '2026-03-07',
+      items: [],
+      totalPrice: 0,
+      currency: 'EUR',
+      clientComment: '',
+      clientCommentSentAt: null,
+      vendorSettled: false,
+      clientSettled: false,
+      isSettled: false
+    });
+
+    const first = app.downloadClientFacturX();
+    const second = app.downloadClientFacturX();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    resolveFetch(new Response(new Blob(['pdf'], { type: 'application/pdf' }), { status: 200 }));
+    await Promise.all([first, second]);
+
+    expect(fetchSpy).toHaveBeenCalledWith('/api/bills/client/vendor-1%3A%3A2026-03-07/factur-x', expect.any(Object));
+    expect(app.downloadingClientFacturX()).toBe(false);
+    fixture.destroy();
+  });
+
+  it('shows a clear Factur-X error when the download response fails', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance as any;
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({
+        error: 'missing_invoice_data',
+        message: 'Missing legal data.',
+        details: ['Seller SIRET must be a 13-digit number.']
+      }), {
+        status: 422,
+        headers: { 'content-type': 'application/json' }
+      })
+    );
+
+    app.vendorOrderDetails.set({
+      key: 'client-1::2026-03-07',
+      clientId: 'client-1',
+      clientOrganisation: 'Client',
+      clientUsername: 'client',
+      day: '2026-03-07',
+      orderedAt: '2026-03-07T10:00:00.000Z',
+      deliveryDate: '2026-03-08',
+      items: [],
+      totalPrice: 0,
+      currency: 'EUR',
+      clientComment: '',
+      clientCommentSentAt: null,
+      vendorSettled: false,
+      clientSettled: false,
+      isSettled: false
+    });
+
+    await app.downloadVendorFacturX();
+
+    expect(app.toasts()).toEqual([
+      expect.objectContaining({
+        type: 'danger',
+        message: expect.stringContaining('Missing legal data.')
+      })
+    ]);
     fixture.destroy();
   });
 });

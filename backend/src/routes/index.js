@@ -28,6 +28,7 @@ import { registerManagementRoutes } from './modules/management.js';
 import { registerPageRoutes } from './modules/pages.js';
 import { registerRefundRoutes } from './modules/refunds.js';
 import { registerWebsocketRoutes } from './modules/websocket.js';
+import { sendFacturXBill } from '../services/factur-x/generator.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2653,6 +2654,7 @@ export async function registerRoutes(app) {
     sanitizeStockPayload,
     saveRedisCart,
     sendBillPdf,
+    sendFacturXBill,
     setAppStyleProfileSetting,
     setBillClientComment,
     setBillOverdueDaysSetting,

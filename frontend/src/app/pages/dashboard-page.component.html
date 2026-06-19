@@ -404,8 +404,11 @@
                   <th scope="col">{{ app.t('order.item') }}</th>
                   <th scope="col">{{ app.t('order.category') }}</th>
                   <th scope="col">{{ app.t('order.unitPriceEur') }}</th>
+                  <th scope="col">{{ app.t('order.vatRate') }}</th>
+                  <th scope="col">{{ app.t('order.unitPriceIncludingVatEur') }}</th>
                   <th scope="col">{{ app.t('order.qty') }}</th>
                   <th scope="col">{{ app.t('order.lineTotalEur') }}</th>
+                  <th scope="col">{{ app.t('order.lineTotalIncludingVatEur') }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -414,8 +417,11 @@
                     <td>{{ item.reference ? item.name + ' (' + item.reference + ')' : item.name }}</td>
                     <td>{{ item.category }}</td>
                     <td>{{ item.unitPrice | number: '1.2-2' }}</td>
+                    <td>{{ item.vatRate | number: '1.0-2' }}%</td>
+                    <td>{{ item.unitPriceIncludingVat | number: '1.2-2' }}</td>
                     <td>{{ item.quantity ?? '—' }}</td>
                     <td>{{ item.lineTotal | number: '1.2-2' }}</td>
+                    <td>{{ item.lineTotalIncludingVat | number: '1.2-2' }}</td>
                   </tr>
                 }
               </tbody>
@@ -423,7 +429,10 @@
           </div>
         </div>
         <div class="modal-footer d-flex justify-content-between">
-          <strong>{{ app.t('common.total') }}: {{ details.totalPrice | number: '1.2-2' }} {{ details.currency }}</strong>
+          <div>
+            <strong>{{ app.t('common.total') }}: {{ details.totalPrice | number: '1.2-2' }} {{ details.currency }}</strong><br />
+            <strong>{{ app.t('common.totalIncludingVat') }}: {{ details.totalPriceIncludingVat | number: '1.2-2' }} {{ details.currency }}</strong>
+          </div>
           <div class="d-flex gap-2">
             <button class="btn btn-outline-primary" type="button" (click)="app.openVendorBillPdf()">{{ app.t('common.printPdf') }}</button>
             <button
@@ -507,8 +516,11 @@
                   <th scope="col">{{ app.t('order.category') }}</th>
                   <th scope="col">{{ app.t('order.vendor') }}</th>
                   <th scope="col">{{ app.t('order.unitPriceEur') }}</th>
+                  <th scope="col">{{ app.t('order.vatRate') }}</th>
+                  <th scope="col">{{ app.t('order.unitPriceIncludingVatEur') }}</th>
                   <th scope="col">{{ app.t('order.qty') }}</th>
                   <th scope="col">{{ app.t('order.lineTotalEur') }}</th>
+                  <th scope="col">{{ app.t('order.lineTotalIncludingVatEur') }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -518,8 +530,11 @@
                     <td>{{ item.category }}</td>
                     <td>{{ item.vendorName }}</td>
                     <td>{{ item.unitPrice | number: '1.2-2' }}</td>
+                    <td>{{ item.vatRate | number: '1.0-2' }}%</td>
+                    <td>{{ item.unitPriceIncludingVat | number: '1.2-2' }}</td>
                     <td>{{ item.quantity ?? '—' }}</td>
                     <td>{{ item.lineTotal | number: '1.2-2' }}</td>
+                    <td>{{ item.lineTotalIncludingVat | number: '1.2-2' }}</td>
                   </tr>
                 }
               </tbody>
@@ -527,7 +542,10 @@
           </div>
         </div>
         <div class="modal-footer d-flex justify-content-between">
-          <strong>{{ app.t('common.total') }}: {{ details.totalPrice | number: '1.2-2' }} {{ details.currency }}</strong>
+          <div>
+            <strong>{{ app.t('common.total') }}: {{ details.totalPrice | number: '1.2-2' }} {{ details.currency }}</strong><br />
+            <strong>{{ app.t('common.totalIncludingVat') }}: {{ details.totalPriceIncludingVat | number: '1.2-2' }} {{ details.currency }}</strong>
+          </div>
           <div class="d-flex gap-2">
             <button class="btn btn-outline-primary" type="button" (click)="app.openClientBillPdf()">{{ app.t('common.printPdf') }}</button>
             <button

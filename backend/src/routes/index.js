@@ -29,6 +29,11 @@ import { registerPageRoutes } from './modules/pages.js';
 import { registerRefundRoutes } from './modules/refunds.js';
 import { registerWebsocketRoutes } from './modules/websocket.js';
 import { sendFacturXBill } from '../services/factur-x/generator.js';
+import {
+  calculateLineTotalIncludingVat,
+  calculatePriceIncludingVat,
+  normalizeVatRate
+} from '../utils/vat.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -488,6 +493,7 @@ function sanitizeStockPayload(payload) {
     rawMinimumStockThreshold === '' || rawMinimumStockThreshold === null || rawMinimumStockThreshold === undefined
       ? null
       : Number(rawMinimumStockThreshold);
+  const vatRate = normalizeVatRate(payload?.vatRate);
 
   return {
     id: normalizeString(payload?.id),
@@ -496,6 +502,7 @@ function sanitizeStockPayload(payload) {
     category: normalizeString(payload?.category),
     imageFilename: normalizeString(payload?.imageFilename),
     price: Number(payload?.price),
+    vatRate,
     stock: Number(payload?.stock),
     minimumStockThreshold
   };
@@ -542,6 +549,8 @@ function mapSessionUser(user) {
     physicalAddress: user.physicalAddress,
     phoneNumber: user.phoneNumber,
     businessDescription: normalizeString(user.businessDescription),
+    vatId: normalizeString(user.vatId),
+    billMentions: normalizeString(user.billMentions),
     logoFilename: normalizeString(user.logoFilename),
     logoUrl: getUserLogoUrl(user.logoFilename),
     businessRegistrationId: user.businessRegistrationId,
@@ -573,12 +582,15 @@ function mapMerchandise(merchandise) {
     Number.isInteger(merchandise.minimumStockThreshold) && merchandise.minimumStockThreshold >= 0
       ? merchandise.minimumStockThreshold
       : null;
+  const vatRate = normalizeVatRate(merchandise.vatRate);
 
   return {
     id: merchandise._id.toString(),
     name: merchandise.name,
     reference: merchandise.reference,
     price: merchandise.price,
+    vatRate,
+    priceIncludingVat: calculatePriceIncludingVat(merchandise.price, vatRate),
     stock: merchandise.stock,
     minimumStockThreshold,
     category: merchandise.category,
@@ -595,12 +607,15 @@ function mapOrderCatalogItem(merchandise, vendorName) {
     Number.isInteger(merchandise.minimumStockThreshold) && merchandise.minimumStockThreshold >= 0
       ? merchandise.minimumStockThreshold
       : null;
+  const vatRate = normalizeVatRate(merchandise.vatRate);
 
   return {
     id: merchandise._id.toString(),
     name: merchandise.name,
     reference: merchandise.reference,
     price: merchandise.price,
+    vatRate,
+    priceIncludingVat: calculatePriceIncludingVat(merchandise.price, vatRate),
     stock: merchandise.stock,
     minimumStockThreshold,
     category: merchandise.category,
@@ -675,8 +690,13 @@ function mapRefundToBillLine(refund) {
     reference: comment,
     category: 'Refund',
     unitPrice: negativeAmount,
+    vatRate: normalizeVatRate(refund?.vatRate),
+    unitPriceIncludingVat: negativeAmount,
     quantity: null,
     lineTotal: negativeAmount,
+    lineTotalIncludingVat: negativeAmount,
+    vatCategory: 'O',
+    vatExemptionReason: 'Outside scope of VAT',
     comment,
     createdAt: refund?.createdAt ?? null
   };
@@ -686,6 +706,15 @@ function getRefundLineTotal(refundLines) {
   return roundToTwoDecimals(
     (Array.isArray(refundLines) ? refundLines : []).reduce(
       (sum, refundLine) => sum + Number(refundLine?.lineTotal ?? 0),
+      0
+    )
+  );
+}
+
+function getBillLineTotalIncludingVat(lines) {
+  return roundToTwoDecimals(
+    (Array.isArray(lines) ? lines : []).reduce(
+      (sum, line) => sum + Number(line?.lineTotalIncludingVat ?? line?.lineTotal ?? 0),
       0
     )
   );
@@ -712,8 +741,13 @@ function mapPenaltyToBillLine(penaltyLine) {
     reference: percentage ? `${percentage}%` : '',
     category: 'Penalty',
     unitPrice: amount,
+    vatRate: normalizeVatRate(penaltyLine?.vatRate),
+    unitPriceIncludingVat: amount,
     quantity: null,
     lineTotal: amount,
+    lineTotalIncludingVat: amount,
+    vatCategory: 'O',
+    vatExemptionReason: 'Outside scope of VAT',
     percentage,
     createdAt: penaltyLine?.createdAt ?? null
   };
@@ -929,23 +963,33 @@ function normalizeIsoDayOrToday(value) {
 }
 
 function mapCart(cart, clientId) {
-  const items = (cart?.items ?? []).map((item) => ({
-    merchandiseId: item.merchandiseId.toString(),
-    name: item.name,
-    reference: item.reference,
-    category: item.category,
-    vendorId: item.vendorId.toString(),
-    vendorName: item.vendorName,
-    unitPrice: item.unitPrice,
-    quantity: item.quantity,
-    lineTotal: item.lineTotal
-  }));
+  const items = (cart?.items ?? []).map((item) => {
+    const vatRate = normalizeVatRate(item.vatRate);
+    const unitPrice = Number(item.unitPrice ?? 0);
+    const lineTotal = Number(item.lineTotal ?? 0);
+
+    return {
+      merchandiseId: item.merchandiseId.toString(),
+      name: item.name,
+      reference: item.reference,
+      category: item.category,
+      vendorId: item.vendorId.toString(),
+      vendorName: item.vendorName,
+      unitPrice,
+      vatRate,
+      unitPriceIncludingVat: calculatePriceIncludingVat(unitPrice, vatRate),
+      quantity: item.quantity,
+      lineTotal,
+      lineTotalIncludingVat: calculateLineTotalIncludingVat(lineTotal, vatRate)
+    };
+  });
 
   return {
     clientId,
     deliveryDate: normalizeIsoDayOrToday(cart?.deliveryDate),
     items,
     grandTotal: roundToTwoDecimals(items.reduce((sum, item) => sum + item.lineTotal, 0)),
+    grandTotalIncludingVat: roundToTwoDecimals(items.reduce((sum, item) => sum + item.lineTotalIncludingVat, 0)),
     currency: 'EUR'
   };
 }
@@ -964,6 +1008,10 @@ function cartRedisKey(clientId, deliveryDate) {
 }
 
 function normalizeCartItem(item) {
+  const unitPrice = Number(item?.unitPrice);
+  const vatRate = normalizeVatRate(item?.vatRate);
+  const lineTotal = Number(item?.lineTotal);
+
   return {
     merchandiseId: normalizeString(item?.merchandiseId),
     name: normalizeString(item?.name),
@@ -971,9 +1019,12 @@ function normalizeCartItem(item) {
     category: normalizeString(item?.category),
     vendorId: normalizeString(item?.vendorId),
     vendorName: normalizeString(item?.vendorName),
-    unitPrice: Number(item?.unitPrice),
+    unitPrice,
+    vatRate,
+    unitPriceIncludingVat: calculatePriceIncludingVat(unitPrice, vatRate),
     quantity: Number(item?.quantity),
-    lineTotal: Number(item?.lineTotal)
+    lineTotal,
+    lineTotalIncludingVat: calculateLineTotalIncludingVat(lineTotal, vatRate)
   };
 }
 
@@ -1103,6 +1154,7 @@ async function generateBillsForDay(dayInput) {
           clientId: '$clientId'
         },
         totalPrice: { $sum: '$items.lineTotal' },
+        totalPriceIncludingVat: { $sum: { $ifNull: ['$items.lineTotalIncludingVat', '$items.lineTotal'] } },
         totalQuantity: { $sum: '$items.quantity' },
         lineCount: { $sum: 1 },
         orderedAt: { $min: '$validatedAt' }
@@ -1133,6 +1185,7 @@ async function generateBillsForDay(dayInput) {
       clientId: row._id.clientId,
       orderedAt: row.orderedAt ?? null,
       orderTotalPrice: roundToTwoDecimals(Number(row.totalPrice ?? 0)),
+      orderTotalPriceIncludingVat: roundToTwoDecimals(Number(row.totalPriceIncludingVat ?? row.totalPrice ?? 0)),
       orderTotalQuantity: Number(row.totalQuantity ?? 0),
       orderLineCount: Number(row.lineCount ?? 0),
       refundLines: []
@@ -1148,6 +1201,7 @@ async function generateBillsForDay(dayInput) {
       clientId: refund.clientId,
       orderedAt: refund.createdAt ?? null,
       orderTotalPrice: 0,
+      orderTotalPriceIncludingVat: 0,
       orderTotalQuantity: 0,
       orderLineCount: 0,
       refundLines: []
@@ -1162,6 +1216,7 @@ async function generateBillsForDay(dayInput) {
   const operations = [...groups.values()].map((group) => {
     const refundLines = [...group.refundLines];
     const refundTotal = getRefundLineTotal(refundLines);
+    const refundTotalIncludingVat = getBillLineTotalIncludingVat(refundLines);
     return {
     updateOne: {
       filter: {
@@ -1180,6 +1235,7 @@ async function generateBillsForDay(dayInput) {
           vendorId: group.vendorId,
           clientId: group.clientId,
           totalPrice: roundToTwoDecimals(group.orderTotalPrice + refundTotal),
+          totalPriceIncludingVat: roundToTwoDecimals(group.orderTotalPriceIncludingVat + refundTotalIncludingVat),
           totalQuantity: group.orderTotalQuantity,
           lineCount: group.orderLineCount + refundLines.length,
           currency: 'EUR',
@@ -1191,8 +1247,11 @@ async function generateBillsForDay(dayInput) {
             reference: refundLine.reference,
             category: refundLine.category,
             unitPrice: refundLine.unitPrice,
+            vatRate: refundLine.vatRate,
+            unitPriceIncludingVat: refundLine.unitPriceIncludingVat,
             quantity: refundLine.quantity,
             lineTotal: refundLine.lineTotal,
+            lineTotalIncludingVat: refundLine.lineTotalIncludingVat,
             comment: refundLine.comment,
             createdAt: refundLine.createdAt ?? null
           }))
@@ -1740,7 +1799,7 @@ async function addBillPenaltyLine({ key, vendorId, percentage }) {
     vendorId: vendorObjectId,
     clientId: clientObjectId
   })
-    .select({ totalPrice: 1, lineCount: 1, vendorSettled: 1, penaltyLines: 1 })
+    .select({ totalPrice: 1, totalPriceIncludingVat: 1, lineCount: 1, vendorSettled: 1, penaltyLines: 1 })
     .lean();
 
   if (!bill) {
@@ -1772,8 +1831,13 @@ async function addBillPenaltyLine({ key, vendorId, percentage }) {
     reference: `${normalizedPercentage}%`,
     category: 'Penalty',
     unitPrice: penaltyAmount,
+    vatRate: 0,
+    unitPriceIncludingVat: penaltyAmount,
     quantity: null,
     lineTotal: penaltyAmount,
+    lineTotalIncludingVat: penaltyAmount,
+    vatCategory: 'O',
+    vatExemptionReason: 'Outside scope of VAT',
     percentage: normalizedPercentage,
     createdAt: new Date()
   };
@@ -1788,6 +1852,7 @@ async function addBillPenaltyLine({ key, vendorId, percentage }) {
       $push: { penaltyLines: penaltyLine },
       $set: {
         totalPrice: roundToTwoDecimals(billTotal + penaltyAmount),
+        totalPriceIncludingVat: roundToTwoDecimals(Number(bill.totalPriceIncludingVat ?? billTotal) + penaltyAmount),
         lineCount: Number(bill.lineCount ?? 0) + 1
       }
     }
@@ -1800,6 +1865,7 @@ async function addBillPenaltyLine({ key, vendorId, percentage }) {
       percentage: normalizedPercentage,
       penaltyAmount,
       totalPrice: roundToTwoDecimals(billTotal + penaltyAmount),
+      totalPriceIncludingVat: roundToTwoDecimals(Number(bill.totalPriceIncludingVat ?? billTotal) + penaltyAmount),
       lineCount: Number(bill.lineCount ?? 0) + 1
     }
   };
@@ -1846,7 +1912,7 @@ function formatBillItemLabel(item) {
   return name || reference || '-';
 }
 
-function sendBillPdf(reply, { filename, title, labels, billIdentifier, orderedAt, deliveryDate, topLogoPath, vendor, client, items, totalPrice, currency }) {
+function sendBillPdf(reply, { filename, title, labels, billIdentifier, orderedAt, deliveryDate, topLogoPath, vendor, client, items, totalPrice, totalPriceIncludingVat, currency }) {
   const doc = new PDFDocument({
     size: 'A4',
     margin: 42
@@ -1908,8 +1974,10 @@ function sendBillPdf(reply, { filename, title, labels, billIdentifier, orderedAt
       `${labels.zipcode}: ${vendor.zipcode}`,
       `${labels.city}: ${vendor.city}`,
       `${labels.phone}: ${vendor.phoneNumber}`,
-      `${labels.businessId}: ${vendor.businessId}`
-    ]
+      `${labels.businessId}: ${vendor.businessId}`,
+      vendor.vatId ? `${labels.vatId ?? 'VAT ID'}: ${vendor.vatId}` : '',
+      vendor.billMentions ? `${labels.billMentions ?? 'Bill mentions'}: ${vendor.billMentions}` : ''
+    ].filter(Boolean)
   });
 
   const clientEndY = drawPdfPartyBlock(doc, {
@@ -1929,14 +1997,14 @@ function sendBillPdf(reply, { filename, title, labels, billIdentifier, orderedAt
   doc.y = Math.max(vendorEndY, clientEndY) + 10;
   const tableLeft = doc.page.margins.left;
   const tableWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-  const columnRatios = [0.40, 0.18, 0.16, 0.08, 0.18];
+  const columnRatios = [0.30, 0.14, 0.13, 0.09, 0.06, 0.14, 0.14];
   const columnWidths = columnRatios.map((ratio) => tableWidth * ratio);
   const rowHeight = 16;
   const textPadding = 4;
   const rowTextOffsetY = 3;
 
   const drawTableHeader = () => {
-    const headers = [labels.item, labels.category, labels.unitPrice, labels.qty, labels.lineTotal];
+    const headers = [labels.item, labels.category, labels.unitPrice, labels.unitPriceIncludingVat, labels.qty, labels.lineTotal, labels.lineTotalIncludingVat];
     const rowTop = doc.y;
     const textY = rowTop + rowTextOffsetY;
     let x = tableLeft;
@@ -1978,8 +2046,10 @@ function sendBillPdf(reply, { filename, title, labels, billIdentifier, orderedAt
       formatBillItemLabel(item),
       item.category,
       formatMoney(item.unitPrice, currency),
+      formatMoney(item.unitPriceIncludingVat ?? calculatePriceIncludingVat(item.unitPrice, item.vatRate), currency),
       item.quantity === null || item.quantity === undefined ? '-' : String(item.quantity),
-      formatMoney(item.lineTotal, currency)
+      formatMoney(item.lineTotal, currency),
+      formatMoney(item.lineTotalIncludingVat ?? calculateLineTotalIncludingVat(item.lineTotal, item.vatRate), currency)
     ];
 
     let x = tableLeft;
@@ -2002,6 +2072,9 @@ function sendBillPdf(reply, { filename, title, labels, billIdentifier, orderedAt
 
   doc.moveDown(1);
   doc.font('Helvetica-Bold').fontSize(12).text(`${labels.total}: ${formatMoney(totalPrice, currency)}`, {
+    align: 'right'
+  });
+  doc.font('Helvetica-Bold').fontSize(12).text(`${labels.totalIncludingVat}: ${formatMoney(totalPriceIncludingVat ?? totalPrice, currency)}`, {
     align: 'right'
   });
 
@@ -2040,6 +2113,7 @@ async function getVendorBillDetails(vendorIdInput, keyInput) {
 
   const itemMap = new Map();
   let totalPrice = 0;
+  let totalPriceIncludingVat = 0;
   let orderedAt = null;
   let deliveryDate = null;
 
@@ -2056,11 +2130,15 @@ async function getVendorBillDetails(vendorIdInput, keyInput) {
         continue;
       }
 
-      const itemMapKey = `${item.merchandiseId.toString()}::${item.unitPrice}`;
+      const vatRate = normalizeVatRate(item.vatRate);
+      const unitPriceIncludingVat = Number(item.unitPriceIncludingVat ?? calculatePriceIncludingVat(item.unitPrice, vatRate));
+      const lineTotalIncludingVat = Number(item.lineTotalIncludingVat ?? calculateLineTotalIncludingVat(item.lineTotal, vatRate));
+      const itemMapKey = `${item.merchandiseId.toString()}::${item.unitPrice}::${vatRate}`;
       const existing = itemMap.get(itemMapKey);
       if (existing) {
         existing.quantity += item.quantity;
         existing.lineTotal = roundToTwoDecimals(existing.lineTotal + item.lineTotal);
+        existing.lineTotalIncludingVat = roundToTwoDecimals(existing.lineTotalIncludingVat + lineTotalIncludingVat);
       } else {
         itemMap.set(itemMapKey, {
           merchandiseId: item.merchandiseId.toString(),
@@ -2068,12 +2146,18 @@ async function getVendorBillDetails(vendorIdInput, keyInput) {
           reference: item.reference,
           category: item.category,
           unitPrice: item.unitPrice,
+          vatRate,
+          unitPriceIncludingVat,
           quantity: item.quantity,
-          lineTotal: item.lineTotal
+          lineTotal: item.lineTotal,
+          lineTotalIncludingVat,
+          vatCategory: item.vatCategory,
+          vatExemptionReason: item.vatExemptionReason
         });
       }
 
       totalPrice = roundToTwoDecimals(totalPrice + item.lineTotal);
+      totalPriceIncludingVat = roundToTwoDecimals(totalPriceIncludingVat + lineTotalIncludingVat);
     }
   }
 
@@ -2099,6 +2183,7 @@ async function getVendorBillDetails(vendorIdInput, keyInput) {
       refundLines: 1,
       penaltyLines: 1,
       totalPrice: 1,
+      totalPriceIncludingVat: 1,
       orderedAt: 1
     })
     .lean();
@@ -2140,6 +2225,9 @@ async function getVendorBillDetails(vendorIdInput, keyInput) {
       totalPrice: billRecord
         ? roundToTwoDecimals(Number(billRecord.totalPrice ?? totalPrice + getRefundLineTotal(refundItems) + getPenaltyLineTotal(penaltyItems)))
         : roundToTwoDecimals(totalPrice + getRefundLineTotal(refundItems) + getPenaltyLineTotal(penaltyItems)),
+      totalPriceIncludingVat: billRecord
+        ? roundToTwoDecimals(Number(billRecord.totalPriceIncludingVat ?? totalPriceIncludingVat + getBillLineTotalIncludingVat(refundItems) + getBillLineTotalIncludingVat(penaltyItems)))
+        : roundToTwoDecimals(totalPriceIncludingVat + getBillLineTotalIncludingVat(refundItems) + getBillLineTotalIncludingVat(penaltyItems)),
       currency: 'EUR',
       ...comment,
       ...settlement
@@ -2176,6 +2264,7 @@ async function getClientBillDetails(clientIdInput, keyInput) {
 
   const itemMap = new Map();
   let totalPrice = 0;
+  let totalPriceIncludingVat = 0;
   let vendorName = parsedKey.vendorId;
   let orderedAt = null;
   let deliveryDate = null;
@@ -2194,12 +2283,16 @@ async function getClientBillDetails(clientIdInput, keyInput) {
       }
 
       vendorName = item.vendorName || vendorName;
-      const itemMapKey = `${item.merchandiseId.toString()}::${item.unitPrice}`;
+      const vatRate = normalizeVatRate(item.vatRate);
+      const unitPriceIncludingVat = Number(item.unitPriceIncludingVat ?? calculatePriceIncludingVat(item.unitPrice, vatRate));
+      const lineTotalIncludingVat = Number(item.lineTotalIncludingVat ?? calculateLineTotalIncludingVat(item.lineTotal, vatRate));
+      const itemMapKey = `${item.merchandiseId.toString()}::${item.unitPrice}::${vatRate}`;
       const existing = itemMap.get(itemMapKey);
 
       if (existing) {
         existing.quantity += item.quantity;
         existing.lineTotal = roundToTwoDecimals(existing.lineTotal + item.lineTotal);
+        existing.lineTotalIncludingVat = roundToTwoDecimals(existing.lineTotalIncludingVat + lineTotalIncludingVat);
       } else {
         itemMap.set(itemMapKey, {
           merchandiseId: item.merchandiseId.toString(),
@@ -2209,12 +2302,18 @@ async function getClientBillDetails(clientIdInput, keyInput) {
           vendorId: item.vendorId.toString(),
           vendorName: item.vendorName,
           unitPrice: item.unitPrice,
+          vatRate,
+          unitPriceIncludingVat,
           quantity: item.quantity,
-          lineTotal: item.lineTotal
+          lineTotal: item.lineTotal,
+          lineTotalIncludingVat,
+          vatCategory: item.vatCategory,
+          vatExemptionReason: item.vatExemptionReason
         });
       }
 
       totalPrice = roundToTwoDecimals(totalPrice + item.lineTotal);
+      totalPriceIncludingVat = roundToTwoDecimals(totalPriceIncludingVat + lineTotalIncludingVat);
     }
   }
 
@@ -2240,6 +2339,7 @@ async function getClientBillDetails(clientIdInput, keyInput) {
       refundLines: 1,
       penaltyLines: 1,
       totalPrice: 1,
+      totalPriceIncludingVat: 1,
       orderedAt: 1
     })
     .lean();
@@ -2280,6 +2380,9 @@ async function getClientBillDetails(clientIdInput, keyInput) {
       totalPrice: billRecord
         ? roundToTwoDecimals(Number(billRecord.totalPrice ?? totalPrice + getRefundLineTotal(refundItems) + getPenaltyLineTotal(penaltyItems)))
         : roundToTwoDecimals(totalPrice + getRefundLineTotal(refundItems) + getPenaltyLineTotal(penaltyItems)),
+      totalPriceIncludingVat: billRecord
+        ? roundToTwoDecimals(Number(billRecord.totalPriceIncludingVat ?? totalPriceIncludingVat + getBillLineTotalIncludingVat(refundItems) + getBillLineTotalIncludingVat(penaltyItems)))
+        : roundToTwoDecimals(totalPriceIncludingVat + getBillLineTotalIncludingVat(refundItems) + getBillLineTotalIncludingVat(penaltyItems)),
       currency: 'EUR',
       ...comment,
       ...settlement
@@ -2516,6 +2619,8 @@ function createRouteContext(app) {
       vendorId,
       merchandiseId: merchandise._id.toString(),
       price: merchandise.price,
+      vatRate: normalizeVatRate(merchandise.vatRate),
+      priceIncludingVat: calculatePriceIncludingVat(merchandise.price, merchandise.vatRate),
       stock: merchandise.stock,
       minimumStockThreshold: Number.isInteger(merchandise.minimumStockThreshold) ? merchandise.minimumStockThreshold : null,
       vendorName

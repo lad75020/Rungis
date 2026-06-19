@@ -230,6 +230,8 @@ export function registerAuthRoutes(app, context, deps) {
       physicalAddress: normalizeString(request.body?.physicalAddress),
       phoneNumber: normalizeString(request.body?.phoneNumber),
       businessDescription: normalizeString(request.body?.businessDescription),
+      vatId: normalizeString(request.body?.vatId).toUpperCase(),
+      billMentions: normalizeString(request.body?.billMentions),
       businessRegistrationId: normalizeString(request.body?.businessRegistrationId),
       logoDataUrl: request.body?.logoDataUrl
     };
@@ -255,6 +257,10 @@ export function registerAuthRoutes(app, context, deps) {
     const siret = parseSiretValue(payload.businessRegistrationId);
     if (!siret.ok) {
       return reply.code(400).send({ ok: false, message: siret.message });
+    }
+
+    if (request.session.user?.role === 'vendor' && payload.vatId && payload.vatId.length !== 13) {
+      return reply.code(400).send({ ok: false, message: 'VAT ID must be exactly 13 characters.' });
     }
 
     let logoFilenameToSet = '';
@@ -292,6 +298,8 @@ export function registerAuthRoutes(app, context, deps) {
     };
     if (request.session.user?.role === 'vendor') {
       updateSet.businessDescription = payload.businessDescription;
+      updateSet.vatId = payload.vatId;
+      updateSet.billMentions = payload.billMentions;
     }
     if (logoFilenameToSet) {
       updateSet.logoFilename = logoFilenameToSet;

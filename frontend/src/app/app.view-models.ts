@@ -190,20 +190,24 @@ export function buildVendorClientSalesBarChart(rows: VendorClientSalesStat[]) {
 }
 
 export function buildLocalCartAggregates(cart: CartData, groupBy: CartGroupBy) {
-  const groups = new Map<string, { key: string; label: string; total: number }>();
+  const groups = new Map<string, { key: string; label: string; total: number; totalIncludingVat: number }>();
 
   for (const item of cart.items) {
     const key = groupBy === 'vendor' ? item.vendorId : item.category;
     const label = groupBy === 'vendor' ? item.vendorName : item.category;
     const current = groups.get(key);
 
+    const lineTotalIncludingVat = item.lineTotalIncludingVat ?? item.lineTotal;
+
     if (current) {
       current.total = Number((current.total + item.lineTotal).toFixed(2));
+      current.totalIncludingVat = Number((current.totalIncludingVat + lineTotalIncludingVat).toFixed(2));
     } else {
       groups.set(key, {
         key,
         label,
-        total: Number(item.lineTotal.toFixed(2))
+        total: Number(item.lineTotal.toFixed(2)),
+        totalIncludingVat: Number(lineTotalIncludingVat.toFixed(2))
       });
     }
   }

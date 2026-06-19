@@ -18,11 +18,16 @@ test('normalizes complete bill data into EN 16931 Factur-X invoice data', () => 
   assert.equal(invoice.deliveryDate, '20260620');
   assert.equal(invoice.seller.name, 'Vendor SAS');
   assert.equal(invoice.seller.legalRegistrationId, '1234567890123');
+  assert.equal(invoice.seller.taxRegistrationId, 'FR12345678901');
+  assert.deepEqual(invoice.includedNotes, ['Payment <due> & "safe" within 30 days.']);
   assert.equal(invoice.buyer.name, 'Client SARL');
   assert.equal(invoice.lines.length, 1);
   assert.equal(invoice.lines[0].unitCode, 'C62');
-  assert.equal(invoice.lines[0].vatCategory, 'O');
-  assert.equal(invoice.totals.amountDue, 25);
+  assert.equal(invoice.lines[0].vatCategory, 'S');
+  assert.equal(invoice.lines[0].vatRate, 5.5);
+  assert.equal(invoice.lines[0].vatExemptionReason, '');
+  assert.equal(invoice.vatBreakdowns[0].taxAmount, 1.38);
+  assert.equal(invoice.totals.amountDue, 26.38);
 });
 
 test('preserves refund and penalty signs while reconciling totals', () => {
@@ -47,6 +52,7 @@ test('fails closed when legal party data is incomplete', () => {
       assert.equal(error.statusCode, 422);
       assert.ok(error.details.some((detail) => detail.includes('Seller address')));
       assert.ok(error.details.some((detail) => detail.includes('Seller SIRET')));
+      assert.ok(error.details.some((detail) => detail.includes('Seller VAT ID')));
       return true;
     }
   );

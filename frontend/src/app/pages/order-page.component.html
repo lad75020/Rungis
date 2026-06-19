@@ -86,7 +86,7 @@
                   (click)="app.selectCatalogItem(item.id)"
                 >
                   <span class="order-item-with-image-tooltip">
-                    {{ item.name }} ({{ item.reference }}) - {{ item.vendorName }} - {{ item.price | number: '1.2-2' }} EUR
+                    {{ item.name }} ({{ item.reference }}) - {{ item.vendorName }} - {{ item.price | number: '1.2-2' }} EUR / {{ item.priceIncludingVat | number: '1.2-2' }} EUR {{ app.t('order.includingVatShort') }}
                     @if (item.imageUrl) {
                       <span class="order-item-image-tooltip">
                         <img [src]="item.imageUrl" [alt]="item.name" width="100" />
@@ -191,8 +191,11 @@
                 <th scope="col">{{ app.t('order.category') }}</th>
                 <th scope="col">{{ app.t('order.vendor') }}</th>
                 <th scope="col">{{ app.t('order.unitPriceEur') }}</th>
+                <th scope="col">{{ app.t('order.vatRate') }}</th>
+                <th scope="col">{{ app.t('order.unitPriceIncludingVatEur') }}</th>
                 <th scope="col">{{ app.t('order.qty') }}</th>
                 <th scope="col">{{ app.t('order.lineTotalEur') }}</th>
+                <th scope="col">{{ app.t('order.lineTotalIncludingVatEur') }}</th>
                 <th scope="col">{{ app.t('order.actions') }}</th>
               </tr>
             </thead>
@@ -203,10 +206,13 @@
                   <td>{{ item.category }}</td>
                   <td>{{ item.vendorName }}</td>
                   <td>{{ item.unitPrice | number: '1.2-2' }}</td>
+                  <td>{{ item.vatRate | number: '1.0-2' }}%</td>
+                  <td>{{ item.unitPriceIncludingVat | number: '1.2-2' }}</td>
                   <td style="max-width: 8rem">
                     <input #qtyInput class="form-control form-control-sm" type="number" min="1" step="1" [value]="item.quantity" />
                   </td>
                   <td>{{ item.lineTotal | number: '1.2-2' }}</td>
+                  <td>{{ item.lineTotalIncludingVat | number: '1.2-2' }}</td>
                   <td class="d-flex gap-2">
                     <button
                       class="btn btn-sm btn-outline-primary"
@@ -237,14 +243,15 @@
         </div>
 
         <div class="mb-3">
-          <strong>{{ app.t('order.currentCartTotal') }}: {{ app.cart().grandTotal | number: '1.2-2' }} {{ app.cart().currency }}</strong>
+          <strong>{{ app.t('order.currentCartTotal') }}: {{ app.cart().grandTotal | number: '1.2-2' }} {{ app.cart().currency }}</strong><br />
+          <strong>{{ app.t('order.currentCartTotalIncludingVat') }}: {{ app.cart().grandTotalIncludingVat | number: '1.2-2' }} {{ app.cart().currency }}</strong>
         </div>
 
         <div class="mb-3">
           <h3 class="h6">{{ app.t('order.groupedSubtotals') }} ({{ app.cartGroupBy() }})</h3>
           <ul class="mb-0">
             @for (group of app.localCartAggregates(); track group.key) {
-              <li>{{ group.label }}: {{ group.total | number: '1.2-2' }} EUR</li>
+              <li>{{ group.label }}: {{ group.total | number: '1.2-2' }} EUR / {{ group.totalIncludingVat | number: '1.2-2' }} EUR {{ app.t('order.includingVatShort') }}</li>
             }
           </ul>
         </div>
@@ -260,10 +267,11 @@
             <h3 class="h6 mb-3">{{ app.t('order.validationResult') }} ({{ validation.groupBy }})</h3>
             <ul class="mb-2">
               @for (group of validation.totals; track group.key) {
-                <li>{{ group.label }}: {{ group.total | number: '1.2-2' }} {{ validation.currency }}</li>
+                <li>{{ group.label }}: {{ group.total | number: '1.2-2' }} {{ validation.currency }} / {{ group.totalIncludingVat | number: '1.2-2' }} {{ validation.currency }} {{ app.t('order.includingVatShort') }}</li>
               }
             </ul>
-            <strong>Total: {{ validation.grandTotal | number: '1.2-2' }} {{ validation.currency }}</strong>
+            <strong>{{ app.t('common.total') }}: {{ validation.grandTotal | number: '1.2-2' }} {{ validation.currency }}</strong><br />
+            <strong>{{ app.t('common.totalIncludingVat') }}: {{ validation.grandTotalIncludingVat | number: '1.2-2' }} {{ validation.currency }}</strong>
           </div>
         }
       }

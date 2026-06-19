@@ -27,5 +27,6 @@ export const EMPTY_CART: CartData = {
   deliveryDate: '',
   items: [],
   grandTotal: 0,
+  grandTotalIncludingVat: 0,
   currency: 'EUR'
 };

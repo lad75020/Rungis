@@ -62,6 +62,24 @@ const userSchema = new mongoose.Schema(
       default: '',
       maxlength: 2000
     },
+    vatId: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: '',
+      validate: {
+        validator(value) {
+          return !value || value.length === 13;
+        },
+        message: 'VAT ID must be exactly 13 characters when provided.'
+      }
+    },
+    billMentions: {
+      type: String,
+      trim: true,
+      default: '',
+      maxlength: 2000
+    },
     logoFilename: {
       type: String,
       trim: true,

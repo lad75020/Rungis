@@ -1,1 +1,0 @@
-import{ya as n}from"./chunk-7RYUDASU.js";import"./chunk-2NFLSA4Y.js";var t=class e{static \u0275fac=function(a){return new(a||e)};static \u0275cmp=n({type:e,selectors:[["app-legacy-page-placeholder"]],decls:0,vars:0,template:function(a,c){},encapsulation:2,changeDetection:0})};export{t as LegacyPagePlaceholderComponent};

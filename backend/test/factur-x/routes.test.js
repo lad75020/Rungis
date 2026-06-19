@@ -17,7 +17,7 @@ function createReply() {
 
 function createDeps(overrides = {}) {
   const users = {
-    vendor: { organisation: 'Vendor SAS', physicalAddress: '1 Market Street', zipcode: '75001', city: 'Paris', phoneNumber: '0102030405', email: 'vendor@example.com', businessRegistrationId: '1234567890123' },
+    vendor: { organisation: 'Vendor SAS', physicalAddress: '1 Market Street', zipcode: '75001', city: 'Paris', phoneNumber: '0102030405', email: 'vendor@example.com', businessRegistrationId: '1234567890123', vatId: 'FR12345678901', billMentions: 'Payment due within 30 days.' },
     client: { organisation: 'Client SARL', physicalAddress: '2 Client Avenue', zipcode: '75002', city: 'Paris', email: 'client@example.com', businessRegistrationId: '9876543210987' }
   };
   return {
@@ -119,6 +119,36 @@ test('client Factur-X route returns PDF attachment headers', async () => {
   assert.equal(reply.headers['content-type'], 'application/pdf');
   assert.equal(reply.headers['cache-control'], 'no-store');
   assert.match(reply.headers['content-disposition'], /attachment; filename="client-bill-2026-06-19-Vendor-SAS-factur-x\.pdf"/);
+});
+
+test('Factur-X routes pass seller VAT ID and bill mentions to generation', async () => {
+  const capturedOptions = [];
+  const routes = createRoutes(createDeps({
+    sendFacturXBill: async (reply, options) => {
+      capturedOptions.push(options);
+      return reply.type('application/pdf').send(Buffer.from('%PDF factur-x'));
+    }
+  }));
+
+  await routes.get('/api/bills/vendor/:key/factur-x').handler({
+    server,
+    session: { user: { id: 'vendor', organisation: 'Vendor SAS', physicalAddress: '1 Market Street', zipcode: '75001', city: 'Paris', businessRegistrationId: '1234567890123' } },
+    params: { key: 'client::2026-06-19' },
+    log: { error: () => {} }
+  }, createReply());
+
+  await routes.get('/api/bills/client/:key/factur-x').handler({
+    server,
+    session: { user: { id: 'client', organisation: 'Client SARL', physicalAddress: '2 Client Avenue', zipcode: '75002', city: 'Paris', businessRegistrationId: '9876543210987' } },
+    params: { key: 'vendor::2026-06-19' },
+    log: { error: () => {} }
+  }, createReply());
+
+  assert.equal(capturedOptions.length, 2);
+  for (const options of capturedOptions) {
+    assert.equal(options.vendor.vatId, 'FR12345678901');
+    assert.equal(options.vendor.billMentions, 'Payment due within 30 days.');
+  }
 });
 
 test('route returns JSON error when bill key is invalid or not found', async () => {

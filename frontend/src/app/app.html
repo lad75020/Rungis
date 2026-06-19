@@ -232,6 +232,20 @@
                             formControlName="businessDescription"
                           ></textarea>
                         </div>
+
+                        <div class="col-md-6">
+                          <label class="form-label" for="account-vat-id">{{ t('account.vatId') }}</label>
+                          <input id="account-vat-id" class="form-control" type="text" formControlName="vatId" maxlength="13" />
+                        </div>
+
+                        <div class="col-12">
+                          <label class="form-label" for="account-bill-mentions">{{ t('account.billMentions') }}</label>
+                          <textarea
+                            id="account-bill-mentions"
+                            class="form-control bill-comment-textarea"
+                            formControlName="billMentions"
+                          ></textarea>
+                        </div>
                       }
 
                       <div class="col-md-6">

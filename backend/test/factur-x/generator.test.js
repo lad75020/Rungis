@@ -25,7 +25,13 @@ test('builds Factur-X XML with profile, parties, lines, and MIME marker', () => 
   assert.match(xml, /urn:cen.eu:en16931:2017#compliant#urn:factur-x.eu:1p0:en16931/);
   assert.match(xml, /<ram:Name>Vendor SAS<\/ram:Name>/);
   assert.match(xml, /<ram:Name>Client SARL<\/ram:Name>/);
+  assert.match(xml, /<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">FR12345678901<\/ram:ID><\/ram:SpecifiedTaxRegistration>/);
+  assert.match(xml, /<ram:IncludedNote><ram:Content>Payment &lt;due&gt; &amp; &quot;safe&quot; within 30 days\.<\/ram:Content><\/ram:IncludedNote>/);
+  assert.match(xml, /<ram:CategoryCode>S<\/ram:CategoryCode>/);
+  assert.match(xml, /<ram:RateApplicablePercent>5.5<\/ram:RateApplicablePercent>/);
+  assert.doesNotMatch(xml, /<ram:ExemptionReason>/);
   assert.match(xml, /<ram:LineTotalAmount>25.00<\/ram:LineTotalAmount>/);
+  assert.match(xml, /<ram:DuePayableAmount>26.38<\/ram:DuePayableAmount>/);
   assert.match(xml, /factur-x.xml; text\/xml; EN 16931/);
 });
 

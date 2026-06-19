@@ -14,11 +14,17 @@
           "category": "Vegetables",
           "unitPrice": 12.5,
           "quantity": 2,
-          "lineTotal": 25
+          "lineTotal": 25,
+          "vatRate": 5.5,
+          "unitPriceIncludingVat": 13.19,
+          "lineTotalIncludingVat": 26.38,
+          "vatCategory": "S",
+          "vatExemptionReason": ""
         }
       ],
       "totalPrice": 25,
-      "currency": "EUR"
+      "currency": "EUR",
+      "totalPriceIncludingVat": 26.38
     },
     "vendor": {
       "organisation": "Vendor SAS",
@@ -26,7 +32,9 @@
       "zipcode": "75001",
       "city": "Paris",
       "phoneNumber": "0102030405",
-      "businessId": "1234567890123"
+      "businessId": "1234567890123",
+      "vatId": "FR12345678901",
+      "billMentions": "Payment <due> & \"safe\" within 30 days."
     },
     "client": {
       "organisation": "Client SARL",
@@ -44,9 +52,35 @@
       "orderedAt": "2026-06-20T08:00:00.000Z",
       "deliveryDate": "2026-06-21T00:00:00.000Z",
       "items": [
-        { "merchandiseId": "item-1", "name": "Tomatoes", "reference": "TOM-001", "category": "Vegetables", "unitPrice": 20, "quantity": 1, "lineTotal": 20 },
-        { "kind": "refund", "merchandiseId": "refund-1", "name": "Refund", "reference": "Damaged crate", "category": "Refund", "unitPrice": -5, "quantity": null, "lineTotal": -5 },
-        { "kind": "penalty", "merchandiseId": "penalty-1", "name": "Late payment penalty", "reference": "5%", "category": "Penalty", "unitPrice": 2, "quantity": null, "lineTotal": 2 }
+        {
+          "merchandiseId": "item-1",
+          "name": "Tomatoes",
+          "reference": "TOM-001",
+          "category": "Vegetables",
+          "unitPrice": 20,
+          "quantity": 1,
+          "lineTotal": 20
+        },
+        {
+          "kind": "refund",
+          "merchandiseId": "refund-1",
+          "name": "Refund",
+          "reference": "Damaged crate",
+          "category": "Refund",
+          "unitPrice": -5,
+          "quantity": null,
+          "lineTotal": -5
+        },
+        {
+          "kind": "penalty",
+          "merchandiseId": "penalty-1",
+          "name": "Late payment penalty",
+          "reference": "5%",
+          "category": "Penalty",
+          "unitPrice": 2,
+          "quantity": null,
+          "lineTotal": 2
+        }
       ],
       "totalPrice": 17,
       "currency": "EUR"
@@ -57,7 +91,9 @@
       "zipcode": "75001",
       "city": "Paris",
       "phoneNumber": "0102030405",
-      "businessId": "1234567890123"
+      "businessId": "1234567890123",
+      "vatId": "FR12345678901",
+      "billMentions": "Payment due within 30 days."
     },
     "client": {
       "organisation": "Client SARL",
@@ -75,7 +111,15 @@
       "orderedAt": "2026-06-21T08:00:00.000Z",
       "deliveryDate": "2026-06-22T00:00:00.000Z",
       "items": [
-        { "merchandiseId": "item-1", "name": "Tomatoes", "reference": "TOM-001", "category": "Vegetables", "unitPrice": 12.5, "quantity": 2, "lineTotal": 25 }
+        {
+          "merchandiseId": "item-1",
+          "name": "Tomatoes",
+          "reference": "TOM-001",
+          "category": "Vegetables",
+          "unitPrice": 12.5,
+          "quantity": 2,
+          "lineTotal": 25
+        }
       ],
       "totalPrice": 25,
       "currency": "EUR"

@@ -18,6 +18,13 @@ const merchandiseSchema = new mongoose.Schema(
       required: true,
       min: 0
     },
+    vatRate: {
+      type: Number,
+      required: true,
+      min: 0,
+      max: 100,
+      default: 0
+    },
     stock: {
       type: Number,
       required: true,

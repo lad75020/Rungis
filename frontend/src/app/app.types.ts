@@ -30,6 +30,8 @@ export type SessionUser = {
   physicalAddress: string;
   phoneNumber: string;
   businessDescription: string;
+  vatId: string;
+  billMentions: string;
   logoFilename: string;
   logoUrl: string;
   businessRegistrationId: number;
@@ -140,6 +142,8 @@ export type StockItem = {
   name: string;
   reference: string;
   price: number;
+  vatRate: number;
+  priceIncludingVat: number;
   stock: number;
   minimumStockThreshold: number | null;
   category: string;
@@ -155,6 +159,8 @@ export type CatalogItem = {
   name: string;
   reference: string;
   price: number;
+  vatRate: number;
+  priceIncludingVat: number;
   stock: number;
   minimumStockThreshold: number | null;
   category: string;
@@ -202,8 +208,11 @@ export type CartItem = {
   vendorId: string;
   vendorName: string;
   unitPrice: number;
+  vatRate: number;
+  unitPriceIncludingVat: number;
   quantity: number;
   lineTotal: number;
+  lineTotalIncludingVat: number;
 };
 
 export type CartData = {
@@ -211,6 +220,7 @@ export type CartData = {
   deliveryDate: string;
   items: CartItem[];
   grandTotal: number;
+  grandTotalIncludingVat: number;
   currency: string;
 };
 
@@ -220,8 +230,10 @@ export type CartValidation = {
     key: string;
     label: string;
     total: number;
+    totalIncludingVat: number;
   }>;
   grandTotal: number;
+  grandTotalIncludingVat: number;
   currency: string;
 };
 
@@ -234,6 +246,7 @@ export type VendorDashboardOrderSummary = {
   totalQuantity: number;
   lineCount: number;
   totalPrice: number;
+  totalPriceIncludingVat: number;
   currency: string;
   vendorSettled: boolean;
   clientSettled: boolean;
@@ -247,8 +260,13 @@ export type VendorDashboardOrderDetailsItem = {
   reference: string;
   category: string;
   unitPrice: number;
+  vatRate: number;
+  unitPriceIncludingVat: number;
   quantity: number | null;
   lineTotal: number;
+  lineTotalIncludingVat: number;
+  vatCategory: string;
+  vatExemptionReason: string;
 };
 
 export type VendorDashboardOrderDetails = {
@@ -258,6 +276,7 @@ export type VendorDashboardOrderDetails = {
   clientUsername: string;
   items: VendorDashboardOrderDetailsItem[];
   totalPrice: number;
+  totalPriceIncludingVat: number;
   currency: string;
   clientComment: string;
   clientCommentSentAt: string | null;
@@ -285,6 +304,7 @@ export type ClientDashboardCartSummary = {
   totalQuantity: number;
   lineCount: number;
   totalPrice: number;
+  totalPriceIncludingVat: number;
   currency: string;
   vendorSettled: boolean;
   clientSettled: boolean;
@@ -302,6 +322,7 @@ export type ClientUnpaidBillSummary = {
   totalQuantity: number;
   lineCount: number;
   totalPrice: number;
+  totalPriceIncludingVat: number;
   currency: string;
   daysPastDue: number;
   isOverdue: boolean;
@@ -319,8 +340,13 @@ export type ClientDashboardCartDetailsItem = {
   vendorId: string;
   vendorName: string;
   unitPrice: number;
+  vatRate: number;
+  unitPriceIncludingVat: number;
   quantity: number | null;
   lineTotal: number;
+  lineTotalIncludingVat: number;
+  vatCategory: string;
+  vatExemptionReason: string;
 };
 
 export type ClientDashboardCartDetails = {
@@ -330,6 +356,7 @@ export type ClientDashboardCartDetails = {
   day: string;
   items: ClientDashboardCartDetailsItem[];
   totalPrice: number;
+  totalPriceIncludingVat: number;
   currency: string;
   clientComment: string;
   clientCommentSentAt: string | null;

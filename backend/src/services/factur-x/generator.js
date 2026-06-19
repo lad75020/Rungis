@@ -58,10 +58,14 @@ export async function renderFacturXReadablePdf(invoice) {
   doc.fontSize(10);
   appendText(doc, 'Organisation', invoice.seller.name);
   appendText(doc, 'SIRET', invoice.seller.legalRegistrationId);
+  appendText(doc, 'VAT ID', invoice.seller.taxRegistrationId);
   appendText(doc, 'Address', invoice.seller.postalAddress.lineOne);
   appendText(doc, 'Zipcode', invoice.seller.postalAddress.postCode);
   appendText(doc, 'City', invoice.seller.postalAddress.city);
   appendText(doc, 'Country', invoice.seller.postalAddress.countryCode);
+  if (invoice.includedNotes.length > 0) {
+    appendText(doc, 'Bill mentions', invoice.includedNotes.join(' | '));
+  }
   doc.moveDown(0.5);
 
   doc.font('Helvetica-Bold').fontSize(13).text('Buyer');
@@ -79,7 +83,7 @@ export async function renderFacturXReadablePdf(invoice) {
   for (const line of invoice.lines) {
     doc.font('Helvetica-Bold').text(`${line.id}. ${line.name}`, { continued: true });
     doc.font('Helvetica').text(` | ${line.quantity} ${line.unitCode} x ${formatMoney(line.unitPrice)} = ${formatMoney(line.lineTotal)} ${invoice.currency}`);
-    appendText(doc, 'VAT', `${line.vatCategory} ${line.vatRate}% ${line.vatExemptionReason}`);
+    appendText(doc, 'VAT', `${line.vatCategory} ${line.vatRate}%${line.vatExemptionReason ? ` ${line.vatExemptionReason}` : ''}`);
     if (line.description) {
       appendText(doc, 'Reference', line.description);
     }
@@ -88,7 +92,7 @@ export async function renderFacturXReadablePdf(invoice) {
   doc.font('Helvetica-Bold').fontSize(12).text('VAT breakdown');
   doc.font('Helvetica').fontSize(9);
   for (const vat of invoice.vatBreakdowns) {
-    doc.text(`${vat.category} ${vat.rate}% basis ${formatMoney(vat.taxableAmount)} tax ${formatMoney(vat.taxAmount)} ${vat.exemptionReason}`);
+    doc.text(`${vat.category} ${vat.rate}% basis ${formatMoney(vat.taxableAmount)} tax ${formatMoney(vat.taxAmount)}${vat.exemptionReason ? ` ${vat.exemptionReason}` : ''}`);
   }
   doc.moveDown();
   doc.font('Helvetica-Bold').fontSize(12).text('Totals');
@@ -126,6 +130,7 @@ function partyXml(tag, party) {
           <ram:SpecifiedLegalOrganization>
             <ram:ID schemeID="${x(party.legalRegistrationScheme)}">${x(party.legalRegistrationId)}</ram:ID>
           </ram:SpecifiedLegalOrganization>
+          ${party.taxRegistrationId ? `<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${x(party.taxRegistrationId)}</ram:ID></ram:SpecifiedTaxRegistration>` : ''}
         </ram:${tag}>`;
 }
 
@@ -147,7 +152,7 @@ export function buildFacturXXml(invoice) {
             <ram:TypeCode>VAT</ram:TypeCode>
             <ram:CategoryCode>${x(line.vatCategory)}</ram:CategoryCode>
             <ram:RateApplicablePercent>${x(line.vatRate)}</ram:RateApplicablePercent>
-            <ram:ExemptionReason>${x(line.vatExemptionReason)}</ram:ExemptionReason>
+            ${line.vatExemptionReason ? `<ram:ExemptionReason>${x(line.vatExemptionReason)}</ram:ExemptionReason>` : ''}
           </ram:ApplicableTradeTax>
           <ram:SpecifiedTradeSettlementLineMonetarySummation><ram:LineTotalAmount>${formatMoney(line.lineTotal)}</ram:LineTotalAmount></ram:SpecifiedTradeSettlementLineMonetarySummation>
         </ram:SpecifiedLineTradeSettlement>
@@ -160,8 +165,11 @@ export function buildFacturXXml(invoice) {
             <ram:BasisAmount>${formatMoney(vat.taxableAmount)}</ram:BasisAmount>
             <ram:CategoryCode>${x(vat.category)}</ram:CategoryCode>
             <ram:RateApplicablePercent>${x(vat.rate)}</ram:RateApplicablePercent>
-            <ram:ExemptionReason>${x(vat.exemptionReason)}</ram:ExemptionReason>
+            ${vat.exemptionReason ? `<ram:ExemptionReason>${x(vat.exemptionReason)}</ram:ExemptionReason>` : ''}
           </ram:ApplicableTradeTax>`).join('');
+
+  const notesXml = invoice.includedNotes.map((note) => `
+    <ram:IncludedNote><ram:Content>${x(note)}</ram:Content></ram:IncludedNote>`).join('');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100" xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100" xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
@@ -173,7 +181,7 @@ export function buildFacturXXml(invoice) {
     <ram:ID>${x(invoice.invoiceId)}</ram:ID>
     <ram:TypeCode>${x(invoice.typeCode)}</ram:TypeCode>
     <ram:IssueDateTime><udt:DateTimeString format="102">${x(invoice.issueDate)}</udt:DateTimeString></ram:IssueDateTime>
-    <ram:IncludedNote><ram:Content>${x(FACTUR_X_XML_FILENAME)}; ${x(FACTUR_X_XML_MIME_TYPE)}; ${x(FACTUR_X_CONFORMANCE_LEVEL)}</ram:Content></ram:IncludedNote>
+    <ram:IncludedNote><ram:Content>${x(FACTUR_X_XML_FILENAME)}; ${x(FACTUR_X_XML_MIME_TYPE)}; ${x(FACTUR_X_CONFORMANCE_LEVEL)}</ram:Content></ram:IncludedNote>${notesXml}
   </rsm:ExchangedDocument>
   <rsm:SupplyChainTradeTransaction>${lineXml}
     <ram:ApplicableHeaderTradeAgreement>

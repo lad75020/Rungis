@@ -487,6 +487,8 @@ export class App implements OnInit, OnDestroy {
     physicalAddress: ['', [Validators.required]],
     phoneNumber: ['', [Validators.required]],
     businessDescription: ['', [Validators.maxLength(2000)]],
+    vatId: ['', [Validators.pattern(/^$|^.{13}$/)]],
+    billMentions: ['', [Validators.maxLength(2000)]],
     businessRegistrationId: ['', [Validators.required, Validators.pattern(/^\d{13}$/)]]
   });
 
@@ -494,6 +496,7 @@ export class App implements OnInit, OnDestroy {
     name: ['', [Validators.required]],
     reference: ['', [Validators.required]],
     price: [0, [Validators.required, Validators.min(0)]],
+    vatRate: [0, [Validators.required, Validators.min(0), Validators.max(100)]],
     stock: [0, [Validators.required, Validators.min(0)]],
     minimumStockThreshold: [''],
     category: ['', [Validators.required]]
@@ -554,6 +557,8 @@ export class App implements OnInit, OnDestroy {
           physicalAddress: user.physicalAddress,
           phoneNumber: user.phoneNumber,
           businessDescription: user.businessDescription ?? '',
+          vatId: user.vatId ?? '',
+          billMentions: user.billMentions ?? '',
           businessRegistrationId: String(user.businessRegistrationId)
         });
       }
@@ -1905,6 +1910,7 @@ export class App implements OnInit, OnDestroy {
       name: item.name,
       reference: item.reference,
       price: item.price,
+      vatRate: item.vatRate ?? 0,
       stock: item.stock,
       minimumStockThreshold:
         item.minimumStockThreshold === null || item.minimumStockThreshold === undefined
@@ -1922,6 +1928,7 @@ export class App implements OnInit, OnDestroy {
       name: '',
       reference: '',
       price: 0,
+      vatRate: 0,
       stock: 0,
       minimumStockThreshold: '',
       category: ''
@@ -1981,12 +1988,18 @@ export class App implements OnInit, OnDestroy {
       reference: raw.reference,
       category: raw.category,
       price: Number(raw.price),
+      vatRate: Number(raw.vatRate),
       stock: Number(raw.stock),
       minimumStockThreshold
     };
 
     if (!Number.isFinite(payload.price) || payload.price < 0) {
       this.setAlert('danger', this.t('alerts.stocks.priceNonNegative'));
+      return;
+    }
+
+    if (!Number.isFinite(payload.vatRate) || payload.vatRate < 0 || payload.vatRate > 100) {
+      this.setAlert('danger', this.t('alerts.stocks.vatRateBetween'));
       return;
     }
 
@@ -3181,6 +3194,7 @@ export class App implements OnInit, OnDestroy {
         groupBy: data.groupBy === 'category' ? 'category' : 'vendor',
         totals: data.totals ?? [],
         grandTotal: data.grandTotal ?? 0,
+        grandTotalIncludingVat: data.grandTotalIncludingVat ?? data.grandTotal ?? 0,
         currency: data.currency ?? 'EUR'
       });
       this.cartSnapshotVersion += 1;
@@ -3316,6 +3330,8 @@ export class App implements OnInit, OnDestroy {
         const pricePayload = payload as {
           merchandiseId: string;
           price: number;
+          vatRate?: number;
+          priceIncludingVat?: number;
           stock: number;
           minimumStockThreshold: number | null;
           vendorId: string;
@@ -3336,6 +3352,8 @@ export class App implements OnInit, OnDestroy {
             return {
               ...item,
               price: pricePayload.price,
+              vatRate: pricePayload.vatRate ?? item.vatRate,
+              priceIncludingVat: pricePayload.priceIncludingVat ?? item.priceIncludingVat,
               stock: pricePayload.stock,
               minimumStockThreshold:
                 typeof pricePayload.minimumStockThreshold === 'number'

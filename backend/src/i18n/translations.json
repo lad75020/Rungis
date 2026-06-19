@@ -419,7 +419,20 @@
     "alerts.facturX.downloadFailed": "Factur-X download failed.",
     "alerts.facturX.missingInvoiceData": "The bill is missing legal data required for a Factur-X download.",
     "alerts.facturX.denied": "You are not allowed to download this Factur-X bill.",
-    "alerts.facturX.generationFailed": "The Factur-X bill could not be generated. Please try again later."
+    "alerts.facturX.generationFailed": "The Factur-X bill could not be generated. Please try again later.",
+    "common.totalIncludingVat": "Total incl. VAT",
+    "pdf.unitPriceIncludingVat": "Unit price incl. VAT",
+    "pdf.lineTotalIncludingVat": "Line total incl. VAT",
+    "account.vatId": "VAT ID",
+    "account.billMentions": "Bill mentions",
+    "stocks.vatRate": "VAT rate (%)",
+    "stocks.priceIncludingVat": "Price incl. VAT",
+    "order.vatRate": "VAT",
+    "order.includingVatShort": "incl. VAT",
+    "order.unitPriceIncludingVatEur": "Unit price incl. VAT (EUR)",
+    "order.lineTotalIncludingVatEur": "Line total incl. VAT (EUR)",
+    "order.currentCartTotalIncludingVat": "Current cart total incl. VAT",
+    "alerts.stocks.vatRateBetween": "VAT rate must be between 0 and 100."
   },
   "fr": {
     "app.title": "Rungis Online",
@@ -841,6 +854,19 @@
     "alerts.facturX.downloadFailed": "Le téléchargement Factur-X a échoué.",
     "alerts.facturX.missingInvoiceData": "Des informations légales requises pour Factur-X manquent sur cette facture.",
     "alerts.facturX.denied": "Vous ne pouvez pas télécharger cette facture Factur-X.",
-    "alerts.facturX.generationFailed": "La facture Factur-X n’a pas pu être générée. Réessayez plus tard."
+    "alerts.facturX.generationFailed": "La facture Factur-X n’a pas pu être générée. Réessayez plus tard.",
+    "common.totalIncludingVat": "Total TTC",
+    "pdf.unitPriceIncludingVat": "Prix unitaire TTC",
+    "pdf.lineTotalIncludingVat": "Total ligne TTC",
+    "account.vatId": "N° TVA intracommunautaire",
+    "account.billMentions": "Mentions de facturation",
+    "stocks.vatRate": "Taux TVA (%)",
+    "stocks.priceIncludingVat": "Prix TTC",
+    "order.vatRate": "TVA",
+    "order.includingVatShort": "TTC",
+    "order.unitPriceIncludingVatEur": "Prix unitaire TTC (€)",
+    "order.lineTotalIncludingVatEur": "Total TTC (€)",
+    "order.currentCartTotalIncludingVat": "Total panier TTC",
+    "alerts.stocks.vatRateBetween": "Le taux de TVA doit être compris entre 0 et 100."
   }
 }

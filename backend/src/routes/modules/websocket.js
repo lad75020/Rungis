@@ -1,3 +1,11 @@
+import {
+  calculateLineTotalIncludingVat,
+  calculatePriceIncludingVat,
+  getVatCategory,
+  getVatExemptionReason,
+  normalizeVatRate
+} from '../../utils/vat.js';
+
 export function registerWebsocketRoutes(app, context, deps) {
   const {
     addUtcDays,
@@ -1085,7 +1093,7 @@ export function registerWebsocketRoutes(app, context, deps) {
                       _id: cartId,
                       clientId: currentUserId
                     })
-                      .select({ validatedAt: 1, items: 1, grandTotal: 1, currency: 1 })
+                      .select({ validatedAt: 1, items: 1, grandTotal: 1, grandTotalIncludingVat: 1, currency: 1 })
                       .lean();
 
                     if (!cart) {
@@ -1102,8 +1110,13 @@ export function registerWebsocketRoutes(app, context, deps) {
                         vendorId: item.vendorId.toString(),
                         vendorName: item.vendorName,
                         unitPrice: item.unitPrice,
+                        vatRate: normalizeVatRate(item.vatRate),
+                        unitPriceIncludingVat: item.unitPriceIncludingVat ?? calculatePriceIncludingVat(item.unitPrice, item.vatRate),
                         quantity: item.quantity,
-                        lineTotal: item.lineTotal
+                        lineTotal: item.lineTotal,
+                        lineTotalIncludingVat: item.lineTotalIncludingVat ?? calculateLineTotalIncludingVat(item.lineTotal, item.vatRate),
+                        vatCategory: item.vatCategory,
+                        vatExemptionReason: item.vatExemptionReason
                       }))
                       .sort((left, right) => {
                         const vendorCompare = left.vendorName.localeCompare(right.vendorName);
@@ -1121,6 +1134,7 @@ export function registerWebsocketRoutes(app, context, deps) {
                         day: new Date(cart.validatedAt).toISOString().slice(0, 10),
                         items,
                         totalPrice: roundToTwoDecimals(Number(cart.grandTotal ?? 0)),
+                        totalPriceIncludingVat: roundToTwoDecimals(Number(cart.grandTotalIncludingVat ?? cart.grandTotal ?? 0)),
                         currency: cart.currency || 'EUR'
                       }
                     });
@@ -1277,6 +1291,9 @@ export function registerWebsocketRoutes(app, context, deps) {
                       !input.category ||
                       !Number.isFinite(input.price) ||
                       input.price < 0 ||
+                      !Number.isFinite(input.vatRate) ||
+                      input.vatRate < 0 ||
+                      input.vatRate > 100 ||
                       !Number.isInteger(input.stock) ||
                       input.stock < 0 ||
                       (input.minimumStockThreshold !== null &&
@@ -1285,7 +1302,7 @@ export function registerWebsocketRoutes(app, context, deps) {
                       respond(
                         false,
                         null,
-                        'Name, reference, category, non-negative price, non-negative integer stock and optional non-negative integer minimum threshold are required.'
+                        'Name, reference, category, non-negative price, VAT rate between 0 and 100, non-negative integer stock and optional non-negative integer minimum threshold are required.'
                       );
                       return;
                     }
@@ -1294,6 +1311,7 @@ export function registerWebsocketRoutes(app, context, deps) {
                       name: input.name,
                       reference: input.reference,
                       price: input.price,
+                      vatRate: input.vatRate,
                       stock: input.stock,
                       minimumStockThreshold: input.minimumStockThreshold,
                       category: input.category,
@@ -1325,6 +1343,9 @@ export function registerWebsocketRoutes(app, context, deps) {
                       !input.category ||
                       !Number.isFinite(input.price) ||
                       input.price < 0 ||
+                      !Number.isFinite(input.vatRate) ||
+                      input.vatRate < 0 ||
+                      input.vatRate > 100 ||
                       !Number.isInteger(input.stock) ||
                       input.stock < 0 ||
                       (input.minimumStockThreshold !== null &&
@@ -1333,7 +1354,7 @@ export function registerWebsocketRoutes(app, context, deps) {
                       respond(
                         false,
                         null,
-                        'Name, reference, category, non-negative price, non-negative integer stock and optional non-negative integer minimum threshold are required.'
+                        'Name, reference, category, non-negative price, VAT rate between 0 and 100, non-negative integer stock and optional non-negative integer minimum threshold are required.'
                       );
                       return;
                     }
@@ -1356,6 +1377,7 @@ export function registerWebsocketRoutes(app, context, deps) {
                           reference: input.reference,
                           category: input.category,
                           price: input.price,
+                          vatRate: input.vatRate,
                           stock: input.stock,
                           minimumStockThreshold: input.minimumStockThreshold,
                           imageFilename: input.imageFilename || ''
@@ -1374,7 +1396,7 @@ export function registerWebsocketRoutes(app, context, deps) {
                       decoded.username ?? currentUserId.toString()
                     );
 
-                    if (existing.price !== updated.price) {
+                    if (existing.price !== updated.price || normalizeVatRate(existing.vatRate) !== normalizeVatRate(updated.vatRate)) {
                       await broadcastOrderPriceUpdate(
                         updated,
                         decoded.username ?? currentUserId.toString()
@@ -1642,21 +1664,31 @@ export function registerWebsocketRoutes(app, context, deps) {
                           ? existingItem.unitPrice
                           : merchandise.price;
 
+                      const frozenVatRate = normalizeVatRate(existingItem.vatRate ?? merchandise.vatRate);
+
                       existingItem.name = merchandise.name;
                       existingItem.reference = merchandise.reference;
                       existingItem.category = merchandise.category;
                       existingItem.vendorId = merchandise.vendorId.toString();
                       existingItem.vendorName = vendorName;
                       existingItem.unitPrice = frozenUnitPrice;
+                      existingItem.vatRate = frozenVatRate;
+                      existingItem.unitPriceIncludingVat = calculatePriceIncludingVat(frozenUnitPrice, frozenVatRate);
                       existingItem.quantity = nextQuantity;
                       existingItem.lineTotal = roundToTwoDecimals(
                         frozenUnitPrice * existingItem.quantity
+                      );
+                      existingItem.lineTotalIncludingVat = calculateLineTotalIncludingVat(
+                        existingItem.lineTotal,
+                        frozenVatRate
                       );
                     } else {
                       if (quantity > merchandise.stock) {
                         respond(false, null, `Only ${merchandise.stock} units are currently available.`);
                         return;
                       }
+                      const vatRate = normalizeVatRate(merchandise.vatRate);
+                      const lineTotal = roundToTwoDecimals(merchandise.price * quantity);
 
                       cart.items.push({
                         merchandiseId: merchandise._id.toString(),
@@ -1666,8 +1698,11 @@ export function registerWebsocketRoutes(app, context, deps) {
                         vendorId: merchandise.vendorId.toString(),
                         vendorName,
                         unitPrice: merchandise.price,
+                        vatRate,
+                        unitPriceIncludingVat: calculatePriceIncludingVat(merchandise.price, vatRate),
                         quantity,
-                        lineTotal: roundToTwoDecimals(merchandise.price * quantity)
+                        lineTotal,
+                        lineTotalIncludingVat: calculateLineTotalIncludingVat(lineTotal, vatRate)
                       });
                     }
 
@@ -1722,9 +1757,14 @@ export function registerWebsocketRoutes(app, context, deps) {
                         ? item.unitPrice
                         : merchandise.price;
 
+                    const frozenVatRate = normalizeVatRate(item.vatRate ?? merchandise.vatRate);
+
                     item.quantity = quantity;
                     item.unitPrice = frozenUnitPrice;
+                    item.vatRate = frozenVatRate;
+                    item.unitPriceIncludingVat = calculatePriceIncludingVat(frozenUnitPrice, frozenVatRate);
                     item.lineTotal = roundToTwoDecimals(frozenUnitPrice * quantity);
+                    item.lineTotalIncludingVat = calculateLineTotalIncludingVat(item.lineTotal, frozenVatRate);
                     await saveRedisCart(redisClient, cart);
 
                     respond(true, { cart: mapCart(cart, currentUserId.toString()) });
@@ -1815,7 +1855,10 @@ export function registerWebsocketRoutes(app, context, deps) {
                         Number.isFinite(cartItem.unitPrice) && cartItem.unitPrice >= 0
                           ? cartItem.unitPrice
                           : merchandise.price;
+                      const effectiveVatRate = normalizeVatRate(cartItem.vatRate ?? merchandise.vatRate);
                       const lineTotal = roundToTwoDecimals(effectiveUnitPrice * cartItem.quantity);
+                      const unitPriceIncludingVat = calculatePriceIncludingVat(effectiveUnitPrice, effectiveVatRate);
+                      const lineTotalIncludingVat = calculateLineTotalIncludingVat(lineTotal, effectiveVatRate);
                       const vendorName = cartItem.vendorName || merchandise.vendorId.toString();
 
                       totalsSourceItems.push({
@@ -1823,7 +1866,8 @@ export function registerWebsocketRoutes(app, context, deps) {
                         vendorName,
                         category: merchandise.category,
                         quantity: cartItem.quantity,
-                        lineTotal
+                        lineTotal,
+                        lineTotalIncludingVat
                       });
 
                       validatedOrderItems.push({
@@ -1834,13 +1878,21 @@ export function registerWebsocketRoutes(app, context, deps) {
                         vendorId: merchandise.vendorId,
                         vendorName,
                         unitPrice: effectiveUnitPrice,
+                        vatRate: effectiveVatRate,
+                        unitPriceIncludingVat,
                         quantity: cartItem.quantity,
-                        lineTotal
+                        lineTotal,
+                        lineTotalIncludingVat,
+                        vatCategory: getVatCategory(effectiveVatRate),
+                        vatExemptionReason: getVatExemptionReason(effectiveVatRate)
                       });
                     }
 
                     const cartGrandTotal = roundToTwoDecimals(
                       totalsSourceItems.reduce((sum, item) => sum + item.lineTotal, 0)
+                    );
+                    const cartGrandTotalIncludingVat = roundToTwoDecimals(
+                      totalsSourceItems.reduce((sum, item) => sum + item.lineTotalIncludingVat, 0)
                     );
                     const clientUsername =
                       normalizeString(decoded.username) || currentUserId.toString();
@@ -1852,7 +1904,8 @@ export function registerWebsocketRoutes(app, context, deps) {
                       deliveryDate: deliveryDateUtc,
                       currency: 'EUR',
                       items: validatedOrderItems,
-                      grandTotal: cartGrandTotal
+                      grandTotal: cartGrandTotal,
+                      grandTotalIncludingVat: cartGrandTotalIncludingVat
                     });
 
                     const decrementedStocks = [];
@@ -1933,9 +1986,14 @@ export function registerWebsocketRoutes(app, context, deps) {
                       const label =
                         groupBy === 'vendor' ? item.vendorName : item.category;
                       const currentTotal = totalsMap.get(key) ?? 0;
+                      const currentTotalIncludingVat = totalsMap.get(`${key}:includingVat`) ?? 0;
                       totalsMap.set(
                         key,
                         roundToTwoDecimals(currentTotal + item.lineTotal)
+                      );
+                      totalsMap.set(
+                        `${key}:includingVat`,
+                        roundToTwoDecimals(currentTotalIncludingVat + item.lineTotalIncludingVat)
                       );
                       if (!totalsMap.get(`${key}:label`)) {
                         totalsMap.set(`${key}:label`, label);
@@ -1943,11 +2001,12 @@ export function registerWebsocketRoutes(app, context, deps) {
                     }
 
                     const totals = [...totalsMap.entries()]
-                      .filter(([key]) => !String(key).endsWith(':label'))
+                      .filter(([key]) => !String(key).endsWith(':label') && !String(key).endsWith(':includingVat'))
                       .map(([key, total]) => ({
                         key,
                         label: totalsMap.get(`${key}:label`) ?? key,
-                        total
+                        total,
+                        totalIncludingVat: totalsMap.get(`${key}:includingVat`) ?? total
                       }))
                       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
 
@@ -1955,6 +2014,7 @@ export function registerWebsocketRoutes(app, context, deps) {
                       groupBy,
                       totals,
                       grandTotal: cartGrandTotal,
+                      grandTotalIncludingVat: cartGrandTotalIncludingVat,
                       currency: 'EUR',
                       cart: mapCart(cart, currentUserId.toString())
                     });

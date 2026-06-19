@@ -34,6 +34,17 @@ const billRefundLineSchema = new mongoose.Schema(
       type: Number,
       required: true
     },
+    vatRate: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100
+    },
+    unitPriceIncludingVat: {
+      type: Number,
+      required: true,
+      default: 0
+    },
     quantity: {
       type: Number,
       default: null
@@ -41,6 +52,11 @@ const billRefundLineSchema = new mongoose.Schema(
     lineTotal: {
       type: Number,
       required: true
+    },
+    lineTotalIncludingVat: {
+      type: Number,
+      required: true,
+      default: 0
     },
     comment: {
       type: String,
@@ -91,6 +107,17 @@ const billPenaltyLineSchema = new mongoose.Schema(
       type: Number,
       required: true
     },
+    vatRate: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100
+    },
+    unitPriceIncludingVat: {
+      type: Number,
+      required: true,
+      default: 0
+    },
     quantity: {
       type: Number,
       default: null
@@ -98,6 +125,11 @@ const billPenaltyLineSchema = new mongoose.Schema(
     lineTotal: {
       type: Number,
       required: true
+    },
+    lineTotalIncludingVat: {
+      type: Number,
+      required: true,
+      default: 0
     },
     percentage: {
       type: Number,
@@ -149,6 +181,10 @@ const billSchema = new mongoose.Schema(
       default: false
     },
     totalPrice: {
+      type: Number,
+      default: 0
+    },
+    totalPriceIncludingVat: {
       type: Number,
       default: 0
     },

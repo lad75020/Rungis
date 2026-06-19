@@ -39,6 +39,19 @@ const validatedOrderItemSchema = new mongoose.Schema(
       required: true,
       min: 0
     },
+    vatRate: {
+      type: Number,
+      required: true,
+      min: 0,
+      max: 100,
+      default: 0
+    },
+    unitPriceIncludingVat: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0
+    },
     quantity: {
       type: Number,
       required: true,
@@ -48,6 +61,22 @@ const validatedOrderItemSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 0
+    },
+    lineTotalIncludingVat: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0
+    },
+    vatCategory: {
+      type: String,
+      trim: true,
+      default: 'O'
+    },
+    vatExemptionReason: {
+      type: String,
+      trim: true,
+      default: ''
     }
   },
   {
@@ -94,6 +123,12 @@ const validatedOrderSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 0
+    },
+    grandTotalIncludingVat: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0
     }
   },
   {

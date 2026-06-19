@@ -71,11 +71,17 @@ function normalizeParty(input, roleLabel, details) {
   const postCode = requireString(input?.zipcode, `${roleLabel} zipcode`, details);
   const city = requireString(input?.city, `${roleLabel} city`, details);
   const legalRegistrationId = normalizeSiret(input?.businessId, roleLabel, details);
+  const taxRegistrationId = normalizeString(input?.vatId);
+  if (roleLabel === 'Seller' && !taxRegistrationId) {
+    details.push('Seller VAT ID is required.');
+  }
 
   return {
     name,
     legalRegistrationId,
     legalRegistrationScheme: '0002',
+    taxRegistrationId,
+    billMentions: normalizeString(input?.billMentions),
     postalAddress: {
       lineOne,
       postCode,
@@ -106,9 +112,9 @@ function normalizeLine(item, index) {
     unitCode: normalizeString(item?.unitCode) || DEFAULT_UNIT_CODE,
     unitPrice,
     lineTotal,
-    vatCategory: normalizeString(item?.vatCategory) || DEFAULT_VAT_CATEGORY,
+    vatCategory: normalizeString(item?.vatCategory) || (Number(item?.vatRate) > 0 ? 'S' : DEFAULT_VAT_CATEGORY),
     vatRate: Number.isFinite(Number(item?.vatRate)) ? Number(item?.vatRate) : DEFAULT_VAT_RATE,
-    vatExemptionReason: normalizeString(item?.vatExemptionReason) || DEFAULT_VAT_EXEMPTION_REASON,
+    vatExemptionReason: normalizeString(item?.vatExemptionReason) || (Number(item?.vatRate) > 0 ? '' : DEFAULT_VAT_EXEMPTION_REASON),
     kind: normalizeString(item?.kind)
   };
 }
@@ -151,7 +157,7 @@ export function normalizeBillToFacturXData({ role, title, billIdentifier, bill, 
   const taxTotalAmount = roundMoney(vatBreakdowns.reduce((sum, vat) => sum + vat.taxAmount, 0));
   const taxBasisAmount = lineNetAmount;
   const grandTotalAmount = roundMoney(taxBasisAmount + taxTotalAmount);
-  const amountDue = roundMoney(Number.isFinite(Number(bill?.totalPrice)) ? Number(bill.totalPrice) : grandTotalAmount);
+  const amountDue = roundMoney(Number.isFinite(Number(bill?.totalPriceIncludingVat)) ? Number(bill.totalPriceIncludingVat) : grandTotalAmount);
 
   if (roundMoney(amountDue - grandTotalAmount) !== 0) {
     details.push('Bill total does not reconcile with normalized line and VAT totals.');
@@ -180,6 +186,7 @@ export function normalizeBillToFacturXData({ role, title, billIdentifier, bill, 
     title: normalizeString(title) || 'Bill',
     role: normalizeString(role),
     billKey: normalizeString(bill?.key),
+    includedNotes: [seller.billMentions].filter(Boolean),
     deliveryDate,
     seller,
     buyer,

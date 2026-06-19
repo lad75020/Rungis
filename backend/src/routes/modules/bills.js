@@ -11,12 +11,17 @@ function buildBillLabels(t) {
     city: t('pdf.city', 'City'),
     phone: t('pdf.phone', 'Phone'),
     businessId: t('pdf.businessId', 'SIRET'),
+    vatId: t('account.vatId', 'VAT ID'),
+    billMentions: t('account.billMentions', 'Bill mentions'),
     item: t('pdf.item', 'Item'),
     category: t('pdf.category', 'Category'),
     unitPrice: t('pdf.unitPrice', 'Unit price'),
+    unitPriceIncludingVat: t('pdf.unitPriceIncludingVat', 'Unit price incl. VAT'),
     qty: t('pdf.qty', 'Qty'),
     lineTotal: t('pdf.lineTotal', 'Line total'),
-    total: t('common.total', 'Total')
+    lineTotalIncludingVat: t('pdf.lineTotalIncludingVat', 'Line total incl. VAT'),
+    total: t('common.total', 'Total'),
+    totalIncludingVat: t('common.totalIncludingVat', 'Total incl. VAT')
   };
 }
 
@@ -28,7 +33,9 @@ function mapVendorParty(vendor, sessionUser, fallbackOrganisation = '-') {
     city: vendor?.city ?? sessionUser?.city ?? '-',
     phoneNumber: vendor?.phoneNumber ?? sessionUser?.phoneNumber ?? '-',
     email: vendor?.email ?? sessionUser?.email ?? '',
-    businessId: vendor?.businessRegistrationId ?? sessionUser?.businessRegistrationId ?? '-'
+    businessId: vendor?.businessRegistrationId ?? sessionUser?.businessRegistrationId ?? '-',
+    vatId: vendor?.vatId ?? sessionUser?.vatId ?? '',
+    billMentions: vendor?.billMentions ?? sessionUser?.billMentions ?? ''
   };
 }
 
@@ -98,7 +105,9 @@ export function registerBillRoutes(app, deps) {
         phoneNumber: 1,
         email: 1,
         logoFilename: 1,
-        businessRegistrationId: 1
+        businessRegistrationId: 1,
+        vatId: 1,
+        billMentions: 1
       })
       .lean();
     const client = await User.findById(bill.clientId)
@@ -109,7 +118,9 @@ export function registerBillRoutes(app, deps) {
         city: 1,
         email: 1,
         logoFilename: 1,
-        businessRegistrationId: 1
+        businessRegistrationId: 1,
+        vatId: 1,
+        billMentions: 1
       })
       .lean();
     const filename = `vendor-bill-${sanitizeFilenamePart(bill.day)}-${sanitizeFilenamePart(bill.clientUsername)}.pdf`;
@@ -125,6 +136,7 @@ export function registerBillRoutes(app, deps) {
       client: mapClientParty(client, null),
       items: bill.items,
       totalPrice: bill.totalPrice,
+      totalPriceIncludingVat: bill.totalPriceIncludingVat,
       currency: bill.currency
     });
   });
@@ -149,7 +161,7 @@ export function registerBillRoutes(app, deps) {
       clientId: bill.clientId
     });
     const vendor = await User.findById(request.session.user.id)
-      .select({ organisation: 1, physicalAddress: 1, zipcode: 1, city: 1, phoneNumber: 1, email: 1, businessRegistrationId: 1 })
+      .select({ organisation: 1, physicalAddress: 1, zipcode: 1, city: 1, phoneNumber: 1, email: 1, businessRegistrationId: 1, vatId: 1, billMentions: 1 })
       .lean();
     const client = await User.findById(bill.clientId)
       .select({ organisation: 1, physicalAddress: 1, zipcode: 1, city: 1, email: 1, businessRegistrationId: 1 })
@@ -201,7 +213,9 @@ export function registerBillRoutes(app, deps) {
         phoneNumber: 1,
         email: 1,
         logoFilename: 1,
-        businessRegistrationId: 1
+        businessRegistrationId: 1,
+        vatId: 1,
+        billMentions: 1
       })
       .lean();
     const client = await User.findById(request.session.user.id)
@@ -212,7 +226,9 @@ export function registerBillRoutes(app, deps) {
         city: 1,
         email: 1,
         logoFilename: 1,
-        businessRegistrationId: 1
+        businessRegistrationId: 1,
+        vatId: 1,
+        billMentions: 1
       })
       .lean();
     const filename = `client-bill-${sanitizeFilenamePart(bill.day)}-${sanitizeFilenamePart(bill.vendorName)}.pdf`;
@@ -228,6 +244,7 @@ export function registerBillRoutes(app, deps) {
       client: mapClientParty(client, request.session.user),
       items: bill.items,
       totalPrice: bill.totalPrice,
+      totalPriceIncludingVat: bill.totalPriceIncludingVat,
       currency: bill.currency
     });
   });
@@ -252,7 +269,7 @@ export function registerBillRoutes(app, deps) {
       clientId: request.session.user.id
     });
     const vendor = await User.findById(bill.vendorId)
-      .select({ organisation: 1, physicalAddress: 1, zipcode: 1, city: 1, phoneNumber: 1, email: 1, businessRegistrationId: 1 })
+      .select({ organisation: 1, physicalAddress: 1, zipcode: 1, city: 1, phoneNumber: 1, email: 1, businessRegistrationId: 1, vatId: 1, billMentions: 1 })
       .lean();
     const client = await User.findById(request.session.user.id)
       .select({ organisation: 1, physicalAddress: 1, zipcode: 1, city: 1, email: 1, businessRegistrationId: 1 })

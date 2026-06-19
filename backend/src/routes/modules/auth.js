@@ -354,6 +354,13 @@ export function registerAuthRoutes(app, context, deps) {
     return reply.send({ ok: true, user: request.session.user });
   });
 
+  app.get('/api/ws-token', { preHandler: requireAuth }, async (request, reply) => {
+    const page = normalizeString(request.query?.page) || 'dashboard';
+    const wsToken = request.server.issueWsToken(request, page);
+
+    return reply.send({ ok: true, wsToken });
+  });
+
   app.post('/api/webauthn/enrollment/options', { preHandler: requireAuth }, async (request, reply) => {
     const currentUserId = normalizeString(request.session.user?.id);
     if (!mongoose.Types.ObjectId.isValid(currentUserId)) {

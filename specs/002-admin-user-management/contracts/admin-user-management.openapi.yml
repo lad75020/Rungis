@@ -1,0 +1,107 @@
+openapi: 3.0.3
+info:
+  title: Rungis Admin User Management API
+  version: 1.0.0
+tags:
+  - name: Admin Management
+security:
+  - sessionCookie: []
+paths:
+  /api/admin/pending-users:
+    get:
+      operationId: listPendingUsers
+      tags: [Admin Management]
+      responses:
+        '200': { description: Pending users listed }
+        '401': { description: Authentication required }
+        '403': { description: Admin role required }
+  /api/admin/users/{id}/activate:
+    post:
+      operationId: activatePendingUser
+      tags: [Admin Management]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Pending user activated }
+        '400': { description: Invalid user id }
+        '404': { description: Pending user not found }
+  /api/admin/users/{id}:
+    delete:
+      operationId: deletePendingUser
+      tags: [Admin Management]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Pending user deleted }
+        '400': { description: Invalid user id }
+        '404': { description: Pending user not found }
+  /api/admin/settings/bill-overdue-days:
+    get:
+      operationId: getBillOverdueDays
+      tags: [Admin Management]
+      responses:
+        '200': { description: Current overdue-days setting }
+    put:
+      operationId: updateBillOverdueDays
+      tags: [Admin Management]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [billOverdueDays]
+              properties:
+                billOverdueDays: { type: integer, minimum: 1, maximum: 3650 }
+      responses:
+        '200': { description: Setting updated }
+        '400': { description: Invalid setting }
+  /api/admin/settings/app-style-profile:
+    get:
+      operationId: getAppStyleProfile
+      tags: [Admin Management]
+      responses:
+        '200': { description: Current style profile }
+    put:
+      operationId: updateAppStyleProfile
+      tags: [Admin Management]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [appStyleProfile]
+              properties:
+                appStyleProfile: { type: string, enum: [primary, secondary] }
+      responses:
+        '200': { description: Setting updated }
+        '400': { description: Invalid setting }
+  /api/admin/bills/run-daily-generation:
+    post:
+      operationId: runDailyBillGeneration
+      tags: [Admin Management]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [day]
+              properties:
+                day: { type: string, format: date }
+      responses:
+        '200': { description: Billing run completed }
+        '400': { description: Invalid day }
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: sid

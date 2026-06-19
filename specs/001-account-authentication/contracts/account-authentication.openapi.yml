@@ -1,0 +1,509 @@
+openapi: 3.0.3
+info:
+  title: Rungis Account Authentication API
+  version: 1.0.0
+  description: HTTP contract for signup, password login, current account profile, logout, and passkey access-key lifecycle.
+servers:
+  - url: http://127.0.0.1:3199
+    description: Local development server
+tags:
+  - name: Authentication
+    description: Signup, login, logout, and session state
+  - name: Account
+    description: Current user account profile
+  - name: Passkeys
+    description: WebAuthn access-key enrollment and authentication
+security: []
+paths:
+  /api/subscribe:
+    post:
+      operationId: createSignupRequest
+      tags: [Authentication]
+      summary: Create an inactive vendor or client signup request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '200':
+          description: Signup request accepted and pending activation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+  /api/login:
+    post:
+      operationId: loginWithPassword
+      tags: [Authentication]
+      summary: Authenticate an activated user with username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login accepted and session established
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/InactiveAccountError'
+        '429':
+          $ref: '#/components/responses/RateLimitedError'
+  /api/logout:
+    post:
+      operationId: logoutCurrentSession
+      tags: [Authentication]
+      summary: Destroy the current authenticated session
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Logout completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedirectResponse'
+  /api/session:
+    get:
+      operationId: getCurrentSession
+      tags: [Authentication]
+      summary: Return the current authenticated user summary
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Current session user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          description: No current session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousSessionResponse'
+  /api/account:
+    put:
+      operationId: updateCurrentAccount
+      tags: [Account]
+      summary: Update the authenticated user's own account profile
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountUpdateRequest'
+      responses:
+        '200':
+          description: Account updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+  /api/webauthn/enrollment/options:
+    post:
+      operationId: createPasskeyEnrollmentOptions
+      tags: [Passkeys]
+      summary: Create WebAuthn registration options for the current user
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 80
+      responses:
+        '200':
+          description: Registration options created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, options]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  options:
+                    type: object
+                    additionalProperties: true
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /api/webauthn/enrollment/verify:
+    post:
+      operationId: verifyPasskeyEnrollment
+      tags: [Passkeys]
+      summary: Verify a WebAuthn registration response and store the passkey
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Passkey registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasskeyListResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /api/webauthn/keys:
+    get:
+      operationId: listCurrentUserPasskeys
+      tags: [Passkeys]
+      summary: List passkeys registered by the current user
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Passkeys listed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasskeyListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /api/webauthn/keys/{id}:
+    delete:
+      operationId: deleteCurrentUserPasskey
+      tags: [Passkeys]
+      summary: Delete a passkey owned by the current user
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Passkey deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasskeyListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /api/webauthn/authentication/options:
+    post:
+      operationId: createPasskeyAuthenticationOptions
+      tags: [Passkeys]
+      summary: Create WebAuthn authentication options for passkey login
+      responses:
+        '200':
+          description: Authentication options created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, options]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  options:
+                    type: object
+                    additionalProperties: true
+  /api/webauthn/authentication/verify:
+    post:
+      operationId: verifyPasskeyAuthentication
+      tags: [Passkeys]
+      summary: Verify passkey authentication and establish a session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Passkey login accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/InactiveAccountError'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: sid
+  responses:
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnauthorizedError:
+      description: Authentication is missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InactiveAccountError:
+      description: Account exists but is not activated
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ConflictError:
+      description: Username or email conflicts with an existing account
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    RateLimitedError:
+      description: Too many failed login attempts
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFoundError:
+      description: Requested resource was not found for the current user
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    SignupRole:
+      type: string
+      enum: [vendor, client]
+    UserRole:
+      type: string
+      enum: [admin, vendor, client]
+    SignupRequest:
+      type: object
+      required: [role, username, firstName, lastName, organisation, city, zipcode, email, physicalAddress, phoneNumber, businessRegistrationId, password]
+      properties:
+        role:
+          $ref: '#/components/schemas/SignupRole'
+        username:
+          type: string
+          minLength: 1
+        firstName:
+          type: string
+          minLength: 1
+        lastName:
+          type: string
+          minLength: 1
+        organisation:
+          type: string
+          minLength: 1
+        city:
+          type: string
+          minLength: 1
+        zipcode:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+        physicalAddress:
+          type: string
+          minLength: 1
+        phoneNumber:
+          type: string
+          minLength: 1
+        businessRegistrationId:
+          type: string
+          pattern: '^\\d{13}$'
+        logoDataUrl:
+          type: string
+          description: Optional supported image data URL
+        password:
+          type: string
+          minLength: 1
+          format: password
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+    AccountUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/SignupRequest'
+        - type: object
+          properties:
+            role:
+              readOnly: true
+            password:
+              readOnly: true
+            businessDescription:
+              type: string
+              maxLength: 2000
+    SessionUser:
+      type: object
+      required: [id, username, role, firstName, lastName, organisation, city, zipcode, email, physicalAddress, phoneNumber, businessRegistrationId, isActive]
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        role:
+          $ref: '#/components/schemas/UserRole'
+        firstName:
+          type: string
+        lastName:
+          type: string
+        organisation:
+          type: string
+        city:
+          type: string
+        zipcode:
+          type: string
+        email:
+          type: string
+          format: email
+        physicalAddress:
+          type: string
+        phoneNumber:
+          type: string
+        businessDescription:
+          type: string
+        logoFilename:
+          type: string
+        logoUrl:
+          type: string
+        businessRegistrationId:
+          type: integer
+        isActive:
+          type: boolean
+    PasskeySummary:
+      type: object
+      required: [id, name, keyId, deviceType, backedUp]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        keyId:
+          type: string
+        deviceType:
+          type: string
+          enum: [singleDevice, multiDevice]
+        backedUp:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+    ErrorResponse:
+      type: object
+      required: [ok, message]
+      properties:
+        ok:
+          type: boolean
+          enum: [false]
+        message:
+          type: string
+    MessageResponse:
+      type: object
+      required: [ok, message]
+      properties:
+        ok:
+          type: boolean
+        redirect:
+          type: string
+        message:
+          type: string
+    RedirectResponse:
+      type: object
+      required: [ok, redirect]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        redirect:
+          type: string
+    LoginResponse:
+      type: object
+      required: [ok, redirect]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        redirect:
+          type: string
+    SessionResponse:
+      type: object
+      required: [ok, user]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        user:
+          $ref: '#/components/schemas/SessionUser'
+    AnonymousSessionResponse:
+      type: object
+      required: [ok, user]
+      properties:
+        ok:
+          type: boolean
+          enum: [false]
+        user:
+          nullable: true
+    PasskeyListResponse:
+      type: object
+      required: [ok, keys]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/PasskeySummary'

@@ -1,0 +1,65 @@
+openapi: 3.0.3
+info:
+  title: Analytics and Reporting
+  version: 1.0.0
+paths:
+  /api/admin/statistics/activated-orders:
+    get:
+      summary: Analytics and Reporting GET /api/admin/statistics/activated-orders
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/vendor/statistics/sales-by-category:
+    get:
+      summary: Analytics and Reporting GET /api/vendor/statistics/sales-by-category
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/vendor/statistics/sales-by-client:
+    get:
+      summary: Analytics and Reporting GET /api/vendor/statistics/sales-by-client
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/vendor/monthly-summary/clients:
+    get:
+      summary: Analytics and Reporting GET /api/vendor/monthly-summary/clients
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
+  /api/vendor/monthly-summary:
+    get:
+      summary: Analytics and Reporting GET /api/vendor/monthly-summary
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden

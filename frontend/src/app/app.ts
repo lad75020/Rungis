@@ -28,6 +28,7 @@ import type {
   AccessKeySummary,
   AdminActivatedOrderStat,
   AdminClientAssociation,
+  AdminRungisBillSearchRow,
   AdminVendorAssociation,
   AlertType,
   AppStyleProfile,
@@ -49,6 +50,8 @@ import type {
   OrderVendorOption,
   PageName,
   PendingUser,
+  RungisBillSummary,
+  RungisInvoice,
   SessionUser,
   SignupRole,
   StockItem,
@@ -175,6 +178,16 @@ export class App implements OnInit, OnDestroy {
   public readonly savingAdminAppStyleProfile = signal(false);
   public readonly adminBillOverdueDays = signal(30);
   public readonly adminAppStyleProfile = signal<AppStyleProfile>(this.config.appStyleProfile ?? 'primary');
+  public readonly loadingAdminRungisBillingSettings = signal(false);
+  public readonly savingAdminRungisBillingSettings = signal(false);
+  public readonly adminRungisFeeRate = signal(0);
+  public readonly adminRungisVatRate = signal(0);
+  public readonly sendingRungisBills = signal(false);
+  public readonly adminRungisBillSearchMonth = signal(this.previousMonthInputValue());
+  public readonly adminRungisBillSearchOrganization = signal('');
+  public readonly loadingAdminRungisBillSearch = signal(false);
+  public readonly adminRungisBillSearchRows = signal<AdminRungisBillSearchRow[]>([]);
+  public readonly markingRungisBillPaidIds = signal<string[]>([]);
   public readonly adminBillGenerationDay = signal(getRelativeIsoDay(0));
   public readonly runningAdminBillGeneration = signal(false);
   public readonly selectedAdminClientId = signal('');
@@ -248,6 +261,13 @@ export class App implements OnInit, OnDestroy {
   public readonly downloadingClientFacturX = signal(false);
   public readonly clientBillCommentDraft = signal('');
   public readonly sendingClientBillComment = signal(false);
+  public readonly loadingCurrentRungisBills = signal(false);
+  public readonly currentRungisBills = signal<RungisBillSummary[]>([]);
+  public readonly loadingRungisInvoice = signal(false);
+  public readonly selectedRungisBillId = signal('');
+  public readonly rungisInvoice = signal<RungisInvoice | null>(null);
+  public readonly showingRungisInvoiceModal = signal(false);
+  public readonly downloadingRungisFacturX = signal(false);
   public readonly selectedSubscriptionLogoFile = signal<File | null>(null);
   public readonly selectedAccountLogoFile = signal<File | null>(null);
   public readonly accessKeys = signal<AccessKeySummary[]>([]);
@@ -574,6 +594,8 @@ export class App implements OnInit, OnDestroy {
       void this.loadAdminAssociations();
       void this.loadAdminBillOverdueDays();
       void this.loadAdminAppStyleProfile();
+      void this.loadAdminRungisBillingSettings();
+      void this.searchAdminRungisBills();
       return;
     }
 
@@ -599,6 +621,7 @@ export class App implements OnInit, OnDestroy {
     if (page === 'dashboard') {
       if (this.isClient()) {
         void this.loadClientUnpaidReminders();
+        void this.loadCurrentRungisBills();
         if (this.socket?.readyState === WebSocket.OPEN) {
           void this.loadClientDashboardCarts();
           void this.loadClientBillVendors();
@@ -608,6 +631,10 @@ export class App implements OnInit, OnDestroy {
       if (this.isVendor() && this.socket?.readyState === WebSocket.OPEN) {
         void this.refreshVendorBillsView();
         void this.loadVendorBillMessages();
+      }
+
+      if (this.isVendor()) {
+        void this.loadCurrentRungisBills();
       }
     }
   }
@@ -1804,6 +1831,136 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
+  public async loadAdminRungisBillingSettings(): Promise<void> {
+    if (!this.isAdmin()) {
+      return;
+    }
+
+    this.loadingAdminRungisBillingSettings.set(true);
+    try {
+      const response = await fetch('/api/admin/settings/rungis-billing');
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        this.setAlert('danger', payload?.message ?? this.t('alerts.admin.rungisBillingSettingsLoadFailed'));
+        return;
+      }
+      this.adminRungisFeeRate.set(Number(payload?.rungisFeeRate ?? 0));
+      this.adminRungisVatRate.set(Number(payload?.vatRate ?? 0));
+    } finally {
+      this.loadingAdminRungisBillingSettings.set(false);
+    }
+  }
+
+  public async saveAdminRungisBillingSettings(rawFeeRate: string, rawVatRate: string): Promise<void> {
+    if (!this.isAdmin() || this.savingAdminRungisBillingSettings()) {
+      return;
+    }
+
+    const rungisFeeRate = Number(rawFeeRate);
+    const vatRate = Number(rawVatRate);
+    if (!this.isValidPercentage(rungisFeeRate) || !this.isValidPercentage(vatRate)) {
+      this.setAlert('danger', this.t('alerts.admin.rungisBillingSettingsInvalid'));
+      return;
+    }
+
+    this.savingAdminRungisBillingSettings.set(true);
+    try {
+      const response = await fetch('/api/admin/settings/rungis-billing', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ rungisFeeRate, vatRate })
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        this.setAlert('danger', payload?.message ?? this.t('alerts.admin.rungisBillingSettingsSaveFailed'));
+        return;
+      }
+      this.adminRungisFeeRate.set(Number(payload?.rungisFeeRate ?? rungisFeeRate));
+      this.adminRungisVatRate.set(Number(payload?.vatRate ?? vatRate));
+      this.setAlert('success', payload?.message ?? this.t('alerts.admin.rungisBillingSettingsSaved'));
+    } finally {
+      this.savingAdminRungisBillingSettings.set(false);
+    }
+  }
+
+  public async sendRungisBills(): Promise<void> {
+    if (!this.isAdmin() || this.sendingRungisBills()) {
+      return;
+    }
+    this.sendingRungisBills.set(true);
+    try {
+      const response = await fetch('/api/admin/rungis-bills/send', { method: 'POST' });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        this.setAlert('danger', payload?.message ?? this.t('alerts.admin.rungisBillsSendFailed'));
+        return;
+      }
+      this.setAlert('success', payload?.message ?? this.t('alerts.admin.rungisBillsSent'));
+      await this.searchAdminRungisBills();
+    } finally {
+      this.sendingRungisBills.set(false);
+    }
+  }
+
+  public setAdminRungisBillSearchMonth(value: string): void {
+    this.adminRungisBillSearchMonth.set(value);
+  }
+
+  public setAdminRungisBillSearchOrganization(value: string): void {
+    this.adminRungisBillSearchOrganization.set(value);
+  }
+
+  public async searchAdminRungisBills(): Promise<void> {
+    if (!this.isAdmin() || this.loadingAdminRungisBillSearch()) {
+      return;
+    }
+    const month = this.adminRungisBillSearchMonth();
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      this.setAlert('danger', this.t('alerts.admin.rungisBillSearchInvalidMonth'));
+      return;
+    }
+    this.loadingAdminRungisBillSearch.set(true);
+    try {
+      const params = new URLSearchParams({ month });
+      const organization = this.adminRungisBillSearchOrganization().trim();
+      if (organization) {
+        params.set('organization', organization);
+      }
+      const response = await fetch(`/api/admin/rungis-bills?${params.toString()}`);
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        this.setAlert('danger', payload?.message ?? this.t('alerts.admin.rungisBillSearchFailed'));
+        return;
+      }
+      this.adminRungisBillSearchRows.set(Array.isArray(payload?.rows) ? payload.rows : []);
+    } finally {
+      this.loadingAdminRungisBillSearch.set(false);
+    }
+  }
+
+  public isMarkingRungisBillPaid(id: string): boolean {
+    return this.markingRungisBillPaidIds().includes(id);
+  }
+
+  public async markRungisBillPaid(id: string): Promise<void> {
+    if (!this.isAdmin() || !id || this.isMarkingRungisBillPaid(id)) {
+      return;
+    }
+    this.markingRungisBillPaidIds.set([...this.markingRungisBillPaidIds(), id]);
+    try {
+      const response = await fetch(`/api/admin/rungis-bills/${encodeURIComponent(id)}/paid`, { method: 'PATCH' });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        this.setAlert('danger', payload?.message ?? this.t('alerts.admin.rungisBillMarkPaidFailed'));
+        return;
+      }
+      this.adminRungisBillSearchRows.set(this.adminRungisBillSearchRows().filter((row) => row.id !== id));
+      this.setAlert('success', payload?.message ?? this.t('alerts.admin.rungisBillMarkedPaid'));
+    } finally {
+      this.markingRungisBillPaidIds.set(this.markingRungisBillPaidIds().filter((existingId) => existingId !== id));
+    }
+  }
+
   public async runAdminDailyBillGeneration(rawDay: string): Promise<void> {
     if (!this.isAdmin() || this.runningAdminBillGeneration()) {
       return;
@@ -2397,6 +2554,106 @@ export class App implements OnInit, OnDestroy {
       const blob = await response.blob();
       const disposition = response.headers.get('content-disposition') ?? '';
       const filename = this.filenameFromContentDisposition(disposition) ?? `bill-factur-x.pdf`;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.rel = 'noopener';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      this.setAlert('danger', errorToMessage(error, this.t('alerts.facturX.downloadFailed')));
+    }
+  }
+
+  public async loadCurrentRungisBills(): Promise<void> {
+    if ((!this.isVendor() && !this.isClient()) || this.loadingCurrentRungisBills()) {
+      return;
+    }
+    this.loadingCurrentRungisBills.set(true);
+    try {
+      const response = await fetch('/api/rungis-bills/current');
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        this.setAlert('danger', payload?.message ?? this.t('alerts.rungisBills.loadFailed'));
+        return;
+      }
+      this.currentRungisBills.set(Array.isArray(payload?.bills) ? payload.bills : []);
+    } finally {
+      this.loadingCurrentRungisBills.set(false);
+    }
+  }
+
+  public async openRungisInvoice(billId: string): Promise<void> {
+    if ((!this.isVendor() && !this.isClient()) || !billId || this.loadingRungisInvoice()) {
+      return;
+    }
+    this.selectedRungisBillId.set(billId);
+    this.loadingRungisInvoice.set(true);
+    try {
+      const response = await fetch(`/api/rungis-bills/${encodeURIComponent(billId)}`);
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        this.setAlert('danger', payload?.message ?? this.t('alerts.rungisBills.invoiceLoadFailed'));
+        return;
+      }
+      this.rungisInvoice.set(payload?.invoice ?? null);
+      this.showingRungisInvoiceModal.set(Boolean(payload?.invoice));
+    } finally {
+      this.loadingRungisInvoice.set(false);
+    }
+  }
+
+  public closeRungisInvoice(): void {
+    this.showingRungisInvoiceModal.set(false);
+    this.rungisInvoice.set(null);
+    this.selectedRungisBillId.set('');
+  }
+
+  public openRungisInvoicePdf(): void {
+    const invoice = this.rungisInvoice();
+    if (!invoice) {
+      this.setAlert('danger', this.t('alerts.bills.selectBeforePrint'));
+      return;
+    }
+    window.open(`/api/rungis-bills/${encodeURIComponent(invoice.id)}/pdf`, '_blank', 'noopener');
+  }
+
+  public async downloadRungisFacturX(): Promise<void> {
+    const invoice = this.rungisInvoice();
+    if (!invoice || this.downloadingRungisFacturX()) {
+      return;
+    }
+    this.downloadingRungisFacturX.set(true);
+    try {
+      await this.downloadDocument(`/api/rungis-bills/${encodeURIComponent(invoice.id)}/factur-x`, 'rungis-bill-factur-x.pdf');
+    } finally {
+      this.downloadingRungisFacturX.set(false);
+    }
+  }
+
+  private async downloadDocument(urlPath: string, fallbackFilename: string): Promise<void> {
+    try {
+      const response = await fetch(urlPath, { method: 'GET', headers: { Accept: 'application/pdf, application/json' } });
+      if (!response.ok) {
+        let message = this.t('alerts.facturX.downloadFailed');
+        try {
+          const data = (await response.json()) as { message?: string; error?: string; details?: string[] };
+          message = data?.message || this.facturXErrorMessage(data?.error);
+          if (Array.isArray(data?.details) && data.details.length > 0) {
+            message = `${message} ${data.details.join(' ')}`;
+          }
+        } catch {
+          const text = await response.text().catch(() => '');
+          message = text || message;
+        }
+        throw new Error(message);
+      }
+      const blob = await response.blob();
+      const disposition = response.headers.get('content-disposition') ?? '';
+      const filename = this.filenameFromContentDisposition(disposition) ?? fallbackFilename;
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
@@ -3569,6 +3826,16 @@ export class App implements OnInit, OnDestroy {
       this.reconnectTimer = null;
       this.connectSocket();
     }, delayMs);
+  }
+
+  private previousMonthInputValue(): string {
+    const now = new Date();
+    const previous = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    return `${previous.getUTCFullYear()}-${String(previous.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+
+  private isValidPercentage(value: number): boolean {
+    return Number.isFinite(value) && value >= 0 && value <= 100;
   }
 
   private async sendWsApi(action: string, payload: unknown): Promise<unknown> {

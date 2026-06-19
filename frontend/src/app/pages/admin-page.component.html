@@ -68,6 +68,119 @@
     </div>
 
     <div class="border rounded p-3 mb-4">
+      <h2 class="h5 mb-3">{{ app.t('admin.rungisBillingSettingsTitle') }}</h2>
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label" for="admin-rungis-fee-rate">{{ app.t('admin.rungisFeeRateLabel') }}</label>
+          <input
+            #rungisFeeRateInput
+            id="admin-rungis-fee-rate"
+            class="form-control"
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            [value]="app.adminRungisFeeRate()"
+            [disabled]="app.loadingAdminRungisBillingSettings() || app.savingAdminRungisBillingSettings()"
+          />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="admin-rungis-vat-rate">{{ app.t('admin.rungisVatRateLabel') }}</label>
+          <input
+            #rungisVatRateInput
+            id="admin-rungis-vat-rate"
+            class="form-control"
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            [value]="app.adminRungisVatRate()"
+            [disabled]="app.loadingAdminRungisBillingSettings() || app.savingAdminRungisBillingSettings()"
+          />
+          <div class="form-text">{{ app.t('admin.rungisBillingSettingsHint') }}</div>
+        </div>
+        <div class="col-md-3">
+          <button
+            class="btn btn-primary"
+            type="button"
+            [disabled]="app.loadingAdminRungisBillingSettings() || app.savingAdminRungisBillingSettings()"
+            (click)="app.saveAdminRungisBillingSettings($any(rungisFeeRateInput).value, $any(rungisVatRateInput).value)"
+          >
+            {{ app.savingAdminRungisBillingSettings() ? app.t('common.saving') : app.t('account.saveChanges') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="border rounded p-3 mb-4">
+      <h2 class="h5 mb-3">{{ app.t('admin.rungisBillsTitle') }}</h2>
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        <button class="btn btn-primary" type="button" [disabled]="app.sendingRungisBills()" (click)="app.sendRungisBills()">
+          {{ app.sendingRungisBills() ? app.t('admin.sendingRungisBills') : app.t('admin.sendRungisBills') }}
+        </button>
+      </div>
+      <div class="row g-3 align-items-end mb-3">
+        <div class="col-md-3">
+          <label class="form-label" for="admin-rungis-search-month">{{ app.t('admin.rungisBillSearchMonth') }}</label>
+          <input
+            id="admin-rungis-search-month"
+            class="form-control"
+            type="month"
+            [value]="app.adminRungisBillSearchMonth()"
+            (input)="app.setAdminRungisBillSearchMonth($any($event.target).value)"
+          />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="admin-rungis-search-organization">{{ app.t('admin.rungisBillSearchOrganization') }}</label>
+          <input
+            id="admin-rungis-search-organization"
+            class="form-control"
+            type="search"
+            [value]="app.adminRungisBillSearchOrganization()"
+            (input)="app.setAdminRungisBillSearchOrganization($any($event.target).value)"
+          />
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-outline-primary" type="button" [disabled]="app.loadingAdminRungisBillSearch()" (click)="app.searchAdminRungisBills()">
+            {{ app.loadingAdminRungisBillSearch() ? app.t('common.loading') : app.t('admin.searchRungisBills') }}
+          </button>
+        </div>
+      </div>
+      @if (app.adminRungisBillSearchRows().length === 0) {
+        <div class="alert alert-light border mb-0">{{ app.t('admin.noRungisBills') }}</div>
+      } @else {
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>{{ app.t('admin.organization') }}</th>
+                <th>{{ app.t('admin.role') }}</th>
+                <th>{{ app.t('admin.grossBeforeTax') }}</th>
+                <th>{{ app.t('admin.payableIncludingVat') }}</th>
+                <th>{{ app.t('admin.actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of app.adminRungisBillSearchRows(); track row.id) {
+                <tr>
+                  <td>{{ row.userOrganisationName }} ({{ row.userUniqueId }})</td>
+                  <td>{{ row.role }}</td>
+                  <td>{{ row.grossAmountBeforeTax | number: '1.2-2' }} {{ row.currency }}</td>
+                  <td>{{ row.payableAmountIncludingVat | number: '1.2-2' }} {{ row.currency }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-success" type="button" [disabled]="app.isMarkingRungisBillPaid(row.id)" (click)="app.markRungisBillPaid(row.id)">
+                      {{ app.isMarkingRungisBillPaid(row.id) ? app.t('admin.markingPaid') : app.t('admin.markRungisBillPaid') }}
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+    <div class="border rounded p-3 mb-4">
       <h2 class="h5 mb-3">{{ app.t('admin.appStyleProfileTitle') }}</h2>
       <p class="form-text mb-3">{{ app.t('admin.appStyleProfileHint') }}</p>
       <div class="row g-3 align-items-end">

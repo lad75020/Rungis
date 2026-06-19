@@ -366,6 +366,74 @@ export type ClientDashboardCartDetails = {
   isSettled: boolean;
 };
 
+export type RungisBillRole = 'vendor' | 'client';
+
+export type RungisBillingSettings = {
+  rungisFeeRate: number | null;
+  vatRate: number | null;
+  configured: boolean;
+};
+
+export type RungisPartySnapshot = {
+  organisation: string;
+  logoFilename?: string;
+  logoUrl?: string;
+  city: string;
+  zipcode: string;
+  physicalAddress: string;
+  phoneNumber: string;
+  businessRegistrationId: string;
+  email?: string;
+  vatId?: string;
+};
+
+export type RungisInvoice = {
+  id: string;
+  billIdentifier?: string;
+  applicableMonth: number;
+  applicableYear: number;
+  role: RungisBillRole;
+  userUniqueId?: string;
+  userOrganisationName?: string;
+  adminParty: RungisPartySnapshot;
+  userParty: RungisPartySnapshot;
+  grossAmountBeforeTax: number;
+  rungisFeeRate: number;
+  payableAmountBeforeTax: number;
+  vatRate: number;
+  vatAmount: number;
+  payableAmountIncludingVat: number;
+  currency: string;
+  paid: boolean;
+  pdfUrl: string;
+  facturXUrl: string;
+};
+
+export type RungisBillSummary = RungisInvoice;
+
+export type AdminRungisBillSearchRow = {
+  id: string;
+  applicableMonth: number;
+  applicableYear: number;
+  role: RungisBillRole;
+  userOrganisationName: string;
+  userUniqueId: string;
+  grossAmountBeforeTax: number;
+  payableAmountBeforeTax: number;
+  vatRate: number;
+  payableAmountIncludingVat: number;
+  currency: string;
+  generatedAt: string | null;
+};
+
+export type RungisBillGenerationResult = {
+  generated: number;
+  updated: number;
+  skippedPaid: number;
+  skippedMissingIdentity: number;
+  totalEligible: number;
+};
+
 export type AppBootstrapConfig = {
   page: PageName;
   language: LanguageCode;

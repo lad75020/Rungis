@@ -395,4 +395,56 @@ describe('App', () => {
     ]);
     fixture.destroy();
   });
+
+  it('loads and saves admin Rungis billing settings', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance as any;
+    app.sessionUser.set({ id: 'admin-1', role: 'admin' });
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, rungisFeeRate: 2.5, vatRate: 20 }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, rungisFeeRate: 3, vatRate: 10, message: 'Saved' }), { status: 200 }));
+
+    await app.loadAdminRungisBillingSettings();
+    expect(app.adminRungisFeeRate()).toBe(2.5);
+    expect(app.adminRungisVatRate()).toBe(20);
+
+    await app.saveAdminRungisBillingSettings('3', '10');
+    expect(fetchSpy).toHaveBeenLastCalledWith('/api/admin/settings/rungis-billing', expect.objectContaining({ method: 'PUT' }));
+    expect(app.adminRungisFeeRate()).toBe(3);
+    expect(app.adminRungisVatRate()).toBe(10);
+    fixture.destroy();
+  });
+
+  it('searches and marks admin Rungis bills paid', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance as any;
+    app.sessionUser.set({ id: 'admin-1', role: 'admin' });
+    app.adminRungisBillSearchMonth.set('2026-05');
+    app.adminRungisBillSearchOrganization.set('market');
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, rows: [{ id: 'bill-1', userOrganisationName: 'Market', payableAmountIncludingVat: 30, currency: 'EUR' }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, message: 'Paid' }), { status: 200 }));
+
+    await app.searchAdminRungisBills();
+    expect(app.adminRungisBillSearchRows()).toHaveLength(1);
+    await app.markRungisBillPaid('bill-1');
+    expect(app.adminRungisBillSearchRows()).toHaveLength(0);
+    fixture.destroy();
+  });
+
+  it('opens a Rungis invoice modal and downloads its Factur-X document', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance as any;
+    app.sessionUser.set({ id: 'vendor-1', role: 'vendor' });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, invoice: { id: 'bill-1', adminParty: {}, userParty: {}, payableAmountIncludingVat: 30, currency: 'EUR' } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(new Blob(['pdf'], { type: 'application/pdf' }), { status: 200, headers: { 'content-disposition': 'attachment; filename="rungis.pdf"' } }));
+
+    await app.openRungisInvoice('bill-1');
+    expect(app.showingRungisInvoiceModal()).toBe(true);
+    await app.downloadRungisFacturX();
+    expect(clickSpy).toHaveBeenCalled();
+    fixture.destroy();
+  });
 });

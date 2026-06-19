@@ -9,6 +9,28 @@
       <div class="col-md-6"><strong>{{ app.t('dashboard.siret') }}:</strong> {{ user.businessRegistrationId }}</div>
     </div>
 
+    @if (user.role === 'vendor' || user.role === 'client') {
+      <div class="border rounded p-3 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h2 class="h5 mb-0">{{ app.t('dashboard.rungisInvoices') }}</h2>
+          <button class="btn btn-sm btn-outline-secondary" type="button" [disabled]="app.loadingCurrentRungisBills()" (click)="app.loadCurrentRungisBills()">
+            {{ app.loadingCurrentRungisBills() ? app.t('admin.refreshing') : app.t('admin.refresh') }}
+          </button>
+        </div>
+        @if (app.currentRungisBills().length === 0 && !app.loadingCurrentRungisBills()) {
+          <div class="alert alert-light border mb-0">{{ app.t('dashboard.noRungisInvoice') }}</div>
+        } @else {
+          <div class="d-flex flex-column gap-2">
+            @for (bill of app.currentRungisBills(); track bill.id) {
+              <button class="btn btn-outline-primary text-start" type="button" [disabled]="app.loadingRungisInvoice()" (click)="app.openRungisInvoice(bill.id)">
+                € {{ bill.applicableMonth }}/{{ bill.applicableYear }} - {{ bill.payableAmountIncludingVat | number: '1.2-2' }} {{ bill.currency }}
+              </button>
+            }
+          </div>
+        }
+      </div>
+    }
+
     @if (user.role === 'admin') {
       <div class="mb-4 d-flex gap-2">
         <a class="btn btn-outline-primary" routerLink="/admin">{{ app.t('dashboard.openAdmin') }}</a>
@@ -558,6 +580,58 @@
             </button>
             <button class="btn btn-secondary" type="button" (click)="app.closeClientCartDetailsModal()">{{ app.t('common.close') }}</button>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@if (app.showingRungisInvoiceModal() && app.rungisInvoice(); as invoice) {
+  <div class="modal-backdrop fade show"></div>
+  <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title h5 mb-0">{{ app.t('dashboard.rungisInvoice') }}</h3>
+          <button class="btn-close" type="button" aria-label="Close" (click)="app.closeRungisInvoice()"></button>
+        </div>
+        <div class="modal-body">
+          <p><strong>{{ app.t('dashboard.period') }}:</strong> {{ invoice.applicableMonth }}/{{ invoice.applicableYear }}</p>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <h4 class="h6">{{ app.t('dashboard.adminParty') }}</h4>
+              <p class="mb-1"><strong>{{ invoice.adminParty.organisation }}</strong></p>
+              <p class="mb-1">{{ invoice.adminParty.physicalAddress }}</p>
+              <p class="mb-1">{{ invoice.adminParty.zipcode }} {{ invoice.adminParty.city }}</p>
+              <p class="mb-1">{{ invoice.adminParty.phoneNumber }}</p>
+              <p class="mb-0">{{ app.t('dashboard.siret') }}: {{ invoice.adminParty.businessRegistrationId }}</p>
+            </div>
+            <div class="col-md-6">
+              <h4 class="h6">{{ app.t('dashboard.userParty') }}</h4>
+              <p class="mb-1"><strong>{{ invoice.userParty.organisation }}</strong></p>
+              <p class="mb-1">{{ invoice.userParty.physicalAddress }}</p>
+              <p class="mb-1">{{ invoice.userParty.zipcode }} {{ invoice.userParty.city }}</p>
+              <p class="mb-1">{{ invoice.userParty.phoneNumber }}</p>
+              <p class="mb-0">{{ app.t('dashboard.siret') }}: {{ invoice.userParty.businessRegistrationId }}</p>
+            </div>
+          </div>
+          <table class="table table-sm">
+            <tbody>
+              <tr><th>{{ app.t('dashboard.grossBeforeTax') }}</th><td>{{ invoice.grossAmountBeforeTax | number: '1.2-2' }} {{ invoice.currency }}</td></tr>
+              <tr><th>{{ app.t('dashboard.rungisFeeRate') }}</th><td>{{ invoice.rungisFeeRate | number: '1.0-2' }}%</td></tr>
+              <tr><th>{{ app.t('dashboard.payableBeforeTax') }}</th><td>{{ invoice.payableAmountBeforeTax | number: '1.2-2' }} {{ invoice.currency }}</td></tr>
+              <tr><th>{{ app.t('dashboard.vatRate') }}</th><td>{{ invoice.vatRate | number: '1.0-2' }}%</td></tr>
+              <tr><th>{{ app.t('dashboard.vatAmount') }}</th><td>{{ invoice.vatAmount | number: '1.2-2' }} {{ invoice.currency }}</td></tr>
+              <tr><th>{{ app.t('dashboard.payableIncludingVat') }}</th><td><strong>{{ invoice.payableAmountIncludingVat | number: '1.2-2' }} {{ invoice.currency }}</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-primary" type="button" (click)="app.openRungisInvoicePdf()">{{ app.t('common.printPdf') }}</button>
+          <button class="btn btn-outline-success" type="button" [disabled]="app.downloadingRungisFacturX()" (click)="app.downloadRungisFacturX()">
+            {{ app.downloadingRungisFacturX() ? app.t('common.downloading') : app.t('common.downloadFacturX') }}
+          </button>
+          <button class="btn btn-secondary" type="button" (click)="app.closeRungisInvoice()">{{ app.t('common.close') }}</button>
         </div>
       </div>
     </div>

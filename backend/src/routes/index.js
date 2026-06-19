@@ -15,6 +15,7 @@ import { Merchandise } from '../models/merchandise.model.js';
 import { User } from '../models/user.model.js';
 import { ValidatedOrder } from '../models/validated-order.model.js';
 import { Bill } from '../models/bill.model.js';
+import { RungisBill } from '../models/rungis-bill.model.js';
 import { Refund } from '../models/refund.model.js';
 import {
   getAppSettingValueNumber,
@@ -24,11 +25,21 @@ import {
 } from '../lib/app-settings-store.js';
 import { registerAuthRoutes } from './modules/auth.js';
 import { registerBillRoutes } from './modules/bills.js';
+import { registerRungisBillRoutes } from './modules/rungis-bills.js';
 import { registerManagementRoutes } from './modules/management.js';
 import { registerPageRoutes } from './modules/pages.js';
 import { registerRefundRoutes } from './modules/refunds.js';
 import { registerWebsocketRoutes } from './modules/websocket.js';
 import { sendFacturXBill } from '../services/factur-x/generator.js';
+import {
+  generateRungisBillsForPreviousMonth,
+  markRungisBillPaid,
+  searchUnpaidRungisBills
+} from '../services/rungis-bills/generation.js';
+import {
+  getRungisBillingSettings,
+  setRungisBillingSettings
+} from '../services/rungis-bills/settings.js';
 import {
   calculateLineTotalIncludingVat,
   calculatePriceIncludingVat,
@@ -464,6 +475,16 @@ async function requireClientApi(request, reply) {
 
   if (request.session.user.role !== 'client') {
     return reply.code(403).send({ ok: false, message: 'Client role required.' });
+  }
+}
+
+async function requireRungisBillUserApi(request, reply) {
+  if (!request.session.user) {
+    return reply.code(401).send({ ok: false, message: 'Authentication required.' });
+  }
+
+  if (!['vendor', 'client'].includes(request.session.user.role)) {
+    return reply.code(403).send({ ok: false, message: 'Vendor or client role required.' });
   }
 }
 
@@ -2779,6 +2800,7 @@ export async function registerRoutes(app) {
     dismissVendorBillMessage,
     fs,
     generateBillsForDay,
+    generateRungisBillsForPreviousMonth,
     generateAuthenticationOptions,
     generateRegistrationOptions,
     getAppStyleProfileSetting,
@@ -2792,6 +2814,7 @@ export async function registerRoutes(app) {
     getOrCreatePersistedBillUuid,
     getRedisCart,
     getRequestLanguage,
+    getRungisBillingSettings,
     getTranslationText,
     getUserLogoAbsolutePath,
     getUserLogoUrl,
@@ -2816,6 +2839,7 @@ export async function registerRoutes(app) {
     mapSessionUser,
     mapStoredPasskeyToCredential,
     markVendorBillMessageRead,
+    markRungisBillPaid,
     Merchandise,
     mongoose,
     normalizeBillOverdueDays,
@@ -2831,6 +2855,7 @@ export async function registerRoutes(app) {
     randomUUID,
     REFUND_COMMENT_MAX_LENGTH,
     Refund,
+    RungisBill,
     redirectForSessionUser,
     registerFailedLoginAttempt,
     removeUnpaidReminder,
@@ -2840,6 +2865,7 @@ export async function registerRoutes(app) {
     requireClientApi,
     requireClientPage,
     requirePageRateLimit,
+    requireRungisBillUserApi,
     requireVendorApi,
     requireVendorPage,
     roundToTwoDecimals,
@@ -2851,7 +2877,9 @@ export async function registerRoutes(app) {
     setAppStyleProfileSetting,
     setBillClientComment,
     setBillOverdueDaysSetting,
+    setRungisBillingSettings,
     setBillSettlement,
+    searchUnpaidRungisBills,
     summarizeUserAgent,
     upsertUnpaidReminder,
     User,
@@ -2865,6 +2893,7 @@ export async function registerRoutes(app) {
   registerAuthRoutes(app, context, deps);
   registerManagementRoutes(app, context, deps);
   registerBillRoutes(app, deps);
+  registerRungisBillRoutes(app, deps);
   registerRefundRoutes(app, deps);
   registerWebsocketRoutes(app, context, deps);
 }

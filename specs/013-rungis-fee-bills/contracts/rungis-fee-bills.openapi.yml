@@ -1,0 +1,514 @@
+openapi: 3.0.3
+info:
+  title: Rungis Fee Bills API
+  version: 1.0.0
+  description: |
+    Admin configuration, monthly generation, unpaid search, paid-state update,
+    and user invoice export endpoints for Rungis marketplace fee bills.
+servers:
+  - url: /
+    description: Current Rungis web application origin
+tags:
+  - name: Admin Rungis Billing
+    description: Admin-only settings, generation, search, and paid-state workflows
+  - name: User Rungis Bills
+    description: Vendor/client invoice modal data and document downloads
+security:
+  - sessionCookie: []
+paths:
+  /api/admin/settings/rungis-billing:
+    get:
+      operationId: getAdminRungisBillingSettings
+      tags: [Admin Rungis Billing]
+      summary: Read configured Rungis fee and VAT percentages
+      responses:
+        '200':
+          description: Settings loaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RungisBillingSettingsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      operationId: updateAdminRungisBillingSettings
+      tags: [Admin Rungis Billing]
+      summary: Save Rungis fee and VAT percentages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RungisBillingSettingsRequest'
+            examples:
+              standard:
+                value:
+                  rungisFeeRate: 2.5
+                  vatRate: 20
+      responses:
+        '200':
+          description: Settings saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RungisBillingSettingsResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/admin/rungis-bills/send:
+    post:
+      operationId: sendRungisBills
+      tags: [Admin Rungis Billing]
+      summary: Generate Rungis bills for the previous calendar month
+      responses:
+        '200':
+          description: Generation completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RungisBillGenerationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Generation could not proceed because settings or required identity data are incomplete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/admin/rungis-bills:
+    get:
+      operationId: searchUnpaidRungisBills
+      tags: [Admin Rungis Billing]
+      summary: Search unpaid Rungis bills by organization and month
+      parameters:
+        - name: month
+          in: query
+          required: true
+          description: Applicable billing month selected by a year/month picker.
+          schema:
+            type: string
+            pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+          example: '2026-05'
+        - name: organization
+          in: query
+          required: false
+          description: Case-insensitive partial user organization name.
+          schema:
+            type: string
+            maxLength: 120
+          example: Les Halles Primeurs
+      responses:
+        '200':
+          description: Matching unpaid bills
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRungisBillSearchResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/admin/rungis-bills/{billId}/paid:
+    patch:
+      operationId: markRungisBillPaid
+      tags: [Admin Rungis Billing]
+      summary: Mark an unpaid Rungis bill as paid
+      parameters:
+        - $ref: '#/components/parameters/BillId'
+      responses:
+        '200':
+          description: Bill marked paid or was already paid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkPaidResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/rungis-bills/current:
+    get:
+      operationId: getCurrentUserRungisBills
+      tags: [User Rungis Bills]
+      summary: List current user's unpaid Rungis bills for dashboard access
+      responses:
+        '200':
+          description: Current user's Rungis bill summaries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRungisBillsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/rungis-bills/{billId}:
+    get:
+      operationId: getUserRungisBillInvoice
+      tags: [User Rungis Bills]
+      summary: Read invoice data for a Rungis bill owned by the current user
+      parameters:
+        - $ref: '#/components/parameters/BillId'
+      responses:
+        '200':
+          description: Invoice modal data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RungisInvoiceResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/rungis-bills/{billId}/pdf:
+    get:
+      operationId: viewUserRungisBillPdf
+      tags: [User Rungis Bills]
+      summary: View the Rungis invoice as a PDF
+      parameters:
+        - $ref: '#/components/parameters/BillId'
+      responses:
+        '200':
+          description: Inline readable invoice PDF
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              example: inline; filename="rungis-bill-2026-05-00024.pdf"
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/DocumentGenerationError'
+  /api/rungis-bills/{billId}/factur-x:
+    get:
+      operationId: downloadUserRungisBillFacturX
+      tags: [User Rungis Bills]
+      summary: Download the Rungis invoice as a Factur-X hybrid PDF
+      parameters:
+        - $ref: '#/components/parameters/BillId'
+      responses:
+        '200':
+          description: Factur-X hybrid PDF attachment
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              example: attachment; filename="rungis-bill-2026-05-00024-factur-x.pdf"
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/DocumentGenerationError'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: sessionId
+  parameters:
+    BillId:
+      name: billId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-fA-F0-9]{24}$'
+      example: 6655f38aa0f1e0b7f01c2a45
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Current user is not allowed to perform this action
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Rungis bill not found or not visible to current user
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    DocumentGenerationError:
+      description: Invoice document generation failed because required invoice data is missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [ok, message]
+      properties:
+        ok:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: validation_failed
+        message:
+          type: string
+          example: Rungis fee rate must be a valid percentage.
+        details:
+          type: array
+          items:
+            type: string
+    RungisBillingSettingsRequest:
+      type: object
+      required: [rungisFeeRate, vatRate]
+      properties:
+        rungisFeeRate:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 2.5
+        vatRate:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 20
+    RungisBillingSettingsResponse:
+      type: object
+      required: [ok, rungisFeeRate, vatRate]
+      properties:
+        ok:
+          type: boolean
+          example: true
+        rungisFeeRate:
+          type: number
+          example: 2.5
+        vatRate:
+          type: number
+          example: 20
+        message:
+          type: string
+          example: Rungis billing settings updated.
+    RungisBillGenerationResponse:
+      type: object
+      required: [ok, applicableYear, applicableMonth, createdCount, updatedCount, skippedPaidCount]
+      properties:
+        ok:
+          type: boolean
+          example: true
+        applicableYear:
+          type: integer
+          example: 2026
+        applicableMonth:
+          type: integer
+          minimum: 1
+          maximum: 12
+          example: 5
+        createdCount:
+          type: integer
+          minimum: 0
+          example: 12
+        updatedCount:
+          type: integer
+          minimum: 0
+          example: 2
+        skippedPaidCount:
+          type: integer
+          minimum: 0
+          example: 1
+        totalGrossAmountBeforeTax:
+          type: number
+          example: 125000.75
+        message:
+          type: string
+          example: Rungis bills generated for 2026-05.
+    AdminRungisBillSearchResponse:
+      type: object
+      required: [ok, rows]
+      properties:
+        ok:
+          type: boolean
+          example: true
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminRungisBillSummary'
+    UserRungisBillsResponse:
+      type: object
+      required: [ok, bills]
+      properties:
+        ok:
+          type: boolean
+          example: true
+        bills:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserRungisBillSummary'
+    RungisInvoiceResponse:
+      type: object
+      required: [ok, invoice]
+      properties:
+        ok:
+          type: boolean
+          example: true
+        invoice:
+          $ref: '#/components/schemas/RungisInvoice'
+    MarkPaidResponse:
+      type: object
+      required: [ok, billId, paid]
+      properties:
+        ok:
+          type: boolean
+          example: true
+        billId:
+          type: string
+          example: 6655f38aa0f1e0b7f01c2a45
+        paid:
+          type: boolean
+          example: true
+        paidAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+          example: Rungis bill marked paid.
+    AdminRungisBillSummary:
+      type: object
+      required: [id, applicableYear, applicableMonth, role, userUniqueId, userOrganisationName, grossAmountBeforeTax, rungisFeeRate, payableAmountBeforeTax, vatRate, payableAmountIncludingVat, currency, paid]
+      properties:
+        id:
+          type: string
+        applicableYear:
+          type: integer
+        applicableMonth:
+          type: integer
+        role:
+          $ref: '#/components/schemas/RungisBillRole'
+        userUniqueId:
+          type: string
+          pattern: '^\d{5}$'
+        userOrganisationName:
+          type: string
+        grossAmountBeforeTax:
+          type: number
+        rungisFeeRate:
+          type: number
+        payableAmountBeforeTax:
+          type: number
+        vatRate:
+          type: number
+        payableAmountIncludingVat:
+          type: number
+        currency:
+          type: string
+          example: EUR
+        paid:
+          type: boolean
+          example: false
+        generatedAt:
+          type: string
+          format: date-time
+    UserRungisBillSummary:
+      type: object
+      required: [id, applicableYear, applicableMonth, role, payableAmountIncludingVat, currency, paid]
+      properties:
+        id:
+          type: string
+        applicableYear:
+          type: integer
+        applicableMonth:
+          type: integer
+        role:
+          $ref: '#/components/schemas/RungisBillRole'
+        payableAmountIncludingVat:
+          type: number
+        currency:
+          type: string
+          example: EUR
+        paid:
+          type: boolean
+    RungisInvoice:
+      allOf:
+        - $ref: '#/components/schemas/AdminRungisBillSummary'
+        - type: object
+          required: [adminParty, userParty, vatAmount, pdfUrl, facturXUrl]
+          properties:
+            adminParty:
+              $ref: '#/components/schemas/PartySnapshot'
+            userParty:
+              $ref: '#/components/schemas/PartySnapshot'
+            vatAmount:
+              type: number
+            pdfUrl:
+              type: string
+              example: /api/rungis-bills/6655f38aa0f1e0b7f01c2a45/pdf
+            facturXUrl:
+              type: string
+              example: /api/rungis-bills/6655f38aa0f1e0b7f01c2a45/factur-x
+    PartySnapshot:
+      type: object
+      required: [organisation, city, zipcode, physicalAddress, phoneNumber, businessRegistrationId]
+      properties:
+        organisation:
+          type: string
+        logoUrl:
+          type: string
+          nullable: true
+        city:
+          type: string
+        zipcode:
+          type: string
+        physicalAddress:
+          type: string
+        phoneNumber:
+          type: string
+        businessRegistrationId:
+          type: string
+        vatId:
+          type: string
+          nullable: true
+    RungisBillRole:
+      type: string
+      enum: [vendor, client]

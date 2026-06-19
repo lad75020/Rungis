@@ -24,8 +24,14 @@ export function registerManagementRoutes(app, context, deps) {
     requireClientApi,
     requireVendorApi,
     roundToTwoDecimals,
+    getRungisBillingSettings,
+    generateRungisBillsForPreviousMonth,
+    markRungisBillPaid,
+    searchUnpaidRungisBills,
     setAppStyleProfileSetting,
     setBillOverdueDaysSetting,
+    setRungisBillingSettings,
+    RungisBill,
     upsertUnpaidReminder,
     User,
     ValidatedOrder
@@ -111,6 +117,72 @@ export function registerManagementRoutes(app, context, deps) {
       appStyleProfile,
       message: `Application style profile updated to ${appStyleProfile}.`
     });
+  });
+
+  app.get('/api/admin/settings/rungis-billing', { preHandler: requireAdminApi }, async (_request, reply) => {
+    const settings = getRungisBillingSettings();
+    return reply.send({ ok: true, ...settings });
+  });
+
+  app.put('/api/admin/settings/rungis-billing', { preHandler: requireAdminApi }, async (request, reply) => {
+    const settings = setRungisBillingSettings(request.body);
+    if (!settings) {
+      return reply.code(400).send({ ok: false, message: 'Rungis fee and VAT rates must be percentages between 0 and 100.' });
+    }
+    return reply.send({ ok: true, ...settings, message: 'Rungis billing settings updated.' });
+  });
+
+  app.post('/api/admin/rungis-bills/send', { preHandler: requireAdminApi }, async (request, reply) => {
+    try {
+      const result = await generateRungisBillsForPreviousMonth({
+        RungisBill,
+        User,
+        ValidatedOrder,
+        adminUserId: request.session.user.id,
+        settings: getRungisBillingSettings()
+      });
+      return reply.send({
+        ok: true,
+        ...result,
+        message: `Rungis bills completed: ${result.generated} generated, ${result.updated} updated, ${result.skippedPaid} paid skipped.`
+      });
+    } catch (error) {
+      const statusCode = Number.isInteger(error?.statusCode) ? error.statusCode : 500;
+      return reply.code(statusCode).send({ ok: false, message: error?.message ?? 'Rungis bill generation failed.' });
+    }
+  });
+
+  app.get('/api/admin/rungis-bills', { preHandler: requireAdminApi }, async (request, reply) => {
+    try {
+      const rows = await searchUnpaidRungisBills({
+        RungisBill,
+        month: request.query?.month,
+        organization: request.query?.organization
+      });
+      return reply.send({ ok: true, rows });
+    } catch (error) {
+      const statusCode = Number.isInteger(error?.statusCode) ? error.statusCode : 500;
+      return reply.code(statusCode).send({ ok: false, message: error?.message ?? 'Rungis bill search failed.' });
+    }
+  });
+
+  app.patch('/api/admin/rungis-bills/:billId/paid', { preHandler: requireAdminApi }, async (request, reply) => {
+    try {
+      const result = await markRungisBillPaid({
+        RungisBill,
+        billId: request.params?.billId,
+        adminUserId: request.session.user.id
+      });
+      return reply.send({
+        ok: true,
+        alreadyPaid: result.alreadyPaid,
+        bill: result.bill,
+        message: result.alreadyPaid ? 'Rungis bill was already paid.' : 'Rungis bill marked paid.'
+      });
+    } catch (error) {
+      const statusCode = Number.isInteger(error?.statusCode) ? error.statusCode : 500;
+      return reply.code(statusCode).send({ ok: false, message: error?.message ?? 'Unable to mark Rungis bill paid.' });
+    }
   });
 
   app.post('/api/admin/bills/run-daily-generation', { preHandler: requireAdminApi }, async (request, reply) => {

@@ -55,6 +55,17 @@ export type PendingUser = {
   createdAt: string;
 };
 
+export type AdminManagedUser = {
+  id: string;
+  role: 'vendor' | 'client';
+  username: string;
+  organisation: string;
+  email: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AccessKeySummary = {
   id: string;
   name: string;

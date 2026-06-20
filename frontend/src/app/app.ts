@@ -28,6 +28,7 @@ import type {
   AccessKeySummary,
   AdminActivatedOrderStat,
   AdminClientAssociation,
+  AdminManagedUser,
   AdminRungisBillSearchRow,
   AdminVendorAssociation,
   AlertType,
@@ -137,6 +138,7 @@ export class App implements OnInit, OnDestroy {
   private stockListRequestSeq = 0;
   private cartSnapshotVersion = 0;
   private cartLoadRequestSeq = 0;
+  private adminUserSearchRequestSeq = 0;
   private adminRungisBillSearchRequestSeq = 0;
   private isDestroying = false;
   private systemThemeMediaQuery: MediaQueryList | null = null;
@@ -170,6 +172,10 @@ export class App implements OnInit, OnDestroy {
   public readonly deletingPendingUserIds = signal<string[]>([]);
   public readonly showingPendingUserModal = signal(false);
   public readonly selectedPendingUser = signal<PendingUser | null>(null);
+  public readonly adminUserSearchOrganization = signal('');
+  public readonly loadingAdminUserSearch = signal(false);
+  public readonly adminUserSearchRows = signal<AdminManagedUser[]>([]);
+  public readonly togglingAdminUserIds = signal<string[]>([]);
   public readonly adminClients = signal<AdminClientAssociation[]>([]);
   public readonly adminVendors = signal<AdminVendorAssociation[]>([]);
   public readonly loadingAdminAssociations = signal(false);
@@ -1675,6 +1681,80 @@ export class App implements OnInit, OnDestroy {
       this.setAlert('success', payload.message ?? this.t('alerts.admin.pendingDeleted'));
     } finally {
       this.deletingPendingUserIds.set(this.deletingPendingUserIds().filter((id) => id !== userId));
+    }
+  }
+
+  public setAdminUserSearchOrganization(value: string): void {
+    this.adminUserSearchOrganization.set(value);
+    void this.searchAdminUsers();
+  }
+
+  public async searchAdminUsers(): Promise<void> {
+    if (!this.isAdmin()) {
+      return;
+    }
+
+    const requestSeq = ++this.adminUserSearchRequestSeq;
+    const organization = this.adminUserSearchOrganization().trim();
+    if (!organization) {
+      this.adminUserSearchRows.set([]);
+      this.loadingAdminUserSearch.set(false);
+      return;
+    }
+
+    this.loadingAdminUserSearch.set(true);
+    try {
+      const params = new URLSearchParams({ organization });
+      const response = await fetch(`/api/admin/users/search?${params.toString()}`);
+      const payload = await response.json().catch(() => null);
+      if (requestSeq !== this.adminUserSearchRequestSeq) {
+        return;
+      }
+      if (!response.ok) {
+        this.setAlert('danger', payload?.message ?? this.t('alerts.admin.userSearchFailed'));
+        return;
+      }
+
+      this.adminUserSearchRows.set(Array.isArray(payload?.users) ? (payload.users as AdminManagedUser[]) : []);
+    } finally {
+      if (requestSeq === this.adminUserSearchRequestSeq) {
+        this.loadingAdminUserSearch.set(false);
+      }
+    }
+  }
+
+  public isTogglingAdminUser(userId: string): boolean {
+    return this.togglingAdminUserIds().includes(userId);
+  }
+
+  public async toggleAdminUserActive(userId: string, isActive: boolean): Promise<void> {
+    if (this.isTogglingAdminUser(userId)) {
+      return;
+    }
+
+    this.togglingAdminUserIds.set([...this.togglingAdminUserIds(), userId]);
+    try {
+      const response = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/active`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ isActive })
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        this.setAlert('danger', payload?.message ?? this.t('alerts.admin.userStatusUpdateFailed'));
+        return;
+      }
+
+      const updatedUser = payload?.user as AdminManagedUser | undefined;
+      if (updatedUser?.id) {
+        this.adminUserSearchRows.set(this.adminUserSearchRows().map((user) => (user.id === userId ? updatedUser : user)));
+      } else {
+        this.adminUserSearchRows.set(this.adminUserSearchRows().map((user) => (user.id === userId ? { ...user, isActive } : user)));
+      }
+      this.pendingUsers.set(this.pendingUsers().filter((user) => user.id !== userId || !isActive));
+      this.setAlert('success', payload?.message ?? (isActive ? this.t('alerts.admin.userEnabled') : this.t('alerts.admin.userDisabled')));
+    } finally {
+      this.togglingAdminUserIds.set(this.togglingAdminUserIds().filter((id) => id !== userId));
     }
   }
 

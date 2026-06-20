@@ -527,6 +527,37 @@ describe('App', () => {
     fixture.destroy();
   });
 
+  it('searches admin users by organization and toggles their status', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance as any;
+    app.sessionUser.set({ id: 'admin-1', role: 'admin' });
+    app.adminUserSearchOrganization.set('market');
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        ok: true,
+        users: [{ id: 'user-1', role: 'vendor', username: 'vendor-one', organisation: 'Market One', email: 'vendor@example.test', isActive: true }]
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        ok: true,
+        message: 'User disabled.',
+        user: { id: 'user-1', role: 'vendor', username: 'vendor-one', organisation: 'Market One', email: 'vendor@example.test', isActive: false }
+      }), { status: 200 }));
+
+    await app.searchAdminUsers();
+    expect(fetchSpy).toHaveBeenCalledWith('/api/admin/users/search?organization=market');
+    expect(app.adminUserSearchRows()).toEqual([
+      expect.objectContaining({ id: 'user-1', organisation: 'Market One', isActive: true })
+    ]);
+
+    await app.toggleAdminUserActive('user-1', false);
+    expect(fetchSpy).toHaveBeenLastCalledWith('/api/admin/users/user-1/active', expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify({ isActive: false })
+    }));
+    expect(app.adminUserSearchRows()[0].isActive).toBe(false);
+    fixture.destroy();
+  });
+
   it('opens a Rungis invoice modal and downloads its Factur-X document', async () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance as any;

@@ -14,6 +14,7 @@ export function registerManagementRoutes(app, context, deps) {
     getOrCreatePersistedBillUuid,
     getUserLogoUrl,
     listClientUnpaidReminders,
+    mapAdminManagedUser,
     mapPendingUser,
     mongoose,
     normalizeAppStyleProfile,
@@ -46,6 +47,8 @@ export function registerManagementRoutes(app, context, deps) {
     removeVendorClientAssociation
   } = context;
 
+  const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
   app.get('/api/admin/pending-users', { preHandler: requireAdminApi }, async (_request, reply) => {
     const users = await User.find({ isActive: false, role: { $in: ['vendor', 'client'] } })
       .sort({ createdAt: 1 })
@@ -54,6 +57,31 @@ export function registerManagementRoutes(app, context, deps) {
     return reply.send({
       ok: true,
       users: users.map(mapPendingUser)
+    });
+  });
+
+  app.get('/api/admin/users/search', { preHandler: requireAdminApi }, async (request, reply) => {
+    const organizationPrefix = normalizeString(request.query?.organization ?? request.query?.organisation);
+    if (!organizationPrefix) {
+      return reply.send({ ok: true, users: [] });
+    }
+
+    if (organizationPrefix.length > 100) {
+      return reply.code(400).send({ ok: false, message: 'Organization search is limited to 100 characters.' });
+    }
+
+    const users = await User.find({
+      role: { $in: ['vendor', 'client'] },
+      organisation: { $regex: `^${escapeRegex(organizationPrefix)}`, $options: 'i' }
+    })
+      .sort({ organisation: 1, username: 1 })
+      .limit(25)
+      .select({ role: 1, username: 1, organisation: 1, email: 1, isActive: 1, createdAt: 1, updatedAt: 1 })
+      .lean();
+
+    return reply.send({
+      ok: true,
+      users: users.map(mapAdminManagedUser)
     });
   });
 
@@ -892,6 +920,56 @@ export function registerManagementRoutes(app, context, deps) {
     await User.updateOne({ _id: id }, { $set: { isActive: true } });
 
     return reply.send({ ok: true, userId: id, message: 'User activated.' });
+  });
+
+  app.patch('/api/admin/users/:id/active', { preHandler: requireAdminApi }, async (request, reply) => {
+    const id = normalizeString(request.params?.id);
+    const isActive = request.body?.isActive;
+
+    if (!id) {
+      return reply.code(400).send({ ok: false, message: 'User id is required.' });
+    }
+
+    if (typeof isActive !== 'boolean') {
+      return reply.code(400).send({ ok: false, message: 'User active state must be a boolean.' });
+    }
+
+    let user;
+    try {
+      user = await User.findById(id).lean();
+    } catch {
+      return reply.code(400).send({ ok: false, message: 'Invalid user id.' });
+    }
+
+    if (!user) {
+      return reply.code(404).send({ ok: false, message: 'User not found.' });
+    }
+
+    if (user.role === 'admin') {
+      return reply.code(400).send({ ok: false, message: 'Admin users are not managed from this page.' });
+    }
+
+    if (Boolean(user.isActive) === isActive) {
+      return reply.send({
+        ok: true,
+        user: mapAdminManagedUser(user),
+        message: isActive ? 'User is already enabled.' : 'User is already disabled.'
+      });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(id, { $set: { isActive } }, { new: true })
+      .select({ role: 1, username: 1, organisation: 1, email: 1, isActive: 1, createdAt: 1, updatedAt: 1 })
+      .lean();
+
+    if (!updatedUser) {
+      return reply.code(404).send({ ok: false, message: 'User not found.' });
+    }
+
+    return reply.send({
+      ok: true,
+      user: mapAdminManagedUser(updatedUser),
+      message: isActive ? 'User enabled.' : 'User disabled.'
+    });
   });
 
   app.delete('/api/admin/users/:id', { preHandler: requireAdminApi }, async (request, reply) => {

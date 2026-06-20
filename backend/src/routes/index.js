@@ -601,6 +601,19 @@ function mapPendingUser(user) {
   };
 }
 
+function mapAdminManagedUser(user) {
+  return {
+    id: user._id.toString(),
+    role: user.role,
+    username: user.username,
+    organisation: user.organisation,
+    email: user.email,
+    isActive: Boolean(user.isActive),
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt
+  };
+}
+
 function mapMerchandise(merchandise) {
   const minimumStockThreshold =
     Number.isInteger(merchandise.minimumStockThreshold) && merchandise.minimumStockThreshold >= 0
@@ -2853,6 +2866,7 @@ export async function registerRoutes(app) {
     mapAccessKeySummary,
     mapBillSettlement,
     mapCart,
+    mapAdminManagedUser,
     mapMerchandise,
     mapOrderCatalogItem,
     mapPendingUser,

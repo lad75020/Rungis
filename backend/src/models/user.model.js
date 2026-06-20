@@ -102,9 +102,9 @@ const userSchema = new mongoose.Schema(
       required: true,
       validate: {
         validator(value) {
-          return Number.isInteger(value) && value >= 1000000000000 && value <= 9999999999999;
+          return Number.isInteger(value) && value >= 10000000000000 && value <= 99999999999999;
         },
-        message: 'SIRET must be a 13-digit integer.'
+        message: 'SIRET must be a 14-digit integer.'
       }
     },
     passwordHash: {

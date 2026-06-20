@@ -431,7 +431,6 @@
               <thead>
                 <tr>
                   <th scope="col">{{ app.t('order.item') }}</th>
-                  <th scope="col">{{ app.t('order.category') }}</th>
                   <th scope="col">{{ app.t('order.unitPriceEur') }}</th>
                   <th scope="col">{{ app.t('order.vatRate') }}</th>
                   <th scope="col">{{ app.t('order.unitPriceIncludingVatEur') }}</th>
@@ -444,7 +443,6 @@
                 @for (item of details.items; track item.merchandiseId + '-' + item.unitPrice) {
                   <tr>
                     <td>{{ item.reference ? item.name + ' (' + item.reference + ')' : item.name }}</td>
-                    <td>{{ item.category }}</td>
                     <td>{{ item.unitPrice | number: '1.2-2' }}</td>
                     <td>{{ item.vatRate | number: '1.0-2' }}%</td>
                     <td>{{ item.unitPriceIncludingVat | number: '1.2-2' }}</td>
@@ -542,7 +540,6 @@
               <thead>
                 <tr>
                   <th scope="col">{{ app.t('order.item') }}</th>
-                  <th scope="col">{{ app.t('order.category') }}</th>
                   <th scope="col">{{ app.t('order.vendor') }}</th>
                   <th scope="col">{{ app.t('order.unitPriceEur') }}</th>
                   <th scope="col">{{ app.t('order.vatRate') }}</th>
@@ -556,7 +553,6 @@
                 @for (item of details.items; track item.merchandiseId + '-' + item.unitPrice + '-' + item.vendorId) {
                   <tr>
                     <td>{{ item.reference ? item.name + ' (' + item.reference + ')' : item.name }}</td>
-                    <td>{{ item.category }}</td>
                     <td>{{ item.vendorName }}</td>
                     <td>{{ item.unitPrice | number: '1.2-2' }}</td>
                     <td>{{ item.vatRate | number: '1.0-2' }}%</td>

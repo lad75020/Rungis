@@ -499,7 +499,7 @@ export class App implements OnInit, OnDestroy {
     email: ['', [Validators.required, Validators.email]],
     physicalAddress: ['', [Validators.required]],
     phoneNumber: ['', [Validators.required]],
-    businessRegistrationId: ['', [Validators.required, Validators.pattern(/^\d{13}$/)]],
+    businessRegistrationId: ['', [Validators.required, Validators.pattern(/^\d{14}$/)]],
     password: ['', [Validators.required, Validators.minLength(8)]]
   });
 
@@ -515,7 +515,7 @@ export class App implements OnInit, OnDestroy {
     businessDescription: ['', [Validators.maxLength(2000)]],
     vatId: ['', [Validators.pattern(/^$|^.{13}$/)]],
     billMentions: ['', [Validators.maxLength(2000)]],
-    businessRegistrationId: ['', [Validators.required, Validators.pattern(/^\d{13}$/)]]
+    businessRegistrationId: ['', [Validators.required, Validators.pattern(/^\d{14}$/)]]
   });
 
   public readonly stockForm = this.formBuilder.nonNullable.group({
@@ -4079,7 +4079,7 @@ export class App implements OnInit, OnDestroy {
     }
 
     if (controls.businessRegistrationId.hasError('pattern')) {
-      return this.t('alerts.validation.siret13Digits');
+      return this.t('alerts.validation.siret14Digits');
     }
 
     if (controls.email.hasError('email')) {

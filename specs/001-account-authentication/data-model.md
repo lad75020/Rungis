@@ -14,7 +14,7 @@ Represents a person and organization identity that can authenticate into the por
 - `city`, `zipcode`, `physicalAddress`: required location and mailing details.
 - `email`: required unique email address, normalized for lookup.
 - `phoneNumber`: required contact phone number.
-- `businessRegistrationId`: required 13-digit business identifier.
+- `businessRegistrationId`: required 14-digit business identifier.
 - `businessDescription`: optional business profile text.
 - `logoFilename`: optional uploaded account logo reference.
 - `passwordHash`: credential verifier for password login; raw passwords are never stored.
@@ -27,7 +27,7 @@ Represents a person and organization identity that can authenticate into the por
 - `username` and `email` must be unique.
 - Public signup role must be `vendor` or `client`.
 - Required identity/contact fields must be present after trimming.
-- `businessRegistrationId` must be an integer with exactly 13 digits.
+- `businessRegistrationId` must be an integer with exactly 14 digits.
 - `businessDescription` is optional and bounded to a profile-size text field.
 
 ### State Transitions

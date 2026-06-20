@@ -32,7 +32,7 @@
       "zipcode": "75001",
       "city": "Paris",
       "phoneNumber": "0102030405",
-      "businessId": "1234567890123",
+      "businessId": "35600000000048",
       "vatId": "FR12345678901",
       "billMentions": "Payment <due> & \"safe\" within 30 days."
     },
@@ -41,7 +41,7 @@
       "address": "2 Client Avenue",
       "zipcode": "75002",
       "city": "Paris",
-      "businessId": "9876543210987"
+      "businessId": "44306184100047"
     }
   },
   "refund": {
@@ -91,7 +91,7 @@
       "zipcode": "75001",
       "city": "Paris",
       "phoneNumber": "0102030405",
-      "businessId": "1234567890123",
+      "businessId": "35600000000048",
       "vatId": "FR12345678901",
       "billMentions": "Payment due within 30 days."
     },
@@ -100,7 +100,7 @@
       "address": "2 Client Avenue",
       "zipcode": "75002",
       "city": "Paris",
-      "businessId": "9876543210987"
+      "businessId": "44306184100047"
     }
   },
   "missingLegal": {
@@ -136,7 +136,97 @@
       "address": "2 Client Avenue",
       "zipcode": "75002",
       "city": "Paris",
-      "businessId": "9876543210987"
+      "businessId": "44306184100047"
+    }
+  },
+  "emptyMentions": {
+    "billIdentifier": "BILL-2026-06-19-EMPTY",
+    "bill": {
+      "key": "client-1::2026-06-19",
+      "day": "2026-06-19",
+      "orderedAt": "2026-06-19T08:00:00.000Z",
+      "deliveryDate": "2026-06-20T00:00:00.000Z",
+      "items": [
+        {
+          "merchandiseId": "item-1",
+          "name": "Tomatoes",
+          "reference": "TOM-001",
+          "category": "Vegetables",
+          "unitPrice": 12.5,
+          "quantity": 2,
+          "lineTotal": 25,
+          "vatRate": 5.5,
+          "unitPriceIncludingVat": 13.19,
+          "lineTotalIncludingVat": 26.38,
+          "vatCategory": "S",
+          "vatExemptionReason": ""
+        }
+      ],
+      "totalPrice": 25,
+      "currency": "EUR",
+      "totalPriceIncludingVat": 26.38
+    },
+    "vendor": {
+      "organisation": "Vendor SAS",
+      "address": "1 Market Street",
+      "zipcode": "75001",
+      "city": "Paris",
+      "phoneNumber": "0102030405",
+      "businessId": "35600000000048",
+      "vatId": "FR12345678901",
+      "billMentions": ""
+    },
+    "client": {
+      "organisation": "Client SARL",
+      "address": "2 Client Avenue",
+      "zipcode": "75002",
+      "city": "Paris",
+      "businessId": "44306184100047"
+    }
+  },
+  "longMentions": {
+    "billIdentifier": "BILL-2026-06-19-LONG",
+    "bill": {
+      "key": "client-1::2026-06-19",
+      "day": "2026-06-19",
+      "orderedAt": "2026-06-19T08:00:00.000Z",
+      "deliveryDate": "2026-06-20T00:00:00.000Z",
+      "items": [
+        {
+          "merchandiseId": "item-1",
+          "name": "Tomatoes",
+          "reference": "TOM-001",
+          "category": "Vegetables",
+          "unitPrice": 12.5,
+          "quantity": 2,
+          "lineTotal": 25,
+          "vatRate": 5.5,
+          "unitPriceIncludingVat": 13.19,
+          "lineTotalIncludingVat": 26.38,
+          "vatCategory": "S",
+          "vatExemptionReason": ""
+        }
+      ],
+      "totalPrice": 25,
+      "currency": "EUR",
+      "totalPriceIncludingVat": 26.38
+    },
+    "vendor": {
+      "organisation": "Vendor SAS",
+      "address": "1 Market Street",
+      "zipcode": "75001",
+      "city": "Paris",
+      "phoneNumber": "0102030405",
+      "businessId": "35600000000048",
+      "vatId": "FR12345678901",
+      "billMentions": "Payment due within 30 days.\nLate payment penalties apply after the contractual due date.\nPlease include the bill identifier with every bank transfer."
+    },
+    "client": {
+      "organisation": "Client SARL",
+      "address": "2 Client Avenue",
+      "zipcode": "75002",
+      "city": "Paris",
+      "businessId": "44306184100047"
     }
   }
 }

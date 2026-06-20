@@ -16,7 +16,7 @@ function party(overrides = {}) {
     zipcode: '75001',
     physicalAddress: '1 rue du marché',
     phoneNumber: '0102030405',
-    businessRegistrationId: 1234567890123,
+    businessRegistrationId: 35600000000048,
     email: 'billing@example.test',
     vatId: 'FR12345678901',
     ...overrides
@@ -26,7 +26,7 @@ function party(overrides = {}) {
 test('normalizes user party snapshots for invoice rendering', () => {
   const snapshot = normalizePartySnapshot(party({ organisation: '  Admin  ' }));
   assert.equal(snapshot.organisation, 'Admin');
-  assert.equal(snapshot.businessRegistrationId, '1234567890123');
+  assert.equal(snapshot.businessRegistrationId, '35600000000048');
   assert.equal(snapshot.vatId, 'FR12345678901');
 });
 
@@ -48,7 +48,7 @@ test('builds a Rungis invoice view and matching Factur-X service line', () => {
     paid: false,
     generatedAt: new Date('2026-06-01T00:00:00Z'),
     adminPartySnapshot: normalizePartySnapshot(party({ organisation: 'Admin Org' })),
-    userPartySnapshot: normalizePartySnapshot(party({ organisation: 'Vendor Org', businessRegistrationId: 2234567890123 }))
+    userPartySnapshot: normalizePartySnapshot(party({ organisation: 'Vendor Org', businessRegistrationId: 44306184100047 }))
   };
 
   const invoice = buildRungisInvoiceView(bill);

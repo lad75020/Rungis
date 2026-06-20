@@ -17,8 +17,8 @@ function createReply() {
 
 function createDeps(overrides = {}) {
   const users = {
-    vendor: { organisation: 'Vendor SAS', physicalAddress: '1 Market Street', zipcode: '75001', city: 'Paris', phoneNumber: '0102030405', email: 'vendor@example.com', businessRegistrationId: '1234567890123', vatId: 'FR12345678901', billMentions: 'Payment due within 30 days.' },
-    client: { organisation: 'Client SARL', physicalAddress: '2 Client Avenue', zipcode: '75002', city: 'Paris', email: 'client@example.com', businessRegistrationId: '9876543210987' }
+    vendor: { organisation: 'Vendor SAS', physicalAddress: '1 Market Street', zipcode: '75001', city: 'Paris', phoneNumber: '0102030405', email: 'vendor@example.com', businessRegistrationId: '35600000000048', vatId: 'FR12345678901', billMentions: 'Payment due within 30 days.' },
+    client: { organisation: 'Client SARL', physicalAddress: '2 Client Avenue', zipcode: '75002', city: 'Paris', email: 'client@example.com', businessRegistrationId: '44306184100047' }
   };
   return {
     getRequestLanguage: () => 'en',
@@ -93,7 +93,7 @@ test('vendor Factur-X route returns PDF attachment headers', async () => {
 
   await routes.get('/api/bills/vendor/:key/factur-x').handler({
     server,
-    session: { user: { id: 'vendor', organisation: 'Vendor SAS', physicalAddress: '1 Market Street', zipcode: '75001', city: 'Paris', businessRegistrationId: '1234567890123' } },
+    session: { user: { id: 'vendor', organisation: 'Vendor SAS', physicalAddress: '1 Market Street', zipcode: '75001', city: 'Paris', businessRegistrationId: '35600000000048' } },
     params: { key: 'client::2026-06-19' },
     log: { error: () => {} }
   }, reply);
@@ -110,7 +110,7 @@ test('client Factur-X route returns PDF attachment headers', async () => {
 
   await routes.get('/api/bills/client/:key/factur-x').handler({
     server,
-    session: { user: { id: 'client', organisation: 'Client SARL', physicalAddress: '2 Client Avenue', zipcode: '75002', city: 'Paris', businessRegistrationId: '9876543210987' } },
+    session: { user: { id: 'client', organisation: 'Client SARL', physicalAddress: '2 Client Avenue', zipcode: '75002', city: 'Paris', businessRegistrationId: '44306184100047' } },
     params: { key: 'vendor::2026-06-19' },
     log: { error: () => {} }
   }, reply);
@@ -132,14 +132,14 @@ test('Factur-X routes pass seller VAT ID and bill mentions to generation', async
 
   await routes.get('/api/bills/vendor/:key/factur-x').handler({
     server,
-    session: { user: { id: 'vendor', organisation: 'Vendor SAS', physicalAddress: '1 Market Street', zipcode: '75001', city: 'Paris', businessRegistrationId: '1234567890123' } },
+    session: { user: { id: 'vendor', organisation: 'Vendor SAS', physicalAddress: '1 Market Street', zipcode: '75001', city: 'Paris', businessRegistrationId: '35600000000048' } },
     params: { key: 'client::2026-06-19' },
     log: { error: () => {} }
   }, createReply());
 
   await routes.get('/api/bills/client/:key/factur-x').handler({
     server,
-    session: { user: { id: 'client', organisation: 'Client SARL', physicalAddress: '2 Client Avenue', zipcode: '75002', city: 'Paris', businessRegistrationId: '9876543210987' } },
+    session: { user: { id: 'client', organisation: 'Client SARL', physicalAddress: '2 Client Avenue', zipcode: '75002', city: 'Paris', businessRegistrationId: '44306184100047' } },
     params: { key: 'vendor::2026-06-19' },
     log: { error: () => {} }
   }, createReply());

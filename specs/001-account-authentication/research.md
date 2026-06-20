@@ -37,7 +37,7 @@
 
 ## Decision: Validate account identity at both form and backend boundaries
 
-**Rationale**: Required fields, duplicate usernames/emails, and 13-digit business registration identifiers are critical business rules. Backend validation is authoritative; frontend validation improves user correction speed.
+**Rationale**: Required fields, duplicate usernames/emails, and 14-digit business registration identifiers are critical business rules. Backend validation is authoritative; frontend validation improves user correction speed.
 
 **Alternatives considered**:
 

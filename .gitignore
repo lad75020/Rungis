@@ -3,6 +3,10 @@ backend/.env
 **/.DS_Store
 .vscode/
 node_modules/
+dist/
+build/
+*.log
+.env*
 package-lock.json
 /.specify
 specs/1. FACTUR-X 1.09 2026 06 10 EN.pdf
@@ -15,3 +19,6 @@ backend/scripts/randomize-merchandise-vat.js
 backend/src/public/angular/browser/*
 .gitignore
 backend/scripts/update-demo-data-identifiers.js
+backend/scripts/populate-users-from-insee.js
+backend/scripts/migrate-users-profile-fields.js
+specs/StockEtablissement_utf8.csv

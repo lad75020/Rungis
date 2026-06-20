@@ -69,4 +69,4 @@ This suite should continue to pass after any account-authentication change. If n
 - Password login must remain available when passkey support is unavailable.
 - Public signup must never create active vendor/client accounts.
 - A user must not list, delete, or authenticate with another user's passkey.
-- Duplicate username/email and invalid 13-digit business identifiers must remain rejected.
+- Duplicate username/email and invalid 14-digit business identifiers must remain rejected.

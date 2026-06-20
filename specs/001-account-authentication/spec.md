@@ -62,7 +62,7 @@ As an authenticated user, I want to update my profile and manage passkeys so tha
 
 - Duplicate usernames or emails must be rejected during signup and profile updates.
 - Only `vendor` and `client` roles can be requested through public signup; `admin` accounts are not self-service.
-- Business registration identifiers must be exactly 13 digits.
+- Business registration identifiers must be exactly 14 digits.
 - Required profile fields must not be blank after trimming.
 - Unsupported or malformed uploaded logos must be rejected without changing the account.
 - Browsers without passkey support must continue to support password login and profile management.
@@ -78,7 +78,7 @@ As an authenticated user, I want to update my profile and manage passkeys so tha
 - **FR-002**: The system MUST require username, first name, last name, organization, city, zipcode, email, physical address, phone number, business registration identifier, and password for signup.
 - **FR-003**: The system MUST store newly signed-up vendor and client accounts as inactive until administrative activation occurs.
 - **FR-004**: The system MUST reject duplicate usernames and duplicate email addresses for signup and profile updates.
-- **FR-005**: The system MUST validate business registration identifiers as 13-digit numbers before accepting signup or profile changes.
+- **FR-005**: The system MUST validate business registration identifiers as 14-digit numbers before accepting signup or profile changes.
 - **FR-006**: The system MUST authenticate activated users with username and password and create a session containing the user's role and profile summary.
 - **FR-007**: The system MUST deny normal login for inactive accounts and explain that administrator activation is pending.
 - **FR-008**: The system MUST apply a temporary cooldown after repeated failed login attempts.

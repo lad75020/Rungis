@@ -9,7 +9,7 @@ Inactive vendor or client account awaiting administrative approval.
 - `id`: account identifier.
 - `role`: vendor or client.
 - `username`, `firstName`, `lastName`, `organisation`, `city`, `zipcode`, `email`, `physicalAddress`, `phoneNumber`: identity and contact summary.
-- `businessRegistrationId`: 13-digit business identifier.
+- `businessRegistrationId`: 14-digit business identifier.
 - `isActive`: false while pending.
 - `createdAt`: queue ordering timestamp.
 

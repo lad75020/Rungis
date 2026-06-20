@@ -645,7 +645,6 @@
                                 <thead>
                                   <tr>
                                     <th scope="col">{{ t('order.item') }}</th>
-                                    <th scope="col">{{ t('order.category') }}</th>
                                     <th scope="col">{{ t('order.unitPriceEur') }}</th>
                                     <th scope="col">{{ t('order.qty') }}</th>
                                     <th scope="col">{{ t('order.lineTotalEur') }}</th>
@@ -655,7 +654,6 @@
                                   @for (item of details.items; track item.merchandiseId + '-' + item.unitPrice) {
                                     <tr>
                                       <td>{{ item.reference ? item.name + ' (' + item.reference + ')' : item.name }}</td>
-                                      <td>{{ item.category }}</td>
                                       <td>{{ item.unitPrice | number: '1.2-2' }}</td>
                                       <td>{{ item.quantity ?? '—' }}</td>
                                       <td>{{ item.lineTotal | number: '1.2-2' }}</td>
@@ -835,7 +833,6 @@
                                 <thead>
                                   <tr>
                                     <th scope="col">{{ t('order.item') }}</th>
-                                    <th scope="col">{{ t('order.category') }}</th>
                                     <th scope="col">{{ t('order.unitPriceEur') }}</th>
                                     <th scope="col">{{ t('order.qty') }}</th>
                                     <th scope="col">{{ t('order.lineTotalEur') }}</th>
@@ -845,7 +842,6 @@
                                   @for (item of details.items; track item.merchandiseId + '-' + item.unitPrice) {
                                     <tr>
                                       <td>{{ item.reference ? item.name + ' (' + item.reference + ')' : item.name }}</td>
-                                      <td>{{ item.category }}</td>
                                       <td>{{ item.unitPrice | number: '1.2-2' }}</td>
                                       <td>{{ item.quantity ?? '—' }}</td>
                                       <td>{{ item.lineTotal | number: '1.2-2' }}</td>

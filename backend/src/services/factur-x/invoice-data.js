@@ -33,9 +33,9 @@ function requireString(value, label, details) {
 }
 
 function normalizeSiret(value, label, details) {
-  const normalized = normalizeString(String(value ?? '')).replace(/\s+/g, '');
-  if (!/^\d{13}$/.test(normalized)) {
-    details.push(`${label} SIRET must be a 13-digit number.`);
+  const normalized = normalizeString(String(value ?? ''));
+  if (!/^\d{14}$/.test(normalized)) {
+    details.push(`${label} SIRET must be a 14-digit number.`);
   }
   return normalized;
 }
@@ -45,7 +45,7 @@ function normalizeVatId(value) {
 }
 
 function deriveFrenchVatIdFromSiret(siret) {
-  if (!/^\d{13}$/.test(siret)) {
+  if (!/^\d{14}$/.test(siret)) {
     return '';
   }
 
@@ -120,7 +120,7 @@ function normalizeLine(item, index) {
     id: String(index + 1),
     sourceId: normalizeString(item?.merchandiseId) || `line-${index + 1}`,
     name: normalizeString(item?.name) || `Line ${index + 1}`,
-    description: normalizeString(item?.reference || item?.comment || item?.category),
+    description: normalizeString(item?.reference || item?.comment),
     category: normalizeString(item?.category),
     quantity: signedQuantity,
     unitCode: normalizeString(item?.unitCode) || DEFAULT_UNIT_CODE,

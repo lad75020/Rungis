@@ -22,12 +22,12 @@ test('builds bill UUIDs from user uniqueId fields, preserving 5-digit leading ze
           {
             _id: vendorId,
             uniqueId: '00024',
-            businessRegistrationId: 5206983588503
+            businessRegistrationId: 55210055400013
           },
           {
             _id: clientId,
             uniqueId: '00012',
-            businessRegistrationId: 4700166914691
+            businessRegistrationId: 12002701600563
           }
         ]
       };
@@ -66,7 +66,7 @@ test('user schema accepts only 5-digit unique IDs when provided', async () => {
     email: 'vendor-unique-id-test@example.com',
     physicalAddress: '1 Market Street',
     phoneNumber: '0102030405',
-    businessRegistrationId: 1234567890123,
+    businessRegistrationId: 35600000000048,
     passwordHash: 'hash',
     isActive: true
   };

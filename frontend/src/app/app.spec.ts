@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 import { App } from './app';
+import { DashboardPageComponent } from './pages/dashboard-page.component';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -11,7 +12,8 @@ describe('App', () => {
       Object.defineProperty(URL, 'revokeObjectURL', { value: () => undefined, configurable: true });
     }
     await TestBed.configureTestingModule({
-      imports: [App],
+      imports: [App, DashboardPageComponent],
+      providers: [App],
     }).compileComponents();
   });
 
@@ -88,6 +90,85 @@ describe('App', () => {
     fixture.destroy();
   });
 
+  it('validates businessRegistrationId as 14 digits while keeping VAT ID separate', () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+
+    app.subscriptionForm.controls.businessRegistrationId.setValue('3560000000004');
+    expect(app.subscriptionForm.controls.businessRegistrationId.valid).toBe(false);
+
+    app.subscriptionForm.controls.businessRegistrationId.setValue('35600000000048');
+    expect(app.subscriptionForm.controls.businessRegistrationId.valid).toBe(true);
+
+    app.accountForm.controls.businessRegistrationId.setValue('356 000 000 00048');
+    expect(app.accountForm.controls.businessRegistrationId.valid).toBe(false);
+
+    app.accountForm.controls.vatId.setValue('FR12345678901');
+    expect(app.accountForm.controls.vatId.valid).toBe(true);
+    fixture.destroy();
+  });
+
+  it('omits category columns from vendor and client bill popups while preserving category state elsewhere', () => {
+    const fixture = TestBed.createComponent(DashboardPageComponent);
+    const app = TestBed.inject(App) as any;
+
+    app.vendorOrderDetails.set({
+      key: 'client-1::2026-03-07',
+      clientId: 'client-1',
+      clientOrganisation: 'Client',
+      clientUsername: 'client',
+      day: '2026-03-07',
+      orderedAt: '2026-03-07T10:00:00.000Z',
+      deliveryDate: '2026-03-08',
+      items: [{ merchandiseId: 'item-1', name: 'Tomatoes', reference: 'TOM-001', category: 'Vegetables', unitPrice: 12.5, vatRate: 5.5, unitPriceIncludingVat: 13.19, quantity: 2, lineTotal: 25, lineTotalIncludingVat: 26.38 }],
+      totalPrice: 25,
+      totalPriceIncludingVat: 26.38,
+      currency: 'EUR',
+      clientComment: '',
+      clientCommentSentAt: null,
+      vendorSettled: false,
+      clientSettled: false,
+      isSettled: false
+    });
+    app.clientCartDetails.set({
+      key: 'vendor-1::2026-03-07',
+      vendorId: 'vendor-1',
+      vendorName: 'Vendor',
+      day: '2026-03-07',
+      items: [{ merchandiseId: 'item-2', vendorId: 'vendor-1', vendorName: 'Vendor', name: 'Apples', reference: 'APL-001', category: 'Fruit', unitPrice: 3, vatRate: 5.5, unitPriceIncludingVat: 3.17, quantity: 4, lineTotal: 12, lineTotalIncludingVat: 12.66 }],
+      totalPrice: 12,
+      totalPriceIncludingVat: 12.66,
+      currency: 'EUR',
+      clientComment: '',
+      clientCommentSentAt: null,
+      vendorSettled: false,
+      clientSettled: false,
+      isSettled: false
+    });
+    app.showingVendorOrderModal.set(true);
+    app.showingClientCartModal.set(true);
+
+    fixture.detectChanges();
+    const text = fixture.nativeElement.textContent;
+
+    expect(text).toContain('Tomatoes (TOM-001)');
+    expect(text).toContain('Apples (APL-001)');
+    expect(text).not.toContain('Category');
+    expect(text).not.toContain('Vegetables');
+    expect(text).not.toContain('Fruit');
+
+    app.cartGroupBy.set('category');
+    app.cart.set({
+      items: [
+        { vendorName: 'Vendor B', category: 'Fruit', name: 'Apple' },
+        { vendorName: 'Vendor A', category: 'Vegetables', name: 'Carrot' }
+      ]
+    });
+
+    expect(app.sortedCartItems().map((item: any) => item.category)).toEqual(['Fruit', 'Vegetables']);
+    fixture.destroy();
+  });
+
   it('uses a 10 second success toast for the client dashboard comment-sent message', () => {
     const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
     const fixture = TestBed.createComponent(App);
@@ -109,7 +190,7 @@ describe('App', () => {
       phoneNumber: '0000000000',
       logoFilename: '',
       logoUrl: '',
-      businessRegistrationId: 1234567890123,
+      businessRegistrationId: 35600000000048,
       isActive: true
     });
 
@@ -374,7 +455,7 @@ describe('App', () => {
       new Response(JSON.stringify({
         error: 'missing_invoice_data',
         message: 'Missing legal data.',
-        details: ['Seller SIRET must be a 13-digit number.']
+        details: ['Seller SIRET must be a 14-digit number.']
       }), {
         status: 422,
         headers: { 'content-type': 'application/json' }

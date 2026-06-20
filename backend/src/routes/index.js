@@ -372,15 +372,15 @@ function isObjectId(value) {
   return mongoose.Types.ObjectId.isValid(value);
 }
 
-function parseSiretValue(value) {
+export function parseSiretValue(value) {
   const normalized = normalizeString(value);
-  if (!/^\d{13}$/.test(normalized)) {
-    return { ok: false, message: 'SIRET must be a mandatory 13-digit integer.' };
+  if (!/^\d{14}$/.test(normalized)) {
+    return { ok: false, message: 'SIRET must be a mandatory 14-digit integer.' };
   }
 
   const parsed = Number(normalized);
   if (!Number.isInteger(parsed)) {
-    return { ok: false, message: 'SIRET must be a mandatory 13-digit integer.' };
+    return { ok: false, message: 'SIRET must be a mandatory 14-digit integer.' };
   }
 
   return { ok: true, value: parsed };
@@ -2024,7 +2024,7 @@ function formatBillItemLabel(item) {
   return name || reference || '-';
 }
 
-function sendBillPdf(reply, { filename, title, labels, billIdentifier, orderedAt, deliveryDate, topLogoPath, vendor, client, items, totalPrice, totalPriceIncludingVat, currency }) {
+export function sendBillPdf(reply, { filename, title, labels, billIdentifier, orderedAt, deliveryDate, topLogoPath, vendor, client, items, totalPrice, totalPriceIncludingVat, currency }) {
   const doc = new PDFDocument({
     size: 'A4',
     margin: 42
@@ -2087,8 +2087,7 @@ function sendBillPdf(reply, { filename, title, labels, billIdentifier, orderedAt
       `${labels.city}: ${vendor.city}`,
       `${labels.phone}: ${vendor.phoneNumber}`,
       `${labels.businessId}: ${vendor.businessId}`,
-      vendor.vatId ? `${labels.vatId ?? 'VAT ID'}: ${vendor.vatId}` : '',
-      vendor.billMentions ? `${labels.billMentions ?? 'Bill mentions'}: ${vendor.billMentions}` : ''
+      vendor.vatId ? `${labels.vatId ?? 'VAT ID'}: ${vendor.vatId}` : ''
     ].filter(Boolean)
   });
 
@@ -2109,20 +2108,20 @@ function sendBillPdf(reply, { filename, title, labels, billIdentifier, orderedAt
   doc.y = Math.max(vendorEndY, clientEndY) + 10;
   const tableLeft = doc.page.margins.left;
   const tableWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-  const columnRatios = [0.30, 0.14, 0.13, 0.09, 0.06, 0.14, 0.14];
+  const columnRatios = [0.34, 0.15, 0.15, 0.08, 0.14, 0.14];
   const columnWidths = columnRatios.map((ratio) => tableWidth * ratio);
   const rowHeight = 16;
   const textPadding = 4;
   const rowTextOffsetY = 3;
 
   const drawTableHeader = () => {
-    const headers = [labels.item, labels.category, labels.unitPrice, labels.unitPriceIncludingVat, labels.qty, labels.lineTotal, labels.lineTotalIncludingVat];
+    const headers = [labels.item, labels.unitPrice, labels.unitPriceIncludingVat, labels.qty, labels.lineTotal, labels.lineTotalIncludingVat];
     const rowTop = doc.y;
     const textY = rowTop + rowTextOffsetY;
     let x = tableLeft;
     doc.font('Helvetica-Bold').fontSize(9);
     for (let index = 0; index < headers.length; index += 1) {
-      const align = index >= 2 ? 'right' : 'left';
+      const align = index >= 1 ? 'right' : 'left';
       doc.text(headers[index], x + textPadding, textY, {
         width: columnWidths[index] - textPadding * 2,
         align,
@@ -2156,7 +2155,6 @@ function sendBillPdf(reply, { filename, title, labels, billIdentifier, orderedAt
 
     const values = [
       formatBillItemLabel(item),
-      item.category,
       formatMoney(item.unitPrice, currency),
       formatMoney(item.unitPriceIncludingVat ?? calculatePriceIncludingVat(item.unitPrice, item.vatRate), currency),
       item.quantity === null || item.quantity === undefined ? '-' : String(item.quantity),
@@ -2166,7 +2164,7 @@ function sendBillPdf(reply, { filename, title, labels, billIdentifier, orderedAt
 
     let x = tableLeft;
     for (let index = 0; index < values.length; index += 1) {
-      const align = index >= 2 ? 'right' : 'left';
+      const align = index >= 1 ? 'right' : 'left';
       const cellWidth = columnWidths[index] - textPadding * 2;
       doc.text(truncatePdfCellText(doc, values[index], cellWidth), x + textPadding, textY, {
         width: columnWidths[index] - textPadding * 2,
@@ -2189,6 +2187,23 @@ function sendBillPdf(reply, { filename, title, labels, billIdentifier, orderedAt
   doc.font('Helvetica-Bold').fontSize(12).text(`${labels.totalIncludingVat}: ${formatMoney(totalPriceIncludingVat ?? totalPrice, currency)}`, {
     align: 'right'
   });
+
+  if (normalizeString(vendor.billMentions)) {
+    const notesHeight = 72;
+    if (doc.y + notesHeight > doc.page.height - doc.page.margins.bottom) {
+      doc.addPage();
+    }
+    doc.moveDown(1);
+    const notesY = doc.y;
+    doc.font('Helvetica-Bold').fontSize(12).text(labels.billMentions ?? 'Bill mentions', doc.page.margins.left, notesY, {
+      width: printableWidth,
+      align: 'left'
+    });
+    doc.font('Helvetica').fontSize(10).text(vendor.billMentions, doc.page.margins.left, doc.y, {
+      width: printableWidth,
+      align: 'left'
+    });
+  }
 
   const response = reply.send(doc);
   doc.end();

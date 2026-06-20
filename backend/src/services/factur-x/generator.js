@@ -63,9 +63,6 @@ export async function renderFacturXReadablePdf(invoice) {
   appendText(doc, 'Zipcode', invoice.seller.postalAddress.postCode);
   appendText(doc, 'City', invoice.seller.postalAddress.city);
   appendText(doc, 'Country', invoice.seller.postalAddress.countryCode);
-  if (invoice.includedNotes.length > 0) {
-    appendText(doc, 'Bill mentions', invoice.includedNotes.join(' | '));
-  }
   doc.moveDown(0.5);
 
   doc.font('Helvetica-Bold').fontSize(13).text('Buyer');
@@ -103,6 +100,11 @@ export async function renderFacturXReadablePdf(invoice) {
   appendText(doc, 'Grand total', `${formatMoney(invoice.totals.grandTotalAmount)} ${invoice.currency}`);
   appendText(doc, 'Amount due', `${formatMoney(invoice.totals.amountDue)} ${invoice.currency}`);
   doc.moveDown();
+  if (invoice.includedNotes.length > 0) {
+    doc.font('Helvetica-Bold').fontSize(12).text('Bill mentions');
+    doc.font('Helvetica').fontSize(9).text(invoice.includedNotes.join('\n'));
+    doc.moveDown();
+  }
   doc.fontSize(8).text(`${FACTUR_X_XML_FILENAME} (${FACTUR_X_XML_MIME_TYPE}) is embedded as the structured invoice source.`);
   return collectPdfBuffer(doc);
 }

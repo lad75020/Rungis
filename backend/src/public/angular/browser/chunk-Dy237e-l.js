@@ -1,1 +1,0 @@
-import {l as ly}from'./main-RZ47INC6.js';var o=class e{static \u0275fac=function(a){return new(a||e)};static \u0275cmp=ly({type:e,selectors:[["app-legacy-page-placeholder"]],decls:0,vars:0,template:function(a,c){},encapsulation:2})};export{o as LegacyPagePlaceholderComponent};

@@ -19,7 +19,7 @@ function randomIntInclusive(min, max) {
 }
 
 function randomSiret() {
-  return randomIntInclusive(1000000000000, 9999999999999);
+  return randomIntInclusive(10000000000000, 99999999999999);
 }
 
 function shuffle(array) {

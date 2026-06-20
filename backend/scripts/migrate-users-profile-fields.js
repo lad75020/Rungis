@@ -26,7 +26,7 @@ function randomZipcode() {
 }
 
 function randomSiret() {
-  return Math.floor(Math.random() * 9000000000000) + 1000000000000;
+  return Math.floor(Math.random() * 90000000000000) + 10000000000000;
 }
 
 async function main() {

@@ -1,23 +1,31 @@
 # Research: Admin User Management
 
-## Decision: Keep admin activation separate from public signup
+## Decision: Replace pending approvals with admin-owned user create/update forms
 
-**Rationale**: Public signup creates inactive accounts, while administrators decide whether a business can enter the portal. Separation keeps approval auditable and prevents self-service activation.
+**Rationale**: Administrators need to create and maintain business users directly from the admin page instead of reviewing a pending-user queue. This makes user lifecycle management explicit, supports corrections after creation, and avoids conflating public signup approval with administrator-created accounts.
 
-**Alternatives considered**: Auto-activation was rejected because the portal is business-to-business and requires approval.
+**Alternatives considered**: Keeping the pending approval queue was rejected by the refined requirement. Auto-activation of administrator-created users was rejected because created users must always start disabled until an administrator explicitly enables them through the update form.
 
-## Decision: Restrict pending deletion to inactive accounts
+## Decision: Created users are always disabled by default
 
-**Rationale**: The delete action is queue cleanup, not general account lifecycle management. Active-user removal would need separate safeguards and product decisions.
+**Rationale**: New admin-created accounts should not be usable until their details have been reviewed and the administrator intentionally enables the account. The backend must ignore any create payload activation flag and persist `isActive: false`.
 
-**Alternatives considered**: Deleting any user from the admin page was rejected as too destructive for this feature.
+**Alternatives considered**: Letting the create form include an enabled/disabled toggle was rejected because it violates the disabled-by-default invariant.
 
-## Decision: Treat overdue-days and style profile as bounded settings
+## Decision: Use one safe admin-managed user response shape
 
-**Rationale**: Settings are operational controls and must reject values outside expected business ranges to avoid billing or presentation regressions.
+**Rationale**: Create, load, search, and update responses should return the same `AdminManagedUser` shape so Angular forms can prefill data consistently while never exposing `password`, `passwordHash`, passkeys, association arrays, or internal Mongo fields.
 
-**Alternatives considered**: Free-form setting writes were rejected because invalid settings would propagate into downstream features.
+**Alternatives considered**: Returning raw user documents was rejected because it can leak sensitive or unrelated account state.
 
-## Decision: Keep association and analytics concerns out of this feature
+## Decision: Treat admin user form payloads as allowlisted input
 
-**Rationale**: The admin page contains multiple panels, but Time Machine can produce cleaner specifications if association management and analytics reporting remain independent queued features.
+**Rationale**: Create/update endpoints accept many profile fields, so the backend must reject dangerous keys (`$`, `.`, `__proto__`, `constructor`, `prototype`) and protected fields (`passwordHash`, `passkeys`, ids, timestamps, association arrays, and `uniqueId`) before applying updates. Duplicate checks cover user-editable unique values (`username` and `email`); `uniqueId` is generated server-side and protected by MongoDB's unique index.
+
+**Alternatives considered**: Reusing raw `User` model assignment was rejected because it risks mass assignment and privilege escalation.
+
+## Decision: Keep overdue-days, style profile, manual billing, associations, and analytics concerns independent
+
+**Rationale**: The admin page contains multiple panels, but the create/update user feature should not regress existing operational controls. Existing setting and billing tests remain regression coverage.
+
+**Alternatives considered**: Combining this feature with broader admin analytics or association redesign was rejected as too broad for the refined scope.

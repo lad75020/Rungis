@@ -67,6 +67,12 @@ test.describe('role-based navigation and authorization', () => {
     await page.goto('/admin');
     await expect(page.getByRole('heading', { name: 'Manual daily bill generation' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Unpaid bill settings' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'User management' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Create a user' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Update a user' })).toBeVisible();
+    await expect(page.locator('#admin-create-password')).toHaveValue('');
+    await expect(page.getByText('Created users are always disabled by default.')).toBeVisible();
+    await expect(page.getByText('Pending approvals')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Application style profile' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Client and vendor associations' })).toBeVisible();
     await expect(page.locator('#assoc-client-select')).toBeVisible();

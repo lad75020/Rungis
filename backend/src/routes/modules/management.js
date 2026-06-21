@@ -1,7 +1,10 @@
+import { randomInt } from 'node:crypto';
+
 export function registerManagementRoutes(app, context, deps) {
   const {
     addBillPenaltyLine,
     addUtcDays,
+    bcrypt,
     BILL_PENALTY_MAX_PERCENT,
     BILL_PENALTY_MIN_PERCENT,
     Bill,
@@ -13,6 +16,7 @@ export function registerManagementRoutes(app, context, deps) {
     getBillOverdueDaysSetting,
     getOrCreatePersistedBillUuid,
     getUserLogoUrl,
+    hasDangerousInputKeys,
     listClientUnpaidReminders,
     mapAdminManagedUser,
     mapPendingUser,
@@ -21,6 +25,7 @@ export function registerManagementRoutes(app, context, deps) {
     normalizeBillOverdueDays,
     normalizeString,
     parseIsoDayUtc,
+    parseSiretValue,
     requireAdminApi,
     requireClientApi,
     requireVendorApi,
@@ -36,6 +41,7 @@ export function registerManagementRoutes(app, context, deps) {
     setBillOverdueDaysSetting,
     setRungisBillingSettings,
     RungisBill,
+    generateAdminUserUniqueId: generateAdminUserUniqueIdOverride,
     upsertUnpaidReminder,
     User,
     ValidatedOrder
@@ -48,6 +54,233 @@ export function registerManagementRoutes(app, context, deps) {
   } = context;
 
   const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  const adminUserRoles = new Set(['vendor', 'client', 'admin']);
+  const protectedAdminUserFields = new Set([
+    '_id',
+    'id',
+    'uniqueId',
+    'passwordHash',
+    'passkeys',
+    'vendorIds',
+    'clientIds',
+    'favoriteMerchandiseIds',
+    'createdAt',
+    'updatedAt'
+  ]);
+  const adminUserSelect = {
+    role: 1,
+    username: 1,
+    uniqueId: 1,
+    firstName: 1,
+    lastName: 1,
+    organisation: 1,
+    city: 1,
+    zipcode: 1,
+    email: 1,
+    physicalAddress: 1,
+    phoneNumber: 1,
+    businessDescription: 1,
+    vatId: 1,
+    billMentions: 1,
+    logoFilename: 1,
+    businessRegistrationId: 1,
+    isActive: 1,
+    createdAt: 1,
+    updatedAt: 1
+  };
+  const requiredAdminUserFields = [
+    'username',
+    'firstName',
+    'lastName',
+    'organisation',
+    'city',
+    'zipcode',
+    'email',
+    'physicalAddress',
+    'phoneNumber',
+    'businessRegistrationId'
+  ];
+
+  const hasProtectedAdminUserFields = (payload) => Object.keys(payload ?? {}).some((field) => protectedAdminUserFields.has(field));
+  const addFieldError = (errors, field, message) => {
+    errors[field] = message;
+  };
+
+  const normalizeEmail = (value) => normalizeString(value).toLowerCase();
+  const normalizeOptionalAdminString = (value) => normalizeString(value);
+
+  function buildAdminUserValidation(payload, mode) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return { ok: false, code: 400, message: 'User form payload is required.', fieldErrors: {} };
+    }
+
+    if (hasDangerousInputKeys?.(payload) || hasProtectedAdminUserFields(payload)) {
+      return { ok: false, code: 400, message: 'User form contains unsupported fields.', fieldErrors: {} };
+    }
+
+    const fieldErrors = {};
+    const role = normalizeString(payload.role).toLowerCase();
+    if (!adminUserRoles.has(role)) {
+      addFieldError(fieldErrors, 'role', 'Role must be vendor, client, or admin.');
+    }
+
+    const data = {
+      role,
+      username: normalizeString(payload.username).toLowerCase(),
+      firstName: normalizeString(payload.firstName),
+      lastName: normalizeString(payload.lastName),
+      organisation: normalizeString(payload.organisation),
+      city: normalizeString(payload.city),
+      zipcode: normalizeString(payload.zipcode),
+      email: normalizeEmail(payload.email),
+      physicalAddress: normalizeString(payload.physicalAddress),
+      phoneNumber: normalizeString(payload.phoneNumber),
+      businessDescription: normalizeOptionalAdminString(payload.businessDescription),
+      vatId: normalizeOptionalAdminString(payload.vatId).toUpperCase(),
+      billMentions: normalizeOptionalAdminString(payload.billMentions),
+      logoFilename: normalizeOptionalAdminString(payload.logoFilename)
+    };
+
+    for (const field of requiredAdminUserFields) {
+      if (field !== 'businessRegistrationId' && !data[field]) {
+        addFieldError(fieldErrors, field, 'This field is required.');
+      }
+    }
+
+    const siretResult = parseSiretValue(payload.businessRegistrationId);
+    if (!siretResult.ok) {
+      addFieldError(fieldErrors, 'businessRegistrationId', siretResult.message);
+    } else {
+      data.businessRegistrationId = siretResult.value;
+    }
+
+    if (data.vatId && data.vatId.length !== 13) {
+      addFieldError(fieldErrors, 'vatId', 'VAT ID must be exactly 13 characters.');
+    }
+
+    if (data.businessDescription.length > 2000) {
+      addFieldError(fieldErrors, 'businessDescription', 'Business description is limited to 2000 characters.');
+    }
+
+    if (data.billMentions.length > 2000) {
+      addFieldError(fieldErrors, 'billMentions', 'Bill mentions are limited to 2000 characters.');
+    }
+
+    const password = typeof payload.password === 'string' ? payload.password : '';
+    if (mode === 'create' && password.length === 0) {
+      addFieldError(fieldErrors, 'password', 'Password is required.');
+    }
+    if (password && password.length < 8) {
+      addFieldError(fieldErrors, 'password', 'Password must be at least 8 characters.');
+    }
+    if (password) {
+      data.password = password;
+    }
+
+    if (mode === 'update') {
+      if (typeof payload.isActive !== 'boolean') {
+        addFieldError(fieldErrors, 'isActive', 'Active status must be a boolean.');
+      } else {
+        data.isActive = payload.isActive;
+      }
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      return { ok: false, code: 400, message: 'User form contains invalid fields.', fieldErrors };
+    }
+
+    return { ok: true, data };
+  }
+
+  async function findDuplicateAdminUser(data, excludeId = '') {
+    const duplicateConditions = [
+      { username: data.username },
+      { email: data.email }
+    ];
+
+    const filter = { $or: duplicateConditions };
+    if (excludeId) {
+      filter._id = { $ne: excludeId };
+    }
+
+    const duplicate = await User.findOne(filter)
+      .select({ username: 1, email: 1 })
+      .lean();
+    if (!duplicate) {
+      return null;
+    }
+
+    if (normalizeString(duplicate.username).toLowerCase() === data.username) {
+      return { field: 'username', message: 'Username is already used.' };
+    }
+    if (normalizeString(duplicate.email).toLowerCase() === data.email) {
+      return { field: 'email', message: 'Email is already used.' };
+    }
+
+    return { field: 'username', message: 'User already exists.' };
+  }
+
+  function duplicateResponse(reply, duplicate) {
+    return reply.code(409).send({
+      ok: false,
+      message: duplicate.message,
+      fieldErrors: { [duplicate.field]: duplicate.message }
+    });
+  }
+
+  const generateUniqueIdCandidate = () => String(randomInt(0, 100000)).padStart(5, '0');
+  const isDuplicateUniqueIdError = (error) => {
+    return error?.code === 11000 && (error.keyPattern?.uniqueId || Object.prototype.hasOwnProperty.call(error.keyValue ?? {}, 'uniqueId'));
+  };
+
+  async function adminUserUniqueIdExists(uniqueId) {
+    const existing = await User.findOne({ uniqueId })
+      .select({ _id: 1 })
+      .lean();
+    return Boolean(existing);
+  }
+
+  async function generateAdminUserUniqueId() {
+    if (typeof generateAdminUserUniqueIdOverride === 'function') {
+      const generated = normalizeString(await generateAdminUserUniqueIdOverride());
+      if (!/^\d{5}$/.test(generated)) {
+        throw new Error('Generated user unique ID must be exactly 5 digits.');
+      }
+      return generated;
+    }
+
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const candidate = generateUniqueIdCandidate();
+      // MongoDB's unique index is the final authority; this preflight keeps normal
+      // operation deterministic and avoids avoidable duplicate-key retries.
+      if (!(await adminUserUniqueIdExists(candidate))) {
+        return candidate;
+      }
+    }
+
+    throw new Error('Unable to allocate a unique user identifier.');
+  }
+
+  async function createAdminUserWithGeneratedUniqueId(userData) {
+    let lastDuplicateError = null;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const uniqueId = await generateAdminUserUniqueId();
+      try {
+        return await User.create({
+          ...userData,
+          uniqueId
+        });
+      } catch (error) {
+        if (!isDuplicateUniqueIdError(error)) {
+          throw error;
+        }
+        lastDuplicateError = error;
+      }
+    }
+
+    throw lastDuplicateError ?? new Error('Unable to allocate a unique user identifier.');
+  }
 
   app.get('/api/admin/pending-users', { preHandler: requireAdminApi }, async (_request, reply) => {
     const users = await User.find({ isActive: false, role: { $in: ['vendor', 'client'] } })
@@ -71,17 +304,104 @@ export function registerManagementRoutes(app, context, deps) {
     }
 
     const users = await User.find({
-      role: { $in: ['vendor', 'client'] },
+      role: { $in: ['vendor', 'client', 'admin'] },
       organisation: { $regex: `^${escapeRegex(organizationPrefix)}`, $options: 'i' }
     })
       .sort({ organisation: 1, username: 1 })
       .limit(25)
-      .select({ role: 1, username: 1, organisation: 1, email: 1, isActive: 1, createdAt: 1, updatedAt: 1 })
+      .select(adminUserSelect)
       .lean();
 
     return reply.send({
       ok: true,
       users: users.map(mapAdminManagedUser)
+    });
+  });
+
+
+  app.post('/api/admin/users', { preHandler: requireAdminApi }, async (request, reply) => {
+    const validation = buildAdminUserValidation(request.body, 'create');
+    if (!validation.ok) {
+      return reply.code(validation.code).send({ ok: false, message: validation.message, fieldErrors: validation.fieldErrors });
+    }
+
+    const duplicate = await findDuplicateAdminUser(validation.data);
+    if (duplicate) {
+      return duplicateResponse(reply, duplicate);
+    }
+
+    const { password, ...userData } = validation.data;
+    const passwordHash = await bcrypt.hash(password, 12);
+    const createdUser = await createAdminUserWithGeneratedUniqueId({
+      ...userData,
+      passwordHash,
+      isActive: false
+    });
+
+    return reply.code(201).send({
+      ok: true,
+      user: mapAdminManagedUser(createdUser),
+      message: 'User created.'
+    });
+  });
+
+  app.get('/api/admin/users/:id', { preHandler: requireAdminApi }, async (request, reply) => {
+    const id = normalizeString(request.params?.id);
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return reply.code(400).send({ ok: false, message: 'Invalid user id.' });
+    }
+
+    const user = await User.findById(id)
+      .select(adminUserSelect)
+      .lean();
+    if (!user) {
+      return reply.code(404).send({ ok: false, message: 'User not found.' });
+    }
+
+    return reply.send({ ok: true, user: mapAdminManagedUser(user) });
+  });
+
+  app.put('/api/admin/users/:id', { preHandler: requireAdminApi }, async (request, reply) => {
+    const id = normalizeString(request.params?.id);
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return reply.code(400).send({ ok: false, message: 'Invalid user id.' });
+    }
+
+    const existingUser = await User.findById(id)
+      .select({ _id: 1 })
+      .lean();
+    if (!existingUser) {
+      return reply.code(404).send({ ok: false, message: 'User not found.' });
+    }
+
+    const validation = buildAdminUserValidation(request.body, 'update');
+    if (!validation.ok) {
+      return reply.code(validation.code).send({ ok: false, message: validation.message, fieldErrors: validation.fieldErrors });
+    }
+
+    const duplicate = await findDuplicateAdminUser(validation.data, id);
+    if (duplicate) {
+      return duplicateResponse(reply, duplicate);
+    }
+
+    const { password, ...updateData } = validation.data;
+    const update = { $set: updateData };
+    if (password) {
+      update.$set.passwordHash = await bcrypt.hash(password, 12);
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(id, update, { new: true, runValidators: true })
+      .select(adminUserSelect)
+      .lean();
+
+    if (!updatedUser) {
+      return reply.code(404).send({ ok: false, message: 'User not found.' });
+    }
+
+    return reply.send({
+      ok: true,
+      user: mapAdminManagedUser(updatedUser),
+      message: 'User updated.'
     });
   });
 

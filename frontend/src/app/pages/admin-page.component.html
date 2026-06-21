@@ -206,68 +206,245 @@
     </div>
 
     <div class="border rounded p-3 mb-4">
-      <h2 class="h5 mb-3">{{ app.t('admin.userStatusTitle') }}</h2>
-      <div class="row g-3 align-items-end mb-3">
-        <div class="col-md-5">
-          <label class="form-label" for="admin-user-search-organization">{{ app.t('admin.userSearchOrganization') }}</label>
-          <input
-            id="admin-user-search-organization"
-            class="form-control"
-            type="search"
-            [value]="app.adminUserSearchOrganization()"
-            (input)="app.setAdminUserSearchOrganization($any($event.target).value)"
-          />
-          <div class="form-text">{{ app.t('admin.userSearchPrefixHint') }}</div>
+      <h2 class="h5 mb-3">{{ app.t('admin.userManagementTitle') }}</h2>
+      <div class="row g-4">
+        <div class="col-xl-6">
+          <h3 class="h6 mb-3">{{ app.t('admin.createUserTitle') }}</h3>
+          <p class="form-text">{{ app.t('admin.createUserDisabledHint') }}</p>
+          <form [formGroup]="app.adminCreateUserForm" (ngSubmit)="app.createAdminUser()" novalidate>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label" for="admin-create-role">{{ app.t('admin.role') }}</label>
+                <select id="admin-create-role" class="form-select" formControlName="role">
+                  <option value="vendor">{{ app.t('admin.vendor') }}</option>
+                  <option value="client">{{ app.t('admin.client') }}</option>
+                  <option value="admin">{{ app.t('admin.adminRole') }}</option>
+                </select>
+              </div>
+              <div class="col-md-8">
+                <label class="form-label" for="admin-create-username">{{ app.t('admin.username') }}</label>
+                <input id="admin-create-username" class="form-control" formControlName="username" autocomplete="off" />
+                @if (app.adminCreateUserFieldError('username')) { <div class="invalid-feedback d-block">{{ app.adminCreateUserFieldError('username') }}</div> }
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="admin-create-first-name">{{ app.t('account.firstName') }}</label>
+                <input id="admin-create-first-name" class="form-control" formControlName="firstName" />
+                @if (app.adminCreateUserFieldError('firstName')) { <div class="invalid-feedback d-block">{{ app.adminCreateUserFieldError('firstName') }}</div> }
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="admin-create-last-name">{{ app.t('account.lastName') }}</label>
+                <input id="admin-create-last-name" class="form-control" formControlName="lastName" />
+                @if (app.adminCreateUserFieldError('lastName')) { <div class="invalid-feedback d-block">{{ app.adminCreateUserFieldError('lastName') }}</div> }
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="admin-create-organisation">{{ app.t('admin.organisation') }}</label>
+                <input id="admin-create-organisation" class="form-control" formControlName="organisation" />
+                @if (app.adminCreateUserFieldError('organisation')) { <div class="invalid-feedback d-block">{{ app.adminCreateUserFieldError('organisation') }}</div> }
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" for="admin-create-city">{{ app.t('account.city') }}</label>
+                <input id="admin-create-city" class="form-control" formControlName="city" />
+                @if (app.adminCreateUserFieldError('city')) { <div class="invalid-feedback d-block">{{ app.adminCreateUserFieldError('city') }}</div> }
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" for="admin-create-zipcode">{{ app.t('account.zipcode') }}</label>
+                <input id="admin-create-zipcode" class="form-control" formControlName="zipcode" />
+                @if (app.adminCreateUserFieldError('zipcode')) { <div class="invalid-feedback d-block">{{ app.adminCreateUserFieldError('zipcode') }}</div> }
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="admin-create-email">{{ app.t('admin.email') }}</label>
+                <input id="admin-create-email" class="form-control" type="email" formControlName="email" />
+                @if (app.adminCreateUserFieldError('email')) { <div class="invalid-feedback d-block">{{ app.adminCreateUserFieldError('email') }}</div> }
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="admin-create-phone">{{ app.t('admin.phone') }}</label>
+                <input id="admin-create-phone" class="form-control" formControlName="phoneNumber" />
+                @if (app.adminCreateUserFieldError('phoneNumber')) { <div class="invalid-feedback d-block">{{ app.adminCreateUserFieldError('phoneNumber') }}</div> }
+              </div>
+              <div class="col-12">
+                <label class="form-label" for="admin-create-address">{{ app.t('account.address') }}</label>
+                <input id="admin-create-address" class="form-control" formControlName="physicalAddress" />
+                @if (app.adminCreateUserFieldError('physicalAddress')) { <div class="invalid-feedback d-block">{{ app.adminCreateUserFieldError('physicalAddress') }}</div> }
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="admin-create-siret">{{ app.t('admin.siret') }}</label>
+                <input id="admin-create-siret" class="form-control" formControlName="businessRegistrationId" inputmode="numeric" />
+                @if (app.adminCreateUserFieldError('businessRegistrationId')) { <div class="invalid-feedback d-block">{{ app.adminCreateUserFieldError('businessRegistrationId') }}</div> }
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="admin-create-vat">{{ app.t('account.vatId') }}</label>
+                <input id="admin-create-vat" class="form-control" formControlName="vatId" />
+                @if (app.adminCreateUserFieldError('vatId')) { <div class="invalid-feedback d-block">{{ app.adminCreateUserFieldError('vatId') }}</div> }
+              </div>
+              <div class="col-12">
+                <label class="form-label" for="admin-create-business-description">{{ app.t('account.businessDescription') }}</label>
+                <textarea id="admin-create-business-description" class="form-control" rows="2" formControlName="businessDescription"></textarea>
+              </div>
+              <div class="col-12">
+                <label class="form-label" for="admin-create-bill-mentions">{{ app.t('account.billMentions') }}</label>
+                <textarea id="admin-create-bill-mentions" class="form-control" rows="2" formControlName="billMentions"></textarea>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="admin-create-password">{{ app.t('admin.temporaryPassword') }}</label>
+                <input id="admin-create-password" class="form-control" type="password" formControlName="password" autocomplete="new-password" />
+                @if (app.adminCreateUserFieldError('password')) { <div class="invalid-feedback d-block">{{ app.adminCreateUserFieldError('password') }}</div> }
+              </div>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+              <button class="btn btn-primary" type="submit" [disabled]="app.savingAdminUserCreate()">
+                {{ app.savingAdminUserCreate() ? app.t('common.saving') : app.t('admin.createUser') }}
+              </button>
+              <button class="btn btn-outline-secondary" type="button" [disabled]="app.savingAdminUserCreate()" (click)="app.resetAdminCreateUserForm()">{{ app.t('common.reset') }}</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="col-xl-6">
+          <h3 class="h6 mb-3">{{ app.t('admin.updateUserTitle') }}</h3>
+          <div class="mb-3">
+            <label class="form-label" for="admin-user-search-organization">{{ app.t('admin.userSearchOrganization') }}</label>
+            <input
+              id="admin-user-search-organization"
+              class="form-control"
+              type="search"
+              [value]="app.adminUserSearchOrganization()"
+              (input)="app.setAdminUserSearchOrganization($any($event.target).value)"
+            />
+            <div class="form-text">{{ app.t('admin.userSearchPrefixHint') }}</div>
+          </div>
+          @if (app.loadingAdminUserSearch()) {
+            <div class="form-text mb-2">{{ app.t('common.loading') }}</div>
+          }
+          @if (app.adminUserSearchOrganization().trim() && app.adminUserSearchRows().length === 0 && !app.loadingAdminUserSearch()) {
+            <div class="alert alert-light border mb-3">{{ app.t('admin.noMatchingUsers') }}</div>
+          }
+          @if (app.adminUserSearchRows().length > 0) {
+            <div class="table-responsive mb-3">
+              <table class="table table-sm align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>{{ app.t('admin.organisation') }}</th>
+                    <th>{{ app.t('admin.username') }}</th>
+                    <th>{{ app.t('admin.role') }}</th>
+                    <th>{{ app.t('admin.status') }}</th>
+                    <th>{{ app.t('admin.action') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (user of app.adminUserSearchRows(); track user.id) {
+                    <tr>
+                      <td>{{ user.organisation }}</td>
+                      <td>{{ user.username }}</td>
+                      <td>{{ user.role }}</td>
+                      <td>{{ user.isActive ? app.t('admin.enabled') : app.t('admin.disabled') }}</td>
+                      <td>
+                        <button class="btn btn-sm btn-outline-primary" type="button" [disabled]="app.loadingAdminUserDetails()" (click)="app.selectAdminUserForUpdate(user.id)">
+                          {{ app.t('admin.editUser') }}
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
+          @if (app.selectedAdminManagedUser(); as selectedUser) {
+            <form [formGroup]="app.adminUpdateUserForm" (ngSubmit)="app.updateAdminUser()" novalidate>
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h4 class="h6 mb-0">{{ app.t('admin.editingUser') }} {{ selectedUser.username }}</h4>
+                <button class="btn btn-sm btn-outline-secondary" type="button" (click)="app.resetAdminUpdateUserForm()">{{ app.t('common.cancel') }}</button>
+              </div>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label" for="admin-update-role">{{ app.t('admin.role') }}</label>
+                  <select id="admin-update-role" class="form-select" formControlName="role">
+                    <option value="vendor">{{ app.t('admin.vendor') }}</option>
+                    <option value="client">{{ app.t('admin.client') }}</option>
+                    <option value="admin">{{ app.t('admin.adminRole') }}</option>
+                  </select>
+                </div>
+                <div class="col-md-8">
+                  <label class="form-label" for="admin-update-username">{{ app.t('admin.username') }}</label>
+                  <input id="admin-update-username" class="form-control" formControlName="username" autocomplete="off" />
+                  @if (app.adminUpdateUserFieldError('username')) { <div class="invalid-feedback d-block">{{ app.adminUpdateUserFieldError('username') }}</div> }
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="admin-update-first-name">{{ app.t('account.firstName') }}</label>
+                  <input id="admin-update-first-name" class="form-control" formControlName="firstName" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="admin-update-last-name">{{ app.t('account.lastName') }}</label>
+                  <input id="admin-update-last-name" class="form-control" formControlName="lastName" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="admin-update-organisation">{{ app.t('admin.organisation') }}</label>
+                  <input id="admin-update-organisation" class="form-control" formControlName="organisation" />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label" for="admin-update-city">{{ app.t('account.city') }}</label>
+                  <input id="admin-update-city" class="form-control" formControlName="city" />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label" for="admin-update-zipcode">{{ app.t('account.zipcode') }}</label>
+                  <input id="admin-update-zipcode" class="form-control" formControlName="zipcode" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="admin-update-email">{{ app.t('admin.email') }}</label>
+                  <input id="admin-update-email" class="form-control" type="email" formControlName="email" />
+                  @if (app.adminUpdateUserFieldError('email')) { <div class="invalid-feedback d-block">{{ app.adminUpdateUserFieldError('email') }}</div> }
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="admin-update-phone">{{ app.t('admin.phone') }}</label>
+                  <input id="admin-update-phone" class="form-control" formControlName="phoneNumber" />
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="admin-update-address">{{ app.t('account.address') }}</label>
+                  <input id="admin-update-address" class="form-control" formControlName="physicalAddress" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="admin-update-siret">{{ app.t('admin.siret') }}</label>
+                  <input id="admin-update-siret" class="form-control" formControlName="businessRegistrationId" inputmode="numeric" />
+                  @if (app.adminUpdateUserFieldError('businessRegistrationId')) { <div class="invalid-feedback d-block">{{ app.adminUpdateUserFieldError('businessRegistrationId') }}</div> }
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="admin-update-vat">{{ app.t('account.vatId') }}</label>
+                  <input id="admin-update-vat" class="form-control" formControlName="vatId" />
+                  @if (app.adminUpdateUserFieldError('vatId')) { <div class="invalid-feedback d-block">{{ app.adminUpdateUserFieldError('vatId') }}</div> }
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="admin-update-business-description">{{ app.t('account.businessDescription') }}</label>
+                  <textarea id="admin-update-business-description" class="form-control" rows="2" formControlName="businessDescription"></textarea>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="admin-update-bill-mentions">{{ app.t('account.billMentions') }}</label>
+                  <textarea id="admin-update-bill-mentions" class="form-control" rows="2" formControlName="billMentions"></textarea>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="admin-update-password">{{ app.t('admin.newPasswordOptional') }}</label>
+                  <input id="admin-update-password" class="form-control" type="password" formControlName="password" autocomplete="new-password" />
+                  @if (app.adminUpdateUserFieldError('password')) { <div class="invalid-feedback d-block">{{ app.adminUpdateUserFieldError('password') }}</div> }
+                  <div class="form-text">{{ app.t('admin.newPasswordOptionalHint') }}</div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="admin-update-active-state">{{ app.t('admin.status') }}</label>
+                  <select id="admin-update-active-state" class="form-select" formControlName="isActive">
+                    <option [ngValue]="true">{{ app.t('admin.enabled') }}</option>
+                    <option [ngValue]="false">{{ app.t('admin.disabled') }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-primary" type="submit" [disabled]="app.savingAdminUserUpdate()">
+                  {{ app.savingAdminUserUpdate() ? app.t('common.saving') : app.t('admin.updateUser') }}
+                </button>
+              </div>
+            </form>
+          } @else {
+            <div class="alert alert-light border mb-0">{{ app.t('admin.selectUserToEdit') }}</div>
+          }
         </div>
       </div>
-      @if (app.loadingAdminUserSearch()) {
-        <div class="form-text mb-2">{{ app.t('common.loading') }}</div>
-      }
-      @if (app.adminUserSearchOrganization().trim() && app.adminUserSearchRows().length === 0 && !app.loadingAdminUserSearch()) {
-        <div class="alert alert-light border mb-0">{{ app.t('admin.noMatchingUsers') }}</div>
-      }
-      @if (app.adminUserSearchRows().length > 0) {
-        <div class="table-responsive">
-          <table class="table table-sm align-middle mb-0">
-            <thead>
-              <tr>
-                <th>{{ app.t('admin.organisation') }}</th>
-                <th>{{ app.t('admin.username') }}</th>
-                <th>{{ app.t('admin.role') }}</th>
-                <th>{{ app.t('admin.status') }}</th>
-                <th>{{ app.t('admin.action') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (user of app.adminUserSearchRows(); track user.id) {
-                <tr>
-                  <td>{{ user.organisation }}</td>
-                  <td>{{ user.username }}</td>
-                  <td>{{ user.role }}</td>
-                  <td>{{ user.isActive ? app.t('admin.enabled') : app.t('admin.disabled') }}</td>
-                  <td>
-                    <div class="form-check form-switch mb-0">
-                      <input
-                        class="form-check-input"
-                        type="checkbox"
-                        role="switch"
-                        [id]="'admin-user-active-' + user.id"
-                        [checked]="user.isActive"
-                        [disabled]="app.isTogglingAdminUser(user.id)"
-                        [attr.aria-label]="app.t('admin.enableDisableUser') + ' ' + user.organisation"
-                        (change)="app.toggleAdminUserActive(user.id, $any($event.target).checked)"
-                      />
-                      <label class="form-check-label" [attr.for]="'admin-user-active-' + user.id">
-                        {{ user.isActive ? app.t('admin.disable') : app.t('admin.enable') }}
-                      </label>
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      }
     </div>
 
     <div class="border rounded p-3 mb-4">
@@ -454,107 +631,4 @@
     </div>
   }
 
-  @if (app.isAdmin() && app.pendingUsers().length === 0 && !app.loadingPendingUsers()) {
-    <div class="border rounded p-3 mb-4">
-      <div class="mb-3">
-        <h2 class="h5 mb-0">{{ app.t('admin.pendingApprovalsTitle') }}</h2>
-      </div>
-      <div class="alert alert-light border mb-0">{{ app.t('admin.noPendingUsers') }}</div>
-    </div>
-  }
-
-  @if (app.pendingUsers().length > 0) {
-    <div class="border rounded p-3 mb-4">
-      <div class="mb-3">
-        <h2 class="h5 mb-0">{{ app.t('admin.pendingApprovalsTitle') }}</h2>
-      </div>
-
-      <div class="table-responsive">
-        <table class="table table-striped align-middle">
-          <thead>
-            <tr>
-              <th scope="col">{{ app.t('admin.role') }}</th>
-              <th scope="col">{{ app.t('admin.organisation') }}</th>
-              <th scope="col">{{ app.t('admin.action') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (pendingUser of app.pendingUsers(); track pendingUser.id) {
-              <tr class="pending-user-row" (click)="app.openPendingUserDetails(pendingUser)">
-                <td>{{ pendingUser.role }}</td>
-                <td>{{ pendingUser.organisation }}</td>
-                <td class="d-flex gap-2">
-                  <button
-                    class="btn btn-sm btn-success"
-                    (click)="app.activateUser(pendingUser.id); $event.stopPropagation()"
-                    [disabled]="app.isActivating(pendingUser.id)"
-                    type="button"
-                  >
-                    {{ app.isActivating(pendingUser.id) ? app.t('admin.activating') : app.t('admin.activate') }}
-                  </button>
-                  <button
-                    class="btn btn-sm btn-outline-danger"
-                    (click)="app.deletePendingUser(pendingUser.id, $event)"
-                    [disabled]="app.isDeletingPendingUser(pendingUser.id)"
-                    type="button"
-                  >
-                    {{ app.isDeletingPendingUser(pendingUser.id) ? app.t('admin.removing') : app.t('admin.deletePendingUser') }}
-                  </button>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    </div>
-  }
-
-  @if (app.showingPendingUserModal() && app.selectedPendingUser(); as pendingUser) {
-    <div class="modal-backdrop fade show"></div>
-    <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true">
-      <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h3 class="modal-title h5 mb-0">{{ app.t('admin.pendingUserDetails') }}</h3>
-            <button class="btn-close" type="button" aria-label="Close" (click)="app.closePendingUserDetails()"></button>
-          </div>
-          <div class="modal-body">
-            <div class="row g-3">
-              <div class="col-md-6"><strong>{{ app.t('admin.role') }}:</strong> {{ pendingUser.role }}</div>
-              <div class="col-md-6"><strong>{{ app.t('admin.username') }}:</strong> {{ pendingUser.username }}</div>
-              <div class="col-md-6"><strong>{{ app.t('admin.organisation') }}:</strong> {{ pendingUser.organisation }}</div>
-              <div class="col-md-6"><strong>{{ app.t('admin.email') }}:</strong> {{ pendingUser.email }}</div>
-              <div class="col-md-6"><strong>{{ app.t('admin.phone') }}:</strong> {{ pendingUser.phoneNumber }}</div>
-              <div class="col-md-6"><strong>{{ app.t('admin.siret') }}:</strong> {{ pendingUser.businessRegistrationId }}</div>
-              <div class="col-md-6"><strong>{{ app.t('account.firstName') }}:</strong> {{ pendingUser.firstName }}</div>
-              <div class="col-md-6"><strong>{{ app.t('account.lastName') }}:</strong> {{ pendingUser.lastName }}</div>
-              <div class="col-md-6"><strong>{{ app.t('account.city') }}:</strong> {{ pendingUser.city }}</div>
-              <div class="col-md-6"><strong>{{ app.t('account.zipcode') }}:</strong> {{ pendingUser.zipcode }}</div>
-              <div class="col-12"><strong>{{ app.t('account.address') }}:</strong> {{ pendingUser.physicalAddress }}</div>
-              <div class="col-12"><strong>{{ app.t('admin.requestedAt') }}:</strong> {{ pendingUser.createdAt | date: 'medium' }}</div>
-            </div>
-          </div>
-          <div class="modal-footer d-flex gap-2">
-            <button
-              class="btn btn-success"
-              type="button"
-              (click)="app.activateUser(pendingUser.id)"
-              [disabled]="app.isActivating(pendingUser.id)"
-            >
-              {{ app.isActivating(pendingUser.id) ? app.t('admin.activating') : app.t('admin.activate') }}
-            </button>
-            <button
-              class="btn btn-outline-danger"
-              type="button"
-              (click)="app.deletePendingUser(pendingUser.id)"
-              [disabled]="app.isDeletingPendingUser(pendingUser.id)"
-            >
-              {{ app.isDeletingPendingUser(pendingUser.id) ? app.t('admin.removing') : app.t('admin.deletePendingUser') }}
-            </button>
-            <button class="btn btn-secondary" type="button" (click)="app.closePendingUserDetails()">{{ app.t('common.close') }}</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  }
 </div>

@@ -57,14 +57,47 @@ export type PendingUser = {
 
 export type AdminManagedUser = {
   id: string;
-  role: 'vendor' | 'client';
+  role: UserRole;
   username: string;
+  uniqueId: string;
+  firstName: string;
+  lastName: string;
   organisation: string;
+  city: string;
+  zipcode: string;
   email: string;
+  physicalAddress: string;
+  phoneNumber: string;
+  businessDescription: string;
+  vatId: string;
+  billMentions: string;
+  logoFilename: string;
+  logoUrl: string;
+  businessRegistrationId: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
 };
+
+export type AdminUserFormField =
+  | 'role'
+  | 'username'
+  | 'firstName'
+  | 'lastName'
+  | 'organisation'
+  | 'city'
+  | 'zipcode'
+  | 'email'
+  | 'physicalAddress'
+  | 'phoneNumber'
+  | 'businessRegistrationId'
+  | 'businessDescription'
+  | 'vatId'
+  | 'billMentions'
+  | 'password'
+  | 'isActive';
+
+export type AdminUserFormFieldErrors = Partial<Record<AdminUserFormField, string>>;
 
 export type AccessKeySummary = {
   id: string;

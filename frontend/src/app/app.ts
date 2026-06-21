@@ -29,6 +29,7 @@ import type {
   AdminActivatedOrderStat,
   AdminClientAssociation,
   AdminManagedUser,
+  AdminUserFormFieldErrors,
   AdminRungisBillSearchRow,
   AdminVendorAssociation,
   AlertType,
@@ -59,6 +60,7 @@ import type {
   StockSortKey,
   ThemeMode,
   ToastType,
+  UserRole,
   VendorBillClientOption,
   VendorBillMessageSummary,
   VendorBillsTab,
@@ -176,6 +178,12 @@ export class App implements OnInit, OnDestroy {
   public readonly adminUserSearchOrganization = signal('');
   public readonly loadingAdminUserSearch = signal(false);
   public readonly adminUserSearchRows = signal<AdminManagedUser[]>([]);
+  public readonly selectedAdminManagedUser = signal<AdminManagedUser | null>(null);
+  public readonly savingAdminUserCreate = signal(false);
+  public readonly loadingAdminUserDetails = signal(false);
+  public readonly savingAdminUserUpdate = signal(false);
+  public readonly adminCreateUserFieldErrors = signal<AdminUserFormFieldErrors>({});
+  public readonly adminUpdateUserFieldErrors = signal<AdminUserFormFieldErrors>({});
   public readonly togglingAdminUserIds = signal<string[]>([]);
   public readonly adminClients = signal<AdminClientAssociation[]>([]);
   public readonly adminVendors = signal<AdminVendorAssociation[]>([]);
@@ -525,6 +533,62 @@ export class App implements OnInit, OnDestroy {
     businessRegistrationId: ['', [Validators.required, Validators.pattern(/^\d{14}$/)]]
   });
 
+
+  private readonly adminUserFormDefaults = {
+    role: 'vendor' as UserRole,
+    username: '',
+    firstName: '',
+    lastName: '',
+    organisation: '',
+    city: '',
+    zipcode: '',
+    email: '',
+    physicalAddress: '',
+    phoneNumber: '',
+    businessRegistrationId: '',
+    businessDescription: '',
+    vatId: '',
+    billMentions: '',
+    password: ''
+  };
+
+  public readonly adminCreateUserForm = this.formBuilder.nonNullable.group({
+    role: [this.adminUserFormDefaults.role, [Validators.required]],
+    username: ['', [Validators.required]],
+    firstName: ['', [Validators.required]],
+    lastName: ['', [Validators.required]],
+    organisation: ['', [Validators.required]],
+    city: ['', [Validators.required]],
+    zipcode: ['', [Validators.required]],
+    email: ['', [Validators.required, Validators.email]],
+    physicalAddress: ['', [Validators.required]],
+    phoneNumber: ['', [Validators.required]],
+    businessRegistrationId: ['', [Validators.required, Validators.pattern(/^\d{14}$/)]],
+    businessDescription: ['', [Validators.maxLength(2000)]],
+    vatId: ['', [Validators.pattern(/^$|^.{13}$/)]],
+    billMentions: ['', [Validators.maxLength(2000)]],
+    password: ['', [Validators.required, Validators.minLength(8)]]
+  });
+
+  public readonly adminUpdateUserForm = this.formBuilder.nonNullable.group({
+    role: [this.adminUserFormDefaults.role, [Validators.required]],
+    username: ['', [Validators.required]],
+    firstName: ['', [Validators.required]],
+    lastName: ['', [Validators.required]],
+    organisation: ['', [Validators.required]],
+    city: ['', [Validators.required]],
+    zipcode: ['', [Validators.required]],
+    email: ['', [Validators.required, Validators.email]],
+    physicalAddress: ['', [Validators.required]],
+    phoneNumber: ['', [Validators.required]],
+    businessRegistrationId: ['', [Validators.required, Validators.pattern(/^\d{14}$/)]],
+    businessDescription: ['', [Validators.maxLength(2000)]],
+    vatId: ['', [Validators.pattern(/^$|^.{13}$/)]],
+    billMentions: ['', [Validators.maxLength(2000)]],
+    password: ['', [Validators.minLength(8)]],
+    isActive: [false, [Validators.required]]
+  });
+
   public readonly stockForm = this.formBuilder.nonNullable.group({
     name: ['', [Validators.required]],
     reference: ['', [Validators.required]],
@@ -604,7 +668,7 @@ export class App implements OnInit, OnDestroy {
     this.announceActiveSocketPage();
 
     if (page === 'admin') {
-      void this.loadPendingUsers();
+      void this.searchAdminUsers();
       void this.loadAdminAssociations();
       void this.loadAdminBillOverdueDays();
       void this.loadAdminAppStyleProfile();
@@ -1682,6 +1746,248 @@ export class App implements OnInit, OnDestroy {
       this.setAlert('success', payload.message ?? this.t('alerts.admin.pendingDeleted'));
     } finally {
       this.deletingPendingUserIds.set(this.deletingPendingUserIds().filter((id) => id !== userId));
+    }
+  }
+
+
+  private normalizeAdminUserFieldErrors(payload: unknown): AdminUserFormFieldErrors {
+    if (!payload || typeof payload !== 'object' || !('fieldErrors' in payload)) {
+      return {};
+    }
+
+    const fieldErrors = (payload as { fieldErrors?: unknown }).fieldErrors;
+    if (!fieldErrors || typeof fieldErrors !== 'object' || Array.isArray(fieldErrors)) {
+      return {};
+    }
+
+    const normalized: AdminUserFormFieldErrors = {};
+    for (const [field, message] of Object.entries(fieldErrors)) {
+      if (typeof message === 'string') {
+        normalized[field as keyof AdminUserFormFieldErrors] = message;
+      }
+    }
+    return normalized;
+  }
+
+  private getAdminUserLocalFieldError(control: AbstractControl | null, field: string): string {
+    if (!control || !control.invalid || (!control.touched && !control.dirty)) {
+      return '';
+    }
+
+    if (control.hasError('required')) {
+      return this.t('admin.userFormRequired');
+    }
+    if (control.hasError('email')) {
+      return this.t('admin.userFormEmailInvalid');
+    }
+    if (control.hasError('minlength')) {
+      return this.t('admin.userFormPasswordTooShort');
+    }
+    if (control.hasError('maxlength')) {
+      return this.t('admin.userFormTooLong');
+    }
+    if (control.hasError('pattern')) {
+      if (field === 'businessRegistrationId') {
+        return this.t('admin.userFormSiretInvalid');
+      }
+      if (field === 'vatId') {
+        return this.t('admin.userFormVatInvalid');
+      }
+      return this.t('admin.userFormInvalid');
+    }
+    return this.t('admin.userFormInvalid');
+  }
+
+  public adminCreateUserFieldError(field: string): string {
+    const backendMessage = this.adminCreateUserFieldErrors()[field as keyof AdminUserFormFieldErrors];
+    return backendMessage ?? this.getAdminUserLocalFieldError(this.adminCreateUserForm.get(field), field);
+  }
+
+  public adminUpdateUserFieldError(field: string): string {
+    const backendMessage = this.adminUpdateUserFieldErrors()[field as keyof AdminUserFormFieldErrors];
+    return backendMessage ?? this.getAdminUserLocalFieldError(this.adminUpdateUserForm.get(field), field);
+  }
+
+  private buildAdminUserPayload(includeActiveState: boolean): Record<string, unknown> {
+    const source = includeActiveState ? this.adminUpdateUserForm.getRawValue() : this.adminCreateUserForm.getRawValue();
+    const payload: Record<string, unknown> = {
+      role: source.role,
+      username: source.username.trim(),
+      firstName: source.firstName.trim(),
+      lastName: source.lastName.trim(),
+      organisation: source.organisation.trim(),
+      city: source.city.trim(),
+      zipcode: source.zipcode.trim(),
+      email: source.email.trim(),
+      physicalAddress: source.physicalAddress.trim(),
+      phoneNumber: source.phoneNumber.trim(),
+      businessRegistrationId: source.businessRegistrationId.trim(),
+      businessDescription: source.businessDescription.trim(),
+      vatId: source.vatId.trim(),
+      billMentions: source.billMentions.trim(),
+      password: source.password
+    };
+
+    if (!payload['vatId']) {
+      delete payload['vatId'];
+    }
+    if (includeActiveState && !payload['password']) {
+      delete payload['password'];
+    }
+
+    if (includeActiveState && 'isActive' in source) {
+      payload['isActive'] = Boolean(source['isActive']);
+    }
+
+    return payload;
+  }
+
+  private upsertAdminManagedUserRow(user: AdminManagedUser): void {
+    const rows = this.adminUserSearchRows().filter((row) => row.id !== user.id);
+    const organizationSearch = this.adminUserSearchOrganization().trim().toLowerCase();
+    if (!organizationSearch || user.organisation.toLowerCase().startsWith(organizationSearch)) {
+      rows.push(user);
+    }
+    rows.sort((left, right) => {
+      const organizationCompare = left.organisation.localeCompare(right.organisation);
+      return organizationCompare !== 0 ? organizationCompare : left.username.localeCompare(right.username);
+    });
+    this.adminUserSearchRows.set(rows);
+  }
+
+  public resetAdminCreateUserForm(): void {
+    this.adminCreateUserForm.reset(this.adminUserFormDefaults);
+    this.adminCreateUserFieldErrors.set({});
+  }
+
+  public resetAdminUpdateUserForm(): void {
+    this.selectedAdminManagedUser.set(null);
+    this.adminUpdateUserForm.reset({ ...this.adminUserFormDefaults, isActive: false });
+    this.adminUpdateUserFieldErrors.set({});
+  }
+
+  private fillAdminUpdateUserForm(user: AdminManagedUser): void {
+    this.selectedAdminManagedUser.set(user);
+    this.adminUpdateUserForm.setValue({
+      role: user.role,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      organisation: user.organisation,
+      city: user.city,
+      zipcode: user.zipcode,
+      email: user.email,
+      physicalAddress: user.physicalAddress,
+      phoneNumber: user.phoneNumber,
+      businessRegistrationId: String(user.businessRegistrationId ?? ''),
+      businessDescription: user.businessDescription ?? '',
+      vatId: user.vatId ?? '',
+      billMentions: user.billMentions ?? '',
+      password: '',
+      isActive: user.isActive
+    });
+    this.adminUpdateUserFieldErrors.set({});
+  }
+
+  public async createAdminUser(): Promise<void> {
+    if (!this.isAdmin() || this.savingAdminUserCreate()) {
+      return;
+    }
+
+    this.adminCreateUserForm.markAllAsTouched();
+    if (this.adminCreateUserForm.invalid) {
+      this.setAlert('danger', this.t('alerts.admin.userFormInvalid'));
+      return;
+    }
+
+    this.savingAdminUserCreate.set(true);
+    this.adminCreateUserFieldErrors.set({});
+    try {
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(this.buildAdminUserPayload(false))
+      });
+      const payload = await response.json().catch(() => null);
+      this.adminCreateUserForm.controls.password.reset('');
+      if (!response.ok) {
+        this.adminCreateUserFieldErrors.set(this.normalizeAdminUserFieldErrors(payload));
+        this.setAlert('danger', payload?.message ?? this.t('alerts.admin.userCreateFailed'));
+        return;
+      }
+
+      const createdUser = payload?.user as AdminManagedUser | undefined;
+      if (createdUser?.id) {
+        this.upsertAdminManagedUserRow(createdUser);
+        void this.loadAdminAssociations();
+      }
+      this.resetAdminCreateUserForm();
+      this.setAlert('success', payload?.message ?? this.t('alerts.admin.userCreated'));
+    } finally {
+      this.savingAdminUserCreate.set(false);
+    }
+  }
+
+  public async selectAdminUserForUpdate(userId: string): Promise<void> {
+    if (!this.isAdmin() || this.loadingAdminUserDetails()) {
+      return;
+    }
+
+    this.loadingAdminUserDetails.set(true);
+    try {
+      const response = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`);
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        this.setAlert('danger', payload?.message ?? this.t('alerts.admin.userLoadFailed'));
+        return;
+      }
+
+      const user = payload?.user as AdminManagedUser | undefined;
+      if (user?.id) {
+        this.fillAdminUpdateUserForm(user);
+      }
+    } finally {
+      this.loadingAdminUserDetails.set(false);
+    }
+  }
+
+  public async updateAdminUser(): Promise<void> {
+    const selectedUser = this.selectedAdminManagedUser();
+    if (!this.isAdmin() || !selectedUser || this.savingAdminUserUpdate()) {
+      return;
+    }
+
+    this.adminUpdateUserForm.markAllAsTouched();
+    if (this.adminUpdateUserForm.invalid) {
+      this.setAlert('danger', this.t('alerts.admin.userFormInvalid'));
+      return;
+    }
+
+    this.savingAdminUserUpdate.set(true);
+    this.adminUpdateUserFieldErrors.set({});
+    try {
+      const response = await fetch(`/api/admin/users/${encodeURIComponent(selectedUser.id)}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(this.buildAdminUserPayload(true))
+      });
+      const payload = await response.json().catch(() => null);
+      this.adminUpdateUserForm.controls.password.reset('');
+      if (!response.ok) {
+        this.adminUpdateUserFieldErrors.set(this.normalizeAdminUserFieldErrors(payload));
+        this.setAlert('danger', payload?.message ?? this.t('alerts.admin.userUpdateFailed'));
+        return;
+      }
+
+      const updatedUser = payload?.user as AdminManagedUser | undefined;
+      if (updatedUser?.id) {
+        this.fillAdminUpdateUserForm(updatedUser);
+        this.upsertAdminManagedUserRow(updatedUser);
+        void this.loadAdminAssociations();
+      }
+      this.setAlert('success', payload?.message ?? this.t('alerts.admin.userUpdated'));
+    } finally {
+      this.savingAdminUserUpdate.set(false);
     }
   }
 

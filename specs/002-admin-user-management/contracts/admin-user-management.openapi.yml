@@ -1,46 +1,120 @@
 openapi: 3.0.3
 info:
   title: Rungis Admin User Management API
-  version: 1.0.0
+  version: 1.1.0
 tags:
   - name: Admin Management
 security:
   - sessionCookie: []
 paths:
-  /api/admin/pending-users:
-    get:
-      operationId: listPendingUsers
+  /api/admin/users:
+    post:
+      operationId: createAdminManagedUser
       tags: [Admin Management]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserCreateRequest'
       responses:
-        '200': { description: Pending users listed }
+        '201':
+          description: User created disabled by default
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserResponse'
+        '400': { description: Invalid or unsafe payload }
         '401': { description: Authentication required }
         '403': { description: Admin role required }
-  /api/admin/users/{id}/activate:
-    post:
-      operationId: activatePendingUser
+        '409': { description: Duplicate username or email }
+  /api/admin/users/search:
+    get:
+      operationId: searchAdminManagedUsers
       tags: [Admin Management]
       parameters:
-        - name: id
-          in: path
+        - name: organization
+          in: query
           required: true
-          schema: { type: string }
+          schema: { type: string, minLength: 1, maxLength: 100 }
       responses:
-        '200': { description: Pending user activated }
-        '400': { description: Invalid user id }
-        '404': { description: Pending user not found }
+        '200':
+          description: Matching users listed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, users]
+                properties:
+                  ok: { type: boolean }
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminManagedUser'
+        '400': { description: Invalid search query }
+        '401': { description: Authentication required }
+        '403': { description: Admin role required }
   /api/admin/users/{id}:
-    delete:
-      operationId: deletePendingUser
+    get:
+      operationId: getAdminManagedUser
       tags: [Admin Management]
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string }
+        - $ref: '#/components/parameters/UserId'
       responses:
-        '200': { description: Pending user deleted }
+        '200':
+          description: User loaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserResponse'
         '400': { description: Invalid user id }
-        '404': { description: Pending user not found }
+        '401': { description: Authentication required }
+        '403': { description: Admin role required }
+        '404': { description: User not found }
+    put:
+      operationId: updateAdminManagedUser
+      tags: [Admin Management]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserUpdateRequest'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserResponse'
+        '400': { description: Invalid id, invalid payload, or unsafe payload }
+        '401': { description: Authentication required }
+        '403': { description: Admin role required }
+        '404': { description: User not found }
+        '409': { description: Duplicate username or email }
+  /api/admin/users/{id}/active:
+    patch:
+      operationId: patchAdminManagedUserActiveState
+      tags: [Admin Management]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [isActive]
+              properties:
+                isActive: { type: boolean }
+      responses:
+        '200': { description: Active state updated }
+        '400': { description: Invalid id or state }
+        '401': { description: Authentication required }
+        '403': { description: Admin role required }
+        '404': { description: User not found }
   /api/admin/settings/bill-overdue-days:
     get:
       operationId: getBillOverdueDays
@@ -100,8 +174,110 @@ paths:
         '200': { description: Billing run completed }
         '400': { description: Invalid day }
 components:
+  parameters:
+    UserId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
   securitySchemes:
     sessionCookie:
       type: apiKey
       in: cookie
       name: sid
+  schemas:
+    AdminManagedUser:
+      type: object
+      required:
+        - id
+        - role
+        - username
+        - firstName
+        - lastName
+        - organisation
+        - city
+        - zipcode
+        - email
+        - physicalAddress
+        - phoneNumber
+        - businessRegistrationId
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id: { type: string }
+        role: { type: string, enum: [vendor, client, admin] }
+        username: { type: string }
+        uniqueId: { type: string, pattern: '^\\d{5}$' }
+        firstName: { type: string }
+        lastName: { type: string }
+        organisation: { type: string }
+        city: { type: string }
+        zipcode: { type: string }
+        email: { type: string, format: email }
+        physicalAddress: { type: string }
+        phoneNumber: { type: string }
+        businessDescription: { type: string, maxLength: 2000 }
+        vatId: { type: string, minLength: 13, maxLength: 13 }
+        billMentions: { type: string, maxLength: 2000 }
+        logoFilename: { type: string }
+        logoUrl: { type: string }
+        businessRegistrationId: { type: integer }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      additionalProperties: false
+    AdminUserCreateRequest:
+      type: object
+      required: [role, username, firstName, lastName, organisation, city, zipcode, email, physicalAddress, phoneNumber, businessRegistrationId, password]
+      properties:
+        role: { type: string, enum: [vendor, client, admin] }
+        username: { type: string, minLength: 1 }
+        firstName: { type: string, minLength: 1 }
+        lastName: { type: string, minLength: 1 }
+        organisation: { type: string, minLength: 1 }
+        city: { type: string, minLength: 1 }
+        zipcode: { type: string, minLength: 1 }
+        email: { type: string, format: email }
+        physicalAddress: { type: string, minLength: 1 }
+        phoneNumber: { type: string, minLength: 1 }
+        businessRegistrationId: { oneOf: [{ type: string, pattern: '^\\d{14}$' }, { type: integer }] }
+        businessDescription: { type: string, maxLength: 2000 }
+        vatId: { type: string, minLength: 13, maxLength: 13 }
+        billMentions: { type: string, maxLength: 2000 }
+        logoFilename: { type: string }
+        password: { type: string, minLength: 8, writeOnly: true }
+      additionalProperties: false
+    AdminUserUpdateRequest:
+      type: object
+      required: [role, username, firstName, lastName, organisation, city, zipcode, email, physicalAddress, phoneNumber, businessRegistrationId, isActive]
+      properties:
+        role: { type: string, enum: [vendor, client, admin] }
+        username: { type: string, minLength: 1 }
+        firstName: { type: string, minLength: 1 }
+        lastName: { type: string, minLength: 1 }
+        organisation: { type: string, minLength: 1 }
+        city: { type: string, minLength: 1 }
+        zipcode: { type: string, minLength: 1 }
+        email: { type: string, format: email }
+        physicalAddress: { type: string, minLength: 1 }
+        phoneNumber: { type: string, minLength: 1 }
+        businessRegistrationId: { oneOf: [{ type: string, pattern: '^\d{14}$' }, { type: integer }] }
+        businessDescription: { type: string, maxLength: 2000 }
+        vatId: { type: string, minLength: 13, maxLength: 13 }
+        billMentions: { type: string, maxLength: 2000 }
+        logoFilename: { type: string }
+        password: { type: string, minLength: 8, writeOnly: true }
+        isActive: { type: boolean }
+      additionalProperties: false
+    AdminUserResponse:
+      type: object
+      required: [ok, user]
+      properties:
+        ok: { type: boolean }
+        user:
+          $ref: '#/components/schemas/AdminManagedUser'
+        message: { type: string }
+        fieldErrors:
+          type: object
+          additionalProperties: { type: string }

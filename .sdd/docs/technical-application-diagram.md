@@ -1,16 +1,16 @@
 # Rungis Technical Application Diagram
 
-Generated from codebase-memory and direct source inspection.
+Generated: 2026-06-21 03:29:57 CEST
 
-Codebase-memory evidence:
+## Codebase-memory evidence
 
 - Project id: `Volumes-WDBlack4TB-Code-rungis`
 - Root path: `/Volumes/WDBlack4TB/Code/rungis`
 - Index status: `ready`
-- Graph size: 2617 nodes and 10018 edges
-- Schema highlights: 1186 Function nodes, 352 Method nodes, 46 File nodes, 46 Module nodes, 3 Channel nodes
-- Route trace evidence: `registerRoutes` calls `createRouteContext`, `registerPageRoutes`, `registerAuthRoutes`, `registerManagementRoutes`, `registerBillRoutes`, `registerRefundRoutes`, and `registerWebsocketRoutes`
-- Source evidence: `backend/src/server.js`, `backend/src/routes/index.js`, `backend/src/routes/modules/*.js`, `frontend/src/app/app.ts`, `frontend/src/app/app.routes.ts`, `frontend/src/app/pages/*.component.ts`, `.sdd/docs/evidence.md`, `.sdd/docs/runtime-api-inventory.md`
+- Graph size: 2962 nodes and 4520 edges
+- Schema highlights: 305 Function nodes, 197 Method nodes, 216 File nodes, 216 Module nodes, 72 Route nodes, 4 Channel nodes
+- Route trace evidence: `registerRoutes` calls `createRouteContext`, `registerPageRoutes`, `registerAuthRoutes`, `registerManagementRoutes`, `registerBillRoutes`, `registerRungisBillRoutes`, `registerRefundRoutes`, and `registerWebsocketRoutes`
+- Source evidence: `backend/src/server.js`, `backend/src/routes/index.js`, `backend/src/routes/modules/*.js`, `frontend/src/app/app.ts`, `frontend/src/app/app.routes.ts`, `frontend/src/app/pages/*.component.ts`, `frontend/angular.json`
 
 ## 1. Runtime container view
 
@@ -24,10 +24,10 @@ flowchart LR
 
     subgraph Browser[Browser]
         Shell[EJS page shell]
-        Angular[Angular 21 standalone app]
+        Angular[Angular 22 standalone app]
         LazyRoutes[Lazy routed page components]
         AppState[Root App state and signals]
-        Theme[Client theme plus server style profile]
+        Theme[Theme mode and style profile]
     end
 
     subgraph Backend[Fastify 5 backend]
@@ -38,6 +38,7 @@ flowchart LR
         RouteContext[Route context and domain helpers]
         Security[Security headers, sessions, JWT, rate guards]
         Static[Static uploads and Angular assets]
+        Documents[PDF and Factur-X services]
     end
 
     subgraph Stores[Runtime stores]
@@ -50,7 +51,6 @@ flowchart LR
     Admin --> Browser
     Vendor --> Browser
     Client --> Browser
-
     Browser -->|GET page route| Pages
     Pages -->|buildPagePayload| RouteContext
     Pages -->|render appConfig| Shell
@@ -58,23 +58,21 @@ flowchart LR
     Angular --> LazyRoutes
     LazyRoutes -->|inject App and activateRoutedPage| AppState
     Angular -->|fetch| Rest
-    Angular -->|short-lived JWT token| WS
-
+    Angular -->|short-lived websocket credential| WS
     Server --> Pages
     Server --> Rest
     Server --> WS
     Server --> Security
     Server --> Static
-
     Rest --> RouteContext
     WS --> RouteContext
+    Rest --> Documents
+    Documents --> RouteContext
     RouteContext --> Mongo
     RouteContext --> Redis
     RouteContext --> SQLite
     Static --> Files
     Rest --> Files
-
-    RouteContext -->|PDF export| Rest
     RouteContext -->|broadcast updates| WS
 ```
 
@@ -102,19 +100,20 @@ flowchart TB
         AuthRoutes[modules/auth.js]
         MgmtRoutes[modules/management.js]
         BillRoutes[modules/bills.js]
+        RungisBillRoutes[modules/rungis-bills.js]
         RefundRoutes[modules/refunds.js]
         WsRoutes[modules/websocket.js]
     end
 
-    subgraph Domain[Shared domain helpers]
-        Guards[requireAuth / requireAdmin / requireVendor / requireClient]
-        Billing[generateBillsForDay]
-        Bills[Bill details, settlement, comments, penalties]
-        Carts[Redis cart helpers]
-        Catalog[Merchandise mapping and broadcasts]
-        WebAuthn[Passkey option and verification helpers]
-        Settings[Overdue days and style profile settings]
-        Pdf[PDFKit bill export]
+    subgraph Services[Service modules]
+        FacturXData[factur-x/invoice-data.js]
+        FacturXGenerator[factur-x/generator.js]
+        FacturXValidation[factur-x/validation.js]
+        RungisGen[rungis-bills/generation.js]
+        RungisSettings[rungis-bills/settings.js]
+        RungisInvoice[rungis-bills/invoice-data.js]
+        RungisPdf[rungis-bills/pdf.js]
+        Vat[utils/vat.js]
     end
 
     subgraph Models[Mongoose models]
@@ -123,7 +122,8 @@ flowchart TB
         ValidatedOrder[ValidatedOrder]
         Bill[Bill]
         Refund[Refund]
-        Cart[Cart model exists; active carts use Redis]
+        RungisBill[RungisBill]
+        Cart[Cart legacy model]
     end
 
     Server --> Plugins
@@ -133,40 +133,24 @@ flowchart TB
     Register --> AuthRoutes
     Register --> MgmtRoutes
     Register --> BillRoutes
+    Register --> RungisBillRoutes
     Register --> RefundRoutes
     Register --> WsRoutes
-
-    PageRoutes --> Guards
-    AuthRoutes --> Guards
-    MgmtRoutes --> Guards
-    BillRoutes --> Guards
-    RefundRoutes --> Guards
-    WsRoutes --> Guards
-
-    Context --> Billing
-    Context --> Bills
-    Context --> Carts
-    Context --> Catalog
-    Context --> WebAuthn
-    Context --> Settings
-    Context --> Pdf
-
-    Billing --> ValidatedOrder
-    Billing --> Refund
-    Billing --> Bill
-    Bills --> Bill
-    Carts --> Redis[(Redis)]
-    Catalog --> Merchandise
-    WebAuthn --> User
-    Settings --> SQLite[(SQLite)]
-    AuthRoutes --> User
-    MgmtRoutes --> User
-    MgmtRoutes --> Merchandise
+    Context --> Models
+    Context --> Vat
+    BillRoutes --> FacturXData
+    BillRoutes --> FacturXGenerator
+    BillRoutes --> FacturXValidation
+    RungisBillRoutes --> RungisInvoice
+    RungisBillRoutes --> RungisPdf
+    RungisBillRoutes --> FacturXGenerator
+    MgmtRoutes --> RungisGen
+    MgmtRoutes --> RungisSettings
+    WsRoutes --> Models
     RefundRoutes --> Refund
-    BillRoutes --> Pdf
 ```
 
-## 3. Frontend component and state-preserving lazy route view
+## 3. Frontend lazy-route and state view
 
 ```mermaid
 flowchart TB
@@ -190,11 +174,11 @@ flowchart TB
     subgraph RootState[Root App-owned state]
         Session[sessionUser, role, language]
         DashboardState[dashboard filters, bill selections, vendorBillsTab]
-        AdminState[pending users, associations, settings]
+        AdminState[pending users, associations, settings, Rungis bill admin]
         OrderState[catalog, filters, cart, delivery date]
-        StockState[merchandise, stock forms]
-        BillingState[selectedVendorBillClientId, bill details, refunds, reminders]
-        WsState[websocket connection and request map]
+        StockState[merchandise, stock forms, uploads]
+        BillingState[bill details, refunds, reminders, settlement]
+        WsState[websocket connection, token refresh, request map]
     end
 
     subgraph IO[Browser I/O]
@@ -217,14 +201,12 @@ flowchart TB
     Routes --> Stocks
     Routes --> Order
     Routes --> Legacy
-
-    Dashboard -->|inject App; activateRoutedPage('dashboard')| Root
-    Admin -->|inject App; activateRoutedPage('admin')| Root
-    Statistics -->|inject App; activateRoutedPage('statistics')| Root
-    Stocks -->|inject App; activateRoutedPage('stocks')| Root
-    Order -->|inject App; activateRoutedPage('order')| Root
+    Dashboard -->|inject App; activate dashboard| Root
+    Admin -->|inject App; activate admin| Root
+    Statistics -->|inject App; activate statistics| Root
+    Stocks -->|inject App; activate stocks| Root
+    Order -->|inject App; activate order| Root
     Legacy -->|activate legacy page from config| Root
-
     Root --> RootState
     RootState --> Fetch
     RootState --> Socket
@@ -258,96 +240,78 @@ flowchart LR
         Bills[Bill documents]
         Settlement[Vendor/client settlement flags]
         Comments[Client bill comments and vendor messages]
-        Penalties[Late-payment penalty line]
-        Pdf[Vendor/client PDF export]
+        Documents[PDF and Factur-X downloads]
     end
 
-    subgraph AdminOps[Admin and operations]
-        Associations[Vendor/client assignments]
-        OverdueSetting[Overdue-day setting]
-        StyleSetting[Active style profile]
-        Statistics[Activated-order statistics]
+    subgraph RungisFee[Rungis platform fees]
+        FeeSettings[Fee and VAT settings]
+        MonthGeneration[Monthly platform bill generation]
+        RungisInvoices[RungisBill documents]
+        PaidState[Admin paid marking]
     end
 
     Subscribe --> Approval
     Approval --> Session
-    Session --> Catalog
-    Passkeys --> Session
-
-    Associations --> Catalog
+    Session --> Passkeys
+    Approval --> Catalog
     VendorStocks --> Catalog
     Catalog --> Cart
     Cart --> Validate
     Validate --> ValidatedOrders
     Validate --> StockBroadcast
-    VendorStocks --> StockBroadcast
-
     ValidatedOrders --> DailyJob
     Refunds --> DailyJob
     DailyJob --> Bills
     Bills --> Settlement
     Bills --> Comments
-    Bills --> Penalties
-    Bills --> Pdf
-    OverdueSetting --> Penalties
-    StyleSetting --> Session
-    ValidatedOrders --> Statistics
+    Bills --> Documents
+    ValidatedOrders --> MonthGeneration
+    FeeSettings --> MonthGeneration
+    MonthGeneration --> RungisInvoices
+    RungisInvoices --> PaidState
+    RungisInvoices --> Documents
 ```
 
 ## 5. Page-to-backend interaction map
 
 ```mermaid
 flowchart TB
-    subgraph Pages[Browser pages]
-        Login[/login and /subscribe]
-        Dashboard[/dashboard]
-        Admin[/admin]
-        Statistics[/statistics]
-        Stocks[/stocks]
-        VendorReports[/vendor-statistics, /vendor-monthly-summary, /vendor-overdue-bills, /vendor-refunds]
-        FindVendors[/find-vendors]
-        Order[/order]
-        Account[/account]
+    subgraph Pages[Angular pages]
+        Dashboard[dashboard]
+        Admin[admin]
+        Stats[statistics / vendor statistics]
+        Stocks[stocks]
+        Order[order]
+        Account[account]
     end
 
     subgraph REST[REST modules]
         Auth[auth.js]
         Management[management.js]
         Bills[bills.js]
+        RungisDocs[rungis-bills.js]
         Refunds[refunds.js]
     end
 
-    subgraph Realtime[websocket.js actions]
-        WsAuth[auth:username-available]
-        WsDashboard[dashboard:*]
-        WsStocks[stocks:*]
-        WsOrder[order:*]
-        Broadcasts[order/catalog/stock/reminder/message broadcasts]
+    subgraph WS[WebSocket actions]
+        DashboardActions[dashboard:*]
+        StockActions[stocks:*]
+        OrderActions[order:*]
+        AuthActions[auth:*]
     end
 
-    Login --> Auth
-    Login --> WsAuth
-    Account --> Auth
-    Admin --> Management
-    Statistics --> Management
-    VendorReports --> Management
-    VendorReports --> Refunds
-    Dashboard --> WsDashboard
+    Dashboard --> DashboardActions
     Dashboard --> Bills
-    Stocks --> WsStocks
+    Dashboard --> RungisDocs
+    Dashboard --> Management
+    Admin --> Management
+    Stats --> Management
+    Stocks --> StockActions
     Stocks --> Auth
-    Order --> WsOrder
-    FindVendors --> Management
-    Bills -->|PDF responses| Dashboard
-    WsOrder --> Broadcasts
-    WsStocks --> Broadcasts
-    Management --> Broadcasts
+    Order --> OrderActions
+    Account --> Auth
+    Refunds --> Management
+    DashboardActions --> Bills
+    StockActions --> Management
+    OrderActions --> Management
 ```
-
-## 6. Architectural notes for future changes
-
-- Keep server page guards authoritative. Frontend role checks improve UX, but `pages.js` and API route guards are the security boundary.
-- Keep lazy page wrappers thin. They should inject `App`, call `activateRoutedPage`, and delegate state/behavior to the root App until a dedicated state service is introduced.
-- Preserve App-owned page state when adding routes that should not reset user context, especially fields such as selected bill/client filters, active tabs, cart state, and dashboard ranges.
-- Treat `/ws` action names and REST endpoints as application contracts even though they are currently implementation-derived rather than formal OpenAPI/SDD contracts.
-- If backend domain logic grows further, `routes/index.js` is the main decomposition candidate: billing, carts, bill details, WebAuthn, and settings can become explicit services with narrow interfaces.

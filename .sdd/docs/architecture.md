@@ -1,238 +1,233 @@
 # Architecture
 
-## System Overview
+Generated: 2026-06-21 03:29:57 CEST
 
-Rungis Portal is a multi-role B2B ordering and billing application for vendors, clients, and administrators. It supports vendor and client onboarding, admin approval, vendor-client assignment, stock management, client ordering, daily bill generation, bill settlement, bill comments, refunds, overdue bill handling, payment reminders, statistics, PDF export, passkeys, bilingual UI text, and global style profile switching.
+## Evidence and scope
 
-The application is a Node.js npm workspace with two workspaces: `backend` and `frontend`. The backend is a Fastify 5 application that renders EJS page shells, hosts static assets, serves the Angular build output, exposes REST endpoints, exposes an authenticated WebSocket endpoint, connects to MongoDB through Mongoose, stores sessions and transient realtime state in Redis, and stores local app settings in SQLite. The frontend is a standalone Angular 21 application mounted into the server-rendered shell and driven by Angular signals, fetch calls, and WebSocket API actions.
+This document is grounded in the current Rungis source tree and the `codebase-memory` graph.
 
-The runtime model is a hybrid server-rendered shell plus client-side application. Fastify decides the page, language, active style profile, current session user, and WebSocket token, then injects those values as `window.__APP_CONFIG__`. Angular renders the actual interactive page content according to the injected page name and user role.
+| Evidence | Value |
+|----------|-------|
+| Project id | `Volumes-WDBlack4TB-Code-rungis` |
+| Root path | `/Volumes/WDBlack4TB/Code/rungis` |
+| Index status | `ready` |
+| Graph size | 2962 nodes, 4520 edges |
+| Graph labels | Section, Variable, Function, File, Module, Method, Route, Folder, Type, Class, Channel, Interface, Project |
+| Key trace | `registerRoutes` calls `createRouteContext`, page routes, auth, management, bills, Rungis bills, refunds, and websocket registration |
+| Direct sources checked | `package.json`, `backend/package.json`, `frontend/package.json`, `backend/src/server.js`, `backend/src/routes/index.js`, `backend/src/routes/modules/*.js`, `frontend/src/app/app.routes.ts`, `frontend/angular.json` |
 
-## Component Diagram
+## System overview
+
+Rungis is a multi-role B2B market portal for admins, vendors, and clients. It covers account onboarding, admin activation, vendor-client assignment, stock and catalog management, realtime client ordering, Redis-backed carts, order validation, daily bill generation, bill settlement, comments, refunds, reminders, Rungis platform fee bills, statistics, PDF export, Factur-X export, bilingual UI text, passkeys, and style profile selection.
+
+The application is a modular monolith with a hybrid rendering model. Fastify owns runtime boot, session security, page guards, REST routes, WebSocket routing, persistence connections, server-side page shells, and static asset serving. Angular 22 owns the interactive UI once Fastify injects the selected page, session user, translations, style profile, asset paths, and a short-lived websocket credential into `window.__APP_CONFIG__`.
+
+The architecture is intentionally centralized around a shared backend route context and a root Angular `App` component. Backend modules receive an explicit dependency object from `registerRoutes`, while the frontend keeps role/page state in signals inside `App` and uses thin lazy page wrappers to preserve state across routes.
+
+## Component diagram
 
 ```mermaid
-graph TD
-    Browser[Browser]
-    Fastify[Fastify backend]
-    Angular[Angular standalone app]
-    EJS[EJS page shells]
-    Rest[REST route modules]
-    WS[WebSocket API]
-    Mongo[(MongoDB)]
-    Redis[(Redis)]
-    SQLite[(SQLite app settings)]
-    Public[Static uploads and Angular assets]
+flowchart LR
+    subgraph Browser[Browser]
+        Shell[EJS page shell]
+        Angular[Angular 22 standalone app]
+        App[Root App signals and actions]
+        Pages[Thin lazy page wrappers]
+    end
 
-    Browser --> Fastify
-    Fastify --> EJS
-    EJS --> Angular
-    Angular --> Rest
-    Angular --> WS
-    Rest --> Mongo
-    WS --> Mongo
-    Rest --> Redis
-    WS --> Redis
-    Fastify --> SQLite
-    Rest --> SQLite
-    Fastify --> Public
-    Angular --> Public
+    subgraph Backend[Fastify backend]
+        Server[server.js bootstrap]
+        Register[registerRoutes]
+        Context[createRouteContext]
+        PageRoutes[Page routes and guards]
+        Rest[REST route modules]
+        Websocket[/ws websocket module]
+        FacturX[Factur-X services]
+        RungisBills[Rungis bill services]
+    end
+
+    subgraph Stores[Runtime stores]
+        Mongo[(MongoDB via Mongoose)]
+        Redis[(Redis sessions, carts, reminders)]
+        SQLite[(SQLite app settings)]
+        Files[(Uploads and Angular build assets)]
+    end
+
+    Browser -->|GET page route| PageRoutes
+    PageRoutes -->|render appConfig| Shell
+    Shell --> Angular
+    Angular --> Pages
+    Pages -->|inject App| App
+    App -->|fetch JSON / files| Rest
+    App -->|api action messages| Websocket
+    Server --> Register
+    Register --> Context
+    Register --> PageRoutes
+    Register --> Rest
+    Register --> Websocket
+    Rest --> Context
+    Websocket --> Context
+    Context --> Mongo
+    Context --> Redis
+    Context --> SQLite
+    Rest --> FacturX
+    Rest --> RungisBills
+    Server --> Files
 ```
 
-Key relationships:
+The critical composition boundary is `backend/src/routes/index.js`. `registerRoutes` creates a single route context, then registers page, auth, management, bill, Rungis bill, refund, and websocket modules. The route modules do not import each other; they consume shared helpers, models, services, guards, and store clients through the dependency object.
 
-- `backend/src/server.js` constructs the Fastify app, connects MongoDB and Redis, initializes SQLite-backed settings, registers plugins, registers routes, and starts listening.
-- `backend/src/routes/index.js` creates shared dependencies and route context for all route modules.
-- `backend/src/routes/modules/pages.js` registers the server-rendered page shell routes.
-- `backend/src/routes/modules/auth.js`, `management.js`, `bills.js`, and `refunds.js` register REST endpoints.
-- `backend/src/routes/modules/websocket.js` registers `/ws` and multiplexes realtime API actions by `action` string.
-- `frontend/src/app/app.ts` is the central Angular component and communicates with REST endpoints and the websocket API.
-- `frontend/angular.json` builds the Angular output into `backend/src/public/angular` so the backend can serve it.
-
-## Technology Stack
+## Technology stack
 
 | Category | Technology | Purpose | Evidence |
 |----------|------------|---------|----------|
-| Runtime | Node.js | Backend runtime and npm workspace tooling | `package.json`, `backend/package.json` |
-| Backend framework | Fastify 5 | HTTP server, plugins, routes, logging, websocket registration | `backend/package.json`, `backend/src/server.js` |
-| Frontend framework | Angular 21 | Standalone browser application with strict TypeScript | `frontend/package.json`, `frontend/angular.json`, `frontend/tsconfig.json` |
-| UI styling | Bootstrap 5 and custom CSS bundles | Layout and primary/secondary style profiles | `frontend/package.json`, `frontend/angular.json` |
-| Database | MongoDB with Mongoose | Persistent users, merchandise, orders, bills, refunds, cart model | `backend/package.json`, `backend/src/models/*.js` |
-| Cache/session store | Redis | Fastify session store, live cart JSON, login rate state, unpaid reminders | `backend/src/server.js`, `backend/src/routes/index.js` |
-| Local settings | SQLite through `node:sqlite` | App settings such as overdue days and active style profile | `backend/src/lib/app-settings-store.js` |
-| Templates | EJS | Server-rendered page shells | `backend/src/server.js`, `backend/src/views/*.ejs` |
-| Authentication | Fastify session, JWT, bcrypt, SimpleWebAuthn | Password login, session cookies, websocket token, passkeys | `backend/package.json`, `backend/src/routes/index.js`, `routes/modules/auth.js` |
-| Realtime | Fastify websocket plugin | Live catalog, cart, stock, dashboard, and admin updates | `backend/src/routes/modules/websocket.js` |
-| PDF | PDFKit | Vendor and client bill exports | `backend/package.json`, `routes/modules/bills.js` |
-| Tests | Vitest through Angular build tooling | Frontend component unit tests | `frontend/package.json`, `frontend/src/app/app.spec.ts` |
+| Runtime | Node.js | Root workspace scripts, backend runtime, test runner | `package.json`, `backend/package.json` |
+| Backend framework | Fastify 5 | HTTP server, plugin stack, routes, logger, WebSocket registration | `backend/src/server.js`, `backend/package.json` |
+| Frontend framework | Angular 22 | Standalone UI, strict TypeScript, signals, lazy page components | `frontend/package.json`, `frontend/src/app/*` |
+| UI styling | Bootstrap 5 and CSS bundles | Base components plus primary and secondary style profiles | `frontend/angular.json`, `frontend/src/styles*.css` |
+| Persistent database | MongoDB with Mongoose | Users, merchandise, validated orders, bills, Rungis bills, refunds | `backend/src/models/*.js` |
+| Transient store | Redis | Sessions, carts, login cooldowns, unpaid reminders | `backend/src/server.js`, `backend/src/routes/index.js` |
+| Local settings | SQLite through `node:sqlite` | Overdue days, app style profile, Rungis billing settings | `backend/src/lib/app-settings-store.js`, `backend/src/services/rungis-bills/settings.js` |
+| Server templates | EJS | Page shell rendering and Angular config injection | `backend/src/views/*.ejs`, page route module |
+| Authentication | Fastify session, JWT, bcrypt, SimpleWebAuthn | Password login, session cookies, WebSocket credential, passkeys | `backend/src/server.js`, `backend/src/routes/modules/auth.js` |
+| Realtime | `@fastify/websocket` | Live stock, catalog, cart, dashboard, bill, and admin events | `backend/src/routes/modules/websocket.js` |
+| Documents | PDFKit and Factur-X package | PDF bills and hybrid Factur-X documents | `backend/src/services/factur-x/*`, `backend/src/services/rungis-bills/*` |
+| Tests | Node test runner, Vitest, Playwright, k6 | Backend, frontend, functional, and performance checks | `backend/test`, `frontend/src/app/app.spec.ts`, `e2e`, `performance/k6` |
 
-## Design Decisions
-
-### Decision 1: Hybrid Fastify shell and Angular application
-
-- Decision: Fastify renders page shells and injects bootstrap config; Angular renders interactive UI for the selected page.
-- Rationale: The backend can enforce page-level access control, language selection, style selection, and session bootstrap before the frontend starts.
-- Alternatives considered: A pure SPA served by Angular dev server, or a fully server-rendered EJS application.
-- Consequences: The Angular app is centralized in one component and depends on `window.__APP_CONFIG__`; backend and frontend builds are coupled by the Angular output path.
-
-### Decision 2: REST plus WebSocket multiplexing
-
-- Decision: Use REST for account, admin, reporting, file upload, passkey, PDF, and refund operations, and use `/ws` for realtime actions and stateful dashboard/order/stock operations.
-- Rationale: WebSocket keeps ordering, stock, and dashboard updates live while REST keeps conventional request/response operations simple.
-- Alternatives considered: REST-only polling, or one endpoint per realtime operation.
-- Consequences: WebSocket action names are part of the application contract even though no formal SDD contract file exists.
-
-### Decision 3: MongoDB for business entities, Redis for transient operational state, SQLite for local app settings
-
-- Decision: Use MongoDB/Mongoose for long-lived domain records; Redis for sessions, live carts, ephemeral rate/reminder state; SQLite for local key/value app settings.
-- Rationale: Each store matches a different consistency and lifecycle need.
-- Alternatives considered: Store all data in MongoDB, or store settings in environment variables only.
-- Consequences: Deployment requires MongoDB and Redis, and the local SQLite file must persist across backend restarts when settings matter.
-
-### Decision 4: Role-specific guards at both page and API layers
-
-- Decision: Use server-side guards for admin, vendor, client, and authenticated pages/APIs.
-- Rationale: Role restrictions must not rely on the client UI alone.
-- Alternatives considered: Frontend-only checks, or a generic policy framework.
-- Consequences: New routes must choose the correct guard and must return 401/403 for API access failures.
-
-### Decision 5: Daily bill generation as an in-process scheduler
-
-- Decision: Schedule daily bill generation inside `createRouteContext` and provide an admin endpoint to run it for a chosen day.
-- Rationale: The billing job is close to the domain code and can be triggered manually by admins.
-- Alternatives considered: External cron, worker process, or database trigger.
-- Consequences: Only one active backend process should run the scheduler unless duplicate upserts are acceptable; operations should monitor logs for billing failures.
-
-## Directory Structure
+## Directory structure
 
 ```text
 rungis/
-  README.md                         # Application overview and quick start
-  package.json                      # npm workspace and root scripts
-  package-lock.json                 # Locked dependency tree
+  package.json                    # npm workspaces and root scripts
   backend/
-    package.json                    # Fastify backend dependencies and scripts
-    .env.example                    # Example backend environment variables
-    scripts/                        # Seed and migration scripts
-    data/                           # Local SQLite settings database location
+    package.json                  # Fastify backend dependencies and scripts
+    fixtures/factur-x/            # Representative invoice fixtures
+    scripts/                      # seed, migration, Atlas copy, operations
     src/
-      server.js                     # Fastify bootstrap and plugin registration
-      lib/                          # Runtime config, security, translations, assets, app settings
-      models/                       # Mongoose schemas and models
-      routes/
-        index.js                    # Shared domain helpers, billing, context, route registration
-        modules/                    # Auth, management, bills, refunds, pages, websocket routes
-      views/                        # EJS shells and partials
-      i18n/                         # English and French translation JSON
-      public/                       # Static assets, uploads, Angular build output
+      server.js                   # Fastify boot, plugins, connections, listen
+      lib/                        # runtime config, security, translations, Angular assets, SQLite settings
+      models/                     # Mongoose models for domain entities
+      routes/index.js             # shared helpers, route context, registration boundary
+      routes/modules/             # page, auth, management, bills, Rungis bills, refunds, websocket
+      services/factur-x/          # invoice normalization, PDF/XML generation, validation
+      services/rungis-bills/      # platform fee bill settings, generation, view data, PDF rendering
+      utils/vat.js                # money and VAT helpers
+      views/                      # EJS page shells and partials
+      i18n/translations.json      # English and French UI copy
+      public/                     # uploaded assets and generated Angular output
+    test/                         # backend node:test suites
   frontend/
-    package.json                    # Angular dependencies and scripts
-    angular.json                    # Build, serve, styles, and output path
-    tsconfig*.json                  # Strict TypeScript and Angular config
-    src/
-      main.ts                       # Angular bootstrap
-      index.html                    # Browser document
-      styles*.css                   # Primary, secondary, and shared styles
-      app/
-        app.ts                      # Central standalone Angular component
-        app.html                    # Template for all pages
-        app.css                     # Component styles
-        app.types.ts                # Frontend data types
-        app.constants.ts            # Supported pages, languages, roles, defaults
-        app.utils.ts                # Shared frontend utilities
-        webauthn-client.ts          # Lazy SimpleWebAuthn browser helpers
-        app.spec.ts                 # Vitest/Angular unit tests
-  .sdd/docs/                        # Generated documentation from this workflow
+    angular.json                  # Angular build, test, output path to backend public folder
+    src/app/
+      app.ts                      # central root component and application state
+      app.routes.ts               # lazy route map
+      app.types.ts                # frontend view and payload types
+      app.view-models.ts          # chart and aggregate builders
+      pages/                      # thin page wrappers that delegate to App
+      app.spec.ts                 # frontend unit tests
+  specs/                          # Spec Kit feature specifications and contracts
+  .sdd/docs/                      # generated architecture, API, guide, and evidence docs
+  e2e/                            # Playwright functional tests
+  performance/k6/                 # smoke, websocket, and load tests
 ```
 
-## Data Flow
+## Design decisions
 
-### Page bootstrap flow
+### Decision 1: Modular monolith over microservices
+
+- Decision: Keep HTTP, WebSocket, documents, billing, and admin workflows in one Fastify process.
+- Rationale: The domain is tightly coupled around users, vendor-client assignments, carts, orders, bills, and settlement state.
+- Consequences: Shared helpers are easy to reuse, but route context size is large and process-level schedulers require care if the backend is scaled horizontally.
+
+### Decision 2: Fastify page shell plus Angular 22 app
+
+- Decision: Fastify renders guarded page shells and Angular renders all interactive content.
+- Rationale: Server-side guards, translations, style profile, session user, and websocket credential can be established before the SPA starts.
+- Consequences: Frontend build output is coupled to `backend/src/public/angular`, and every page must stay compatible with injected `window.__APP_CONFIG__`.
+
+### Decision 3: REST plus action-multiplexed WebSocket
+
+- Decision: Use REST for page-independent request/response operations and `/ws` action messages for live ordering, stock, dashboard, and bill workflows.
+- Rationale: Realtime workflows need broadcast and page registration semantics, while file downloads, admin settings, passkeys, and upload endpoints fit REST better.
+- Consequences: WebSocket action names are application contracts and must be tested when changed.
+
+### Decision 4: Three store classes by lifecycle
+
+- Decision: Use MongoDB for durable business records, Redis for sessions and transient realtime state, and SQLite for local app settings.
+- Rationale: Each store maps to a different data lifetime and operational concern.
+- Consequences: Deployment needs MongoDB and Redis reachability, and SQLite paths must persist across restarts where settings matter.
+
+### Decision 5: Fail-closed billing documents
+
+- Decision: PDF and Factur-X exports normalize and validate party identity, totals, VAT, line items, and bill identifiers before returning documents.
+- Rationale: Billing artifacts are accounting evidence and must not silently produce misleading files.
+- Consequences: Existing data quality issues surface as explicit export errors instead of partially correct documents.
+
+## Data flow summary
+
+### Page bootstrap
 
 ```mermaid
 sequenceDiagram
-    participant B as Browser
-    participant F as Fastify page route
-    participant E as EJS shell
-    participant A as Angular app
-    participant S as Session store
-    participant Q as SQLite settings
+    participant Browser
+    participant PageRoute as Fastify page route
+    participant Settings as SQLite settings
+    participant Session as Redis session
+    participant EJS as EJS shell
+    participant Angular as Angular App
 
-    B->>F: GET page route
-    F->>S: Read session user
-    F->>Q: Read active app style profile
-    F->>F: Build page payload and websocket token
-    F->>E: Render page shell
-    E->>A: Inject window.__APP_CONFIG__
-    A->>B: Render selected page UI
+    Browser->>PageRoute: GET role page
+    PageRoute->>Session: read session user
+    PageRoute->>Settings: read style/profile settings
+    PageRoute->>PageRoute: build page payload and websocket credential
+    PageRoute->>EJS: render page shell
+    EJS->>Angular: window.__APP_CONFIG__
+    Angular-->>Browser: interactive page
 ```
 
-### Login and session flow
+### Realtime API
 
 ```mermaid
 sequenceDiagram
-    participant A as Angular app
-    participant R as Auth REST route
-    participant M as MongoDB users
-    participant S as Redis session store
-
-    A->>R: POST /api/login
-    R->>M: Load user and password hash
-    R->>R: Validate password and active status
-    R->>S: Persist session cookie state
-    R-->>A: Session user and redirect target
-```
-
-### Client ordering flow
-
-```mermaid
-sequenceDiagram
-    participant C as Client browser
-    participant WS as WebSocket API
-    participant R as Redis cart store
-    participant M as MongoDB
-    participant V as Vendor stock browser
-
-    C->>WS: order:catalog
-    WS->>M: Load merchandise from assigned vendors
-    WS-->>C: Catalog and favorites
-    C->>WS: order:cart:add or update
-    WS->>R: Save cart by client and delivery date
-    WS-->>C: Updated cart
-    C->>WS: order:cart:validate
-    WS->>M: Persist validated order and decrement stock
-    WS-->>V: stocks:snapshot or catalog update events
-    WS-->>C: Validation result
-```
-
-### Daily billing flow
-
-```mermaid
-sequenceDiagram
-    participant T as Daily scheduler or admin endpoint
-    participant O as ValidatedOrder collection
-    participant F as Refund collection
-    participant B as Bill collection
-
-    T->>O: Aggregate validated orders by day/vendor/client
-    T->>F: Load unapplied or day-applied refunds
-    T->>B: Upsert bill per day/vendor/client
-    T->>F: Mark newly applied refunds
-    T-->>T: Return generated day, upsert count, refund count
-```
-
-### Realtime notification flow
-
-```mermaid
-sequenceDiagram
-    participant A as Angular app
+    participant App as Angular App
     participant WS as /ws route
-    participant J as JWT verifier
-    participant C as Connection maps
+    participant JWT as Fastify JWT verifier
+    participant Context as route context
+    participant Mongo
+    participant Redis
 
-    A->>WS: Connect with query parameter named token
-    WS->>J: Verify short-lived websocket JWT
-    WS->>C: Register socket by page and role
-    WS-->>A: welcome event
-    A->>WS: api action payloads
-    WS-->>A: api:result or broadcast events
+    App->>WS: open websocket with query parameter named token
+    WS->>JWT: verify short-lived websocket credential
+    WS->>Context: register socket by page and role
+    App->>WS: api action with request id
+    WS->>Context: validate role, ids, dates, and payload keys
+    Context->>Mongo: read or write durable domain records
+    Context->>Redis: read or write carts/reminders when needed
+    WS-->>App: api:result or broadcast event
 ```
+
+### Billing and document generation
+
+```mermaid
+flowchart TD
+    Orders[ValidatedOrder rows] --> Daily[generateBillsForDay]
+    Refunds[Refund rows] --> Daily
+    Daily --> Bills[Bill documents]
+    Bills --> Detail[Vendor/client bill detail]
+    Bills --> Pdf[sendBillPdf PDFKit renderer]
+    Bills --> Normalize[normalizeBillToFacturXData]
+    Normalize --> Generate[generateFacturXBill]
+    Generate --> Export[Factur-X PDF response]
+    Orders --> RungisGen[generateRungisBillsForMonth]
+    RungisGen --> RungisBill[RungisBill documents]
+    RungisBill --> RungisPdf[sendRungisBillPdf]
+    RungisBill --> RungisFx[buildRungisFacturXInput]
+```
+
+## Architecture governance
+
+- Treat route names, REST paths, WebSocket actions, model fields, and generated document totals as contracts.
+- Add or update tests at the lowest useful boundary before changing billing, WebSocket, auth, or money logic.
+- Keep role checks server-side; frontend role checks are only usability hints.
+- Re-index `codebase-memory` after structural changes so architecture docs remain grounded.
+- Keep generated Angular build artifacts under `backend/src/public/angular`, but do not confuse generated files with source architecture.

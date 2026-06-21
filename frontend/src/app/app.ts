@@ -132,6 +132,7 @@ export class App implements OnInit, OnDestroy {
   private socket: WebSocket | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private wsTokenRefreshPromise: Promise<boolean> | null = null;
   private reconnectAttempts = 0;
   private lastPongAt = 0;
   private stockSnapshotVersion = 0;
@@ -554,7 +555,7 @@ export class App implements OnInit, OnDestroy {
         this.setAccountToast('warning', this.t('account.accessKeyNotSupported'));
       }
     });
-    this.connectSocket();
+    void this.connectSocket();
 
     if (this.page() === 'vendor-statistics') {
       void this.loadVendorCategorySalesStats();
@@ -3593,7 +3594,23 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  private connectSocket(): void {
+  private async connectSocket(options: { refreshToken?: boolean } = {}): Promise<void> {
+    if (this.isDestroying) {
+      return;
+    }
+
+    if (options.refreshToken) {
+      this.wsStatus.set('connecting');
+      const refreshed = await this.refreshWebSocketToken();
+      if (!refreshed) {
+        this.wsStatus.set('closed');
+        if (this.sessionUser()) {
+          this.pushTransientWebSocketAlert(this.t('alerts.ws.connectionError'));
+        }
+        return;
+      }
+    }
+
     if (this.isDestroying) {
       return;
     }
@@ -3892,10 +3909,10 @@ export class App implements OnInit, OnDestroy {
       this.wsPendingRequests.clear();
 
       if (!this.isDestroying) {
-        if (hasOpened) {
+        const reconnectScheduled = this.scheduleSocketReconnect();
+        if (hasOpened && !reconnectScheduled) {
           this.pushTransientWebSocketAlert(this.t('alerts.ws.disconnected'));
         }
-        this.scheduleSocketReconnect();
       }
     });
 
@@ -3942,9 +3959,9 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  private scheduleSocketReconnect(): void {
+  private scheduleSocketReconnect(): boolean {
     if (this.isDestroying || this.reconnectTimer || !this.config.wsToken) {
-      return;
+      return false;
     }
 
     this.reconnectAttempts += 1;
@@ -3952,8 +3969,39 @@ export class App implements OnInit, OnDestroy {
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      this.connectSocket();
+      void this.connectSocket({ refreshToken: true });
     }, delayMs);
+
+    return true;
+  }
+
+  private refreshWebSocketToken(): Promise<boolean> {
+    if (!this.sessionUser()) {
+      return Promise.resolve(false);
+    }
+
+    if (!this.wsTokenRefreshPromise) {
+      const page = encodeURIComponent(this.page());
+      this.wsTokenRefreshPromise = fetch(`/api/ws-token?page=${page}`, {
+        headers: { Accept: 'application/json' }
+      })
+        .then(async (response) => {
+          const payload = (await response.json().catch(() => null)) as { wsToken?: unknown } | null;
+          const wsToken = typeof payload?.wsToken === 'string' ? payload.wsToken.trim() : '';
+          if (!response.ok || !wsToken) {
+            return false;
+          }
+
+          this.config.wsToken = wsToken;
+          return true;
+        })
+        .catch(() => false)
+        .finally(() => {
+          this.wsTokenRefreshPromise = null;
+        });
+    }
+
+    return this.wsTokenRefreshPromise;
   }
 
   private normalizeProcessedRungisBillMonths(value: unknown): string[] {

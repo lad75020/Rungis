@@ -18,7 +18,9 @@ describe('App', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('should create the app', () => {
@@ -87,6 +89,50 @@ describe('App', () => {
     app.activateRoutedPage('stocks');
 
     expect(send).toHaveBeenCalledWith(JSON.stringify({ type: 'ping', page: 'stocks' }));
+    fixture.destroy();
+  });
+
+  it('refreshes the websocket token before reconnecting', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance as any;
+    const createdUrls: string[] = [];
+
+    class MockWebSocket {
+      static readonly CONNECTING = 0;
+      static readonly OPEN = 1;
+      static readonly CLOSING = 2;
+      static readonly CLOSED = 3;
+
+      public readyState = MockWebSocket.CONNECTING;
+      public send = vi.fn();
+      public close = vi.fn();
+      public addEventListener = vi.fn();
+
+      constructor(url: string) {
+        createdUrls.push(url);
+      }
+    }
+
+    vi.stubGlobal('WebSocket', MockWebSocket);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, wsToken: 'fresh-token' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      })
+    );
+
+    app.config.wsToken = 'expired-token';
+    app.page.set('order');
+    app.sessionUser.set({ id: 'client-1', username: 'client', role: 'client' });
+
+    await app.connectSocket({ refreshToken: true });
+
+    expect(fetchSpy).toHaveBeenCalledWith('/api/ws-token?page=order', {
+      headers: { Accept: 'application/json' }
+    });
+    expect(app.config.wsToken).toBe('fresh-token');
+    expect(createdUrls).toHaveLength(1);
+    expect(createdUrls[0]).toContain('/ws?token=fresh-token');
     fixture.destroy();
   });
 

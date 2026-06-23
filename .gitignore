@@ -23,3 +23,5 @@ backend/scripts/populate-users-from-insee.js
 backend/scripts/migrate-users-profile-fields.js
 specs/StockEtablissement_utf8.csv
 backend/.env
+/playwright-report
+/test-results

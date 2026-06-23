@@ -8,7 +8,8 @@
     "test": "node --test test/**/*.test.js",
     "users:populate-insee": "node scripts/populate-users-from-insee.js",
     "db:copy-atlas": "node scripts/copy-rungis-to-atlas.js",
-    "vat:randomize-merchandise": "node scripts/randomize-merchandise-vat.js"
+    "vat:randomize-merchandise": "node scripts/randomize-merchandise-vat.js",
+    "seed:validated-orders2": "node scripts/seed-validated-orders2.js"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

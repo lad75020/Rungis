@@ -1,7 +1,10 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 import { App } from './app';
 import { DashboardPageComponent } from './pages/dashboard-page.component';
+import { ClientBillsPageComponent } from './pages/client-bills-page.component';
+import { VendorBillsPageComponent } from './pages/vendor-bills-page.component';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -12,8 +15,8 @@ describe('App', () => {
       Object.defineProperty(URL, 'revokeObjectURL', { value: () => undefined, configurable: true });
     }
     await TestBed.configureTestingModule({
-      imports: [App, DashboardPageComponent],
-      providers: [App],
+      imports: [App, DashboardPageComponent, ClientBillsPageComponent, VendorBillsPageComponent],
+      providers: [App, provideRouter([])],
     }).compileComponents();
   });
 
@@ -619,4 +622,129 @@ describe('App', () => {
     expect(clickSpy).toHaveBeenCalled();
     fixture.destroy();
   });
+
+  it('keeps dashboards focused while exposing dedicated bill page links', () => {
+    const fixture = TestBed.createComponent(DashboardPageComponent);
+    const app = TestBed.inject(App) as any;
+    vi.spyOn(app, 'loadCurrentRungisBills').mockResolvedValue(undefined);
+    vi.spyOn(app, 'loadVendorBillMessages').mockResolvedValue(undefined);
+    vi.spyOn(app, 'loadClientUnpaidReminders').mockResolvedValue(undefined);
+
+    app.sessionUser.set({
+      id: 'vendor-1',
+      username: 'vendor',
+      role: 'vendor',
+      firstName: 'Vendor',
+      lastName: 'User',
+      organisation: 'Vendor Org',
+      city: 'Paris',
+      zipcode: '75001',
+      email: 'vendor@example.com',
+      physicalAddress: '1 street',
+      phoneNumber: '0000000000',
+      logoFilename: '',
+      logoUrl: '',
+      businessRegistrationId: 35600000000048,
+      isActive: true
+    });
+
+    fixture.detectChanges();
+    const vendorHtml = fixture.nativeElement.innerHTML;
+    expect(vendorHtml).toContain('/vendor-bills');
+    expect(vendorHtml).not.toContain('vendor-order-select');
+    expect(vendorHtml).toContain('dashboard.clientMessagesTitle');
+
+    app.sessionUser.set({
+      id: 'client-1',
+      username: 'client',
+      role: 'client',
+      firstName: 'Client',
+      lastName: 'User',
+      organisation: 'Client Org',
+      city: 'Paris',
+      zipcode: '75001',
+      email: 'client@example.com',
+      physicalAddress: '1 street',
+      phoneNumber: '0000000000',
+      logoFilename: '',
+      logoUrl: '',
+      businessRegistrationId: 35600000000048,
+      isActive: true
+    });
+
+    fixture.detectChanges();
+    const clientHtml = fixture.nativeElement.innerHTML;
+    expect(clientHtml).toContain('/client-bills');
+    expect(clientHtml).not.toContain('client-cart-select');
+    expect(clientHtml).toContain('clientUnpaidReminders.title');
+    fixture.destroy();
+  });
+
+  it('renders client bill page rows, filters, status icons, and received checkbox', () => {
+    const fixture = TestBed.createComponent(ClientBillsPageComponent);
+    const app = TestBed.inject(App) as any;
+
+    app.sessionUser.set({ id: 'client-1', username: 'client', role: 'client' });
+    app.clientBillPageRows.set([
+      {
+        key: 'vendor-1::2026-06-01',
+        vendorId: 'vendor-1',
+        vendorOrganisationName: 'Vendor Org',
+        billDate: '2026-06-01',
+        amountIncludingVat: 123.45,
+        currency: 'EUR',
+        paymentStatus: 'late',
+        isPaid: false,
+        isLate: true,
+        received: false
+      }
+    ]);
+    app.clientBillPageVendors.set([{ id: 'vendor-1', name: 'Vendor Org' }]);
+    const openSpy = vi.spyOn(app, 'openClientCartDetails').mockResolvedValue(undefined);
+
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    expect(element.textContent).toContain('Vendor Org');
+    expect(element.textContent).toContain('⚠');
+    expect(element.querySelector('.bill-page-list-panel')).toBeTruthy();
+    expect(element.querySelector('input[type="checkbox"]')).toBeTruthy();
+
+    (element.querySelector('.bill-page-row') as HTMLElement).click();
+    expect(openSpy).toHaveBeenCalledWith('vendor-1::2026-06-01');
+    fixture.destroy();
+  });
+
+  it('renders vendor bill page rows, filters, reception icons, and paid checkbox', () => {
+    const fixture = TestBed.createComponent(VendorBillsPageComponent);
+    const app = TestBed.inject(App) as any;
+
+    app.sessionUser.set({ id: 'vendor-1', username: 'vendor', role: 'vendor' });
+    app.vendorBillPageRows.set([
+      {
+        key: 'client-1::2026-06-01',
+        clientId: 'client-1',
+        clientOrganisationName: 'Client Org',
+        billDate: '2026-06-01',
+        amountIncludingVat: 456.78,
+        currency: 'EUR',
+        receptionStatus: 'received',
+        received: true,
+        paid: false
+      }
+    ]);
+    app.vendorBillPageClients.set([{ id: 'client-1', name: 'Client Org' }]);
+    const openSpy = vi.spyOn(app, 'openVendorOrderDetails').mockResolvedValue(undefined);
+
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    expect(element.textContent).toContain('Client Org');
+    expect(element.textContent).toContain('✓');
+    expect(element.querySelector('.bill-page-list-panel')).toBeTruthy();
+    expect(element.querySelector('input[type="checkbox"]')).toBeTruthy();
+
+    (element.querySelector('.bill-page-row') as HTMLElement).click();
+    expect(openSpy).toHaveBeenCalledWith('client-1::2026-06-01');
+    fixture.destroy();
+  });
+
 });

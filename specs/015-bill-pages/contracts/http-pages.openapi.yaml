@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: Rungis Dedicated Bill Pages
+  version: 0.1.0
+  description: Role-guarded page shells for dedicated client and vendor bill pages.
+servers:
+  - url: /
+    description: Same-origin Rungis web application
+tags:
+  - name: BillPages
+    description: Browser page shells for role-specific bill management
+paths:
+  /client-bills:
+    get:
+      operationId: getClientBillsPage
+      tags: [BillPages]
+      summary: Render the dedicated client bill page
+      description: Returns the Angular page shell configured for the connected client bill page.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Client bill page shell rendered for an authenticated client.
+          content:
+            text/html:
+              schema:
+                type: string
+        '302':
+          description: Redirects unauthenticated users to login or role-mismatched users to their allowed page.
+        '403':
+          description: Request is authenticated but not allowed to access the client bill page.
+  /vendor-bills:
+    get:
+      operationId: getVendorBillsPage
+      tags: [BillPages]
+      summary: Render the dedicated vendor bill page
+      description: Returns the Angular page shell configured for the connected vendor bill page.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Vendor bill page shell rendered for an authenticated vendor.
+          content:
+            text/html:
+              schema:
+                type: string
+        '302':
+          description: Redirects unauthenticated users to login or role-mismatched users to their allowed page.
+        '403':
+          description: Request is authenticated but not allowed to access the vendor bill page.
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session

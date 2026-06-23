@@ -89,6 +89,20 @@ export function registerPageRoutes(app, deps) {
     });
   });
 
+  app.get('/vendor-bills', { preHandler: [requirePageRateLimit, requireVendorPage] }, async (request, reply) => {
+    return reply.view('vendor-bills.ejs', {
+      title: 'Vendor Bills',
+      appConfig: await buildPagePayload(request, 'vendor-bills')
+    });
+  });
+
+  app.get('/client-bills', { preHandler: [requirePageRateLimit, requireClientPage] }, async (request, reply) => {
+    return reply.view('client-bills.ejs', {
+      title: 'Client Bills',
+      appConfig: await buildPagePayload(request, 'client-bills')
+    });
+  });
+
   app.get('/find-vendors', { preHandler: [requirePageRateLimit, requireClientPage] }, async (request, reply) => {
     return reply.view('find-vendors.ejs', {
       title: 'Find Vendors',

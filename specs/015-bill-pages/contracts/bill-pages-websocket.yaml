@@ -1,0 +1,179 @@
+# WebSocket Contract: Dedicated Bill Pages
+
+Transport follows the existing Rungis WebSocket API envelope:
+
+```json
+{
+  "type": "api",
+  "requestId": 1,
+  "action": "action:name",
+  "payload": {}
+}
+```
+
+Successful responses use `type: "api:result"`, copy `requestId` and `action`, set `ok: true`, and include `data`. Failed responses set `ok: false` and include `message`.
+
+## Action: `bill-pages:client:list`
+
+Role: connected client only.
+
+Payload:
+
+```json
+{
+  "fromDate": "2026-06-01",
+  "toDate": "2026-06-30",
+  "vendorId": "optional-vendor-object-id",
+  "paymentStatus": "all"
+}
+```
+
+Payload rules:
+
+- `fromDate` and `toDate` are optional ISO dates and are inclusive bill-date bounds.
+- `vendorId` is optional; when present it must be a valid vendor id associated with an accessible bill for the client.
+- `paymentStatus` is one of `all`, `paid`, `unpaid`, or `late`; absent means `all`.
+
+Response data:
+
+```json
+{
+  "bills": [
+    {
+      "key": "vendorId::YYYY-MM-DD",
+      "vendorId": "vendor-object-id",
+      "vendorOrganisationName": "Vendor SAS",
+      "billDate": "2026-06-15",
+      "amountIncludingVat": 123.45,
+      "currency": "EUR",
+      "paymentStatus": "unpaid",
+      "isPaid": false,
+      "isLate": false,
+      "received": false
+    }
+  ],
+  "vendors": [
+    { "id": "vendor-object-id", "name": "Vendor SAS" }
+  ],
+  "currency": "EUR"
+}
+```
+
+## Action: `bill-pages:client:set-received`
+
+Role: connected client only.
+
+Payload:
+
+```json
+{
+  "key": "vendorId::YYYY-MM-DD",
+  "received": true
+}
+```
+
+Response data:
+
+```json
+{
+  "key": "vendorId::YYYY-MM-DD",
+  "received": true,
+  "settlement": {
+    "vendorSettled": false,
+    "clientSettled": true,
+    "isSettled": false
+  }
+}
+```
+
+Behavior:
+
+- Updates only the connected client's reception/client-settled state.
+- Must not update vendor paid status.
+- The key remains compatible with the existing client bill detail modal action.
+
+## Action: `bill-pages:vendor:list`
+
+Role: connected vendor only.
+
+Payload:
+
+```json
+{
+  "fromDate": "2026-06-01",
+  "toDate": "2026-06-30",
+  "clientId": "optional-client-object-id",
+  "receptionStatus": "all"
+}
+```
+
+Payload rules:
+
+- `fromDate` and `toDate` are optional ISO dates and are inclusive bill-date bounds.
+- `clientId` is optional; when present it must be a valid client id associated with an accessible bill for the vendor.
+- `receptionStatus` is one of `all`, `received`, or `not-received`; absent means `all`.
+
+Response data:
+
+```json
+{
+  "bills": [
+    {
+      "key": "clientId::YYYY-MM-DD",
+      "clientId": "client-object-id",
+      "clientOrganisationName": "Client SARL",
+      "billDate": "2026-06-15",
+      "amountIncludingVat": 123.45,
+      "currency": "EUR",
+      "receptionStatus": "received",
+      "received": true,
+      "paid": false
+    }
+  ],
+  "clients": [
+    { "id": "client-object-id", "name": "Client SARL" }
+  ],
+  "currency": "EUR"
+}
+```
+
+## Action: `bill-pages:vendor:set-paid`
+
+Role: connected vendor only.
+
+Payload:
+
+```json
+{
+  "key": "clientId::YYYY-MM-DD",
+  "paid": true
+}
+```
+
+Response data:
+
+```json
+{
+  "key": "clientId::YYYY-MM-DD",
+  "paid": true,
+  "settlement": {
+    "vendorSettled": true,
+    "clientSettled": false,
+    "isSettled": false
+  }
+}
+```
+
+Behavior:
+
+- Updates only the connected vendor's paid/vendor-settled state.
+- Must not update client received status.
+- The key remains compatible with the existing vendor bill detail modal action.
+
+## Shared Error Cases
+
+- Unauthorized role: `ok: false`, message explains that the action is restricted to clients or vendors.
+- Invalid date range: `ok: false`, message explains invalid ISO date or inverted range.
+- Invalid counterparty id: `ok: false`, message explains invalid vendor/client selection.
+- Inaccessible bill key: `ok: false`, message explains that the bill was not found or is not accessible.
+- Persistence failure: `ok: false`, message explains that the status update failed and the UI must keep the last confirmed state.

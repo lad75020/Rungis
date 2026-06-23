@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en" data-app-style="<%= appConfig?.appStyleProfile || 'primary' %>">
+  <head>
+    <%- include('partials/head', { title, appConfig }) %>
+  </head>
+  <body>
+    <script nonce="<%= nonce %>">
+      window.__APP_CONFIG__ = <%- JSON.stringify(appConfig) %>;
+    </script>
+    <app-root></app-root>
+    <script nonce="<%= nonce %>" type="module" src="<%= appConfig?.assets?.mainJs || '/public/angular/browser/main.js' %>"></script>
+  </body>
+</html>

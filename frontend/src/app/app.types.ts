@@ -1,6 +1,6 @@
 export type UserRole = 'vendor' | 'client' | 'admin';
 export type SignupRole = 'vendor' | 'client';
-export type PageName = 'login' | 'subscribe' | 'dashboard' | 'admin' | 'statistics' | 'vendor-statistics' | 'vendor-monthly-summary' | 'vendor-overdue-bills' | 'vendor-refunds' | 'find-vendors' | 'stocks' | 'order' | 'account';
+export type PageName = 'login' | 'subscribe' | 'dashboard' | 'admin' | 'statistics' | 'vendor-statistics' | 'vendor-monthly-summary' | 'vendor-overdue-bills' | 'vendor-refunds' | 'vendor-bills' | 'client-bills' | 'find-vendors' | 'stocks' | 'order' | 'account';
 export type LanguageCode = 'en' | 'fr';
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type AppStyleProfile = 'primary' | 'secondary';
@@ -280,6 +280,48 @@ export type CartValidation = {
   grandTotal: number;
   grandTotalIncludingVat: number;
   currency: string;
+};
+
+export type ClientBillPaymentStatus = 'all' | 'paid' | 'unpaid' | 'late';
+export type VendorBillReceptionStatus = 'all' | 'received' | 'not-received';
+
+export type ClientBillListRow = {
+  key: string;
+  vendorId: string;
+  vendorOrganisationName: string;
+  billDate: string;
+  amountIncludingVat: number;
+  currency: string;
+  paymentStatus: Exclude<ClientBillPaymentStatus, 'all'>;
+  isPaid: boolean;
+  isLate: boolean;
+  received: boolean;
+};
+
+export type ClientBillPageFilters = {
+  fromDate: string;
+  toDate: string;
+  vendorId: string;
+  paymentStatus: ClientBillPaymentStatus;
+};
+
+export type VendorBillListRow = {
+  key: string;
+  clientId: string;
+  clientOrganisationName: string;
+  billDate: string;
+  amountIncludingVat: number;
+  currency: string;
+  receptionStatus: Exclude<VendorBillReceptionStatus, 'all'>;
+  received: boolean;
+  paid: boolean;
+};
+
+export type VendorBillPageFilters = {
+  fromDate: string;
+  toDate: string;
+  clientId: string;
+  receptionStatus: VendorBillReceptionStatus;
 };
 
 export type VendorDashboardOrderSummary = {

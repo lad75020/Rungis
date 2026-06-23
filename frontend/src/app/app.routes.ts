@@ -18,6 +18,14 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/stocks-page.component').then((m) => m.StocksPageComponent)
   },
   {
+    path: 'client-bills',
+    loadComponent: () => import('./pages/client-bills-page.component').then((m) => m.ClientBillsPageComponent)
+  },
+  {
+    path: 'vendor-bills',
+    loadComponent: () => import('./pages/vendor-bills-page.component').then((m) => m.VendorBillsPageComponent)
+  },
+  {
     path: 'order',
     loadComponent: () => import('./pages/order-page.component').then((m) => m.OrderPageComponent)
   },

@@ -42,6 +42,9 @@ import type {
   CartValidation,
   CatalogItem,
   CatalogPriceVariation,
+  ClientBillListRow,
+  ClientBillPageFilters,
+  ClientBillPaymentStatus,
   ClientDashboardCartDetails,
   ClientDashboardCartSummary,
   ClientVendorDiscoveryItem,
@@ -62,6 +65,9 @@ import type {
   ToastType,
   UserRole,
   VendorBillClientOption,
+  VendorBillListRow,
+  VendorBillPageFilters,
+  VendorBillReceptionStatus,
   VendorBillMessageSummary,
   VendorBillsTab,
   VendorCategorySalesStat,
@@ -257,6 +263,16 @@ export class App implements OnInit, OnDestroy {
   public readonly vendorOrderDetails = signal<VendorDashboardOrderDetails | null>(null);
   public readonly showingVendorOrderModal = signal(false);
   public readonly updatingVendorBillSettlement = signal(false);
+  public readonly vendorBillPageFilters = signal<VendorBillPageFilters>({
+    fromDate: '',
+    toDate: '',
+    clientId: '',
+    receptionStatus: 'all'
+  });
+  public readonly loadingVendorBillPage = signal(false);
+  public readonly vendorBillPageRows = signal<VendorBillListRow[]>([]);
+  public readonly vendorBillPageClients = signal<VendorBillClientOption[]>([]);
+  public readonly updatingVendorBillPagePaidKeys = signal<string[]>([]);
   public readonly downloadingVendorFacturX = signal(false);
   public readonly loadingVendorBillMessages = signal(false);
   public readonly vendorBillMessages = signal<VendorBillMessageSummary[]>([]);
@@ -276,6 +292,16 @@ export class App implements OnInit, OnDestroy {
   public readonly clientCartDetails = signal<ClientDashboardCartDetails | null>(null);
   public readonly showingClientCartModal = signal(false);
   public readonly updatingClientBillSettlement = signal(false);
+  public readonly clientBillPageFilters = signal<ClientBillPageFilters>({
+    fromDate: '',
+    toDate: '',
+    vendorId: '',
+    paymentStatus: 'all'
+  });
+  public readonly loadingClientBillPage = signal(false);
+  public readonly clientBillPageRows = signal<ClientBillListRow[]>([]);
+  public readonly clientBillPageVendors = signal<OrderVendorOption[]>([]);
+  public readonly updatingClientBillPageReceivedKeys = signal<string[]>([]);
   public readonly downloadingClientFacturX = signal(false);
   public readonly clientBillCommentDraft = signal('');
   public readonly sendingClientBillComment = signal(false);
@@ -689,6 +715,20 @@ export class App implements OnInit, OnDestroy {
       return;
     }
 
+    if (page === 'client-bills') {
+      if (this.socket?.readyState === WebSocket.OPEN) {
+        void this.loadClientBillPage();
+      }
+      return;
+    }
+
+    if (page === 'vendor-bills') {
+      if (this.socket?.readyState === WebSocket.OPEN) {
+        void this.loadVendorBillPage();
+      }
+      return;
+    }
+
     if (page === 'order') {
       if (this.socket?.readyState === WebSocket.OPEN) {
         void this.refreshOrderPage();
@@ -700,14 +740,9 @@ export class App implements OnInit, OnDestroy {
       if (this.isClient()) {
         void this.loadClientUnpaidReminders();
         void this.loadCurrentRungisBills();
-        if (this.socket?.readyState === WebSocket.OPEN) {
-          void this.loadClientDashboardCarts();
-          void this.loadClientBillVendors();
-        }
       }
 
       if (this.isVendor() && this.socket?.readyState === WebSocket.OPEN) {
-        void this.refreshVendorBillsView();
         void this.loadVendorBillMessages();
       }
 
@@ -3149,6 +3184,154 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
+  public async loadVendorBillPage(): Promise<void> {
+    if (!this.isVendor()) {
+      this.setAlert('danger', this.t('alerts.bills.onlyVendors'));
+      return;
+    }
+
+    this.loadingVendorBillPage.set(true);
+    try {
+      const data = (await this.sendWsApi('bill-pages:vendor:list', this.vendorBillPageFilters())) as {
+        bills?: VendorBillListRow[];
+        clients?: VendorBillClientOption[];
+      };
+      this.vendorBillPageRows.set(Array.isArray(data?.bills) ? data.bills : []);
+      this.vendorBillPageClients.set(Array.isArray(data?.clients) ? data.clients : []);
+    } catch (error) {
+      this.setAlert('danger', errorToMessage(error, this.t('alerts.billPages.loadFailed')));
+    } finally {
+      this.loadingVendorBillPage.set(false);
+    }
+  }
+
+  public setVendorBillPageDateFilter(field: 'fromDate' | 'toDate', value: string): void {
+    this.vendorBillPageFilters.update((filters) => ({ ...filters, [field]: value }));
+    void this.loadVendorBillPage();
+  }
+
+  public setVendorBillPageClient(clientId: string): void {
+    this.vendorBillPageFilters.update((filters) => ({ ...filters, clientId }));
+    void this.loadVendorBillPage();
+  }
+
+  public setVendorBillPageReceptionStatus(value: string): void {
+    const receptionStatus: VendorBillReceptionStatus = value === 'received' || value === 'not-received' ? value : 'all';
+    this.vendorBillPageFilters.update((filters) => ({ ...filters, receptionStatus }));
+    void this.loadVendorBillPage();
+  }
+
+  public clearVendorBillPageFilters(): void {
+    this.vendorBillPageFilters.set({ fromDate: '', toDate: '', clientId: '', receptionStatus: 'all' });
+    void this.loadVendorBillPage();
+  }
+
+  public async setVendorBillPagePaid(row: VendorBillListRow, paid: boolean): Promise<void> {
+    if (!this.isVendor() || this.updatingVendorBillPagePaidKeys().includes(row.key)) {
+      return;
+    }
+
+    const previousRows = this.vendorBillPageRows();
+    this.vendorBillPageRows.set(previousRows.map((bill) => (bill.key === row.key ? { ...bill, paid } : bill)));
+    this.updatingVendorBillPagePaidKeys.set([...this.updatingVendorBillPagePaidKeys(), row.key]);
+
+    try {
+      const data = (await this.sendWsApi('bill-pages:vendor:set-paid', { key: row.key, paid })) as {
+        key?: string;
+        paid?: boolean;
+        settlement?: { vendorSettled?: boolean; clientSettled?: boolean; isSettled?: boolean };
+      };
+      if (!data.key || !data.settlement) {
+        throw new Error(this.t('alerts.billPages.updateFailed'));
+      }
+      const confirmedPaid = Boolean(data.paid ?? data.settlement.vendorSettled);
+      this.vendorBillPageRows.set(
+        this.vendorBillPageRows().map((bill) => (bill.key === data.key ? { ...bill, paid: confirmedPaid } : bill))
+      );
+      this.applyVendorBillSettlement(data.key, data.settlement);
+      this.setAlert('success', this.t('alerts.billPages.paidUpdated'));
+    } catch (error) {
+      this.vendorBillPageRows.set(previousRows);
+      this.setAlert('danger', errorToMessage(error, this.t('alerts.billPages.updateFailed')));
+    } finally {
+      this.updatingVendorBillPagePaidKeys.set(this.updatingVendorBillPagePaidKeys().filter((key) => key !== row.key));
+    }
+  }
+
+  public async loadClientBillPage(): Promise<void> {
+    if (!this.isClient()) {
+      this.setAlert('danger', this.t('alerts.bills.onlyClients'));
+      return;
+    }
+
+    this.loadingClientBillPage.set(true);
+    try {
+      const data = (await this.sendWsApi('bill-pages:client:list', this.clientBillPageFilters())) as {
+        bills?: ClientBillListRow[];
+        vendors?: OrderVendorOption[];
+      };
+      this.clientBillPageRows.set(Array.isArray(data?.bills) ? data.bills : []);
+      this.clientBillPageVendors.set(Array.isArray(data?.vendors) ? data.vendors : []);
+    } catch (error) {
+      this.setAlert('danger', errorToMessage(error, this.t('alerts.billPages.loadFailed')));
+    } finally {
+      this.loadingClientBillPage.set(false);
+    }
+  }
+
+  public setClientBillPageDateFilter(field: 'fromDate' | 'toDate', value: string): void {
+    this.clientBillPageFilters.update((filters) => ({ ...filters, [field]: value }));
+    void this.loadClientBillPage();
+  }
+
+  public setClientBillPageVendor(vendorId: string): void {
+    this.clientBillPageFilters.update((filters) => ({ ...filters, vendorId }));
+    void this.loadClientBillPage();
+  }
+
+  public setClientBillPagePaymentStatus(value: string): void {
+    const paymentStatus: ClientBillPaymentStatus = value === 'paid' || value === 'unpaid' || value === 'late' ? value : 'all';
+    this.clientBillPageFilters.update((filters) => ({ ...filters, paymentStatus }));
+    void this.loadClientBillPage();
+  }
+
+  public clearClientBillPageFilters(): void {
+    this.clientBillPageFilters.set({ fromDate: '', toDate: '', vendorId: '', paymentStatus: 'all' });
+    void this.loadClientBillPage();
+  }
+
+  public async setClientBillPageReceived(row: ClientBillListRow, received: boolean): Promise<void> {
+    if (!this.isClient() || this.updatingClientBillPageReceivedKeys().includes(row.key)) {
+      return;
+    }
+
+    const previousRows = this.clientBillPageRows();
+    this.clientBillPageRows.set(previousRows.map((bill) => (bill.key === row.key ? { ...bill, received } : bill)));
+    this.updatingClientBillPageReceivedKeys.set([...this.updatingClientBillPageReceivedKeys(), row.key]);
+
+    try {
+      const data = (await this.sendWsApi('bill-pages:client:set-received', { key: row.key, received })) as {
+        key?: string;
+        received?: boolean;
+        settlement?: { vendorSettled?: boolean; clientSettled?: boolean; isSettled?: boolean };
+      };
+      if (!data.key || !data.settlement) {
+        throw new Error(this.t('alerts.billPages.updateFailed'));
+      }
+      const confirmedReceived = Boolean(data.received ?? data.settlement.clientSettled);
+      this.clientBillPageRows.set(
+        this.clientBillPageRows().map((bill) => (bill.key === data.key ? { ...bill, received: confirmedReceived } : bill))
+      );
+      this.applyClientBillSettlement(data.key, data.settlement);
+      this.setAlert('success', this.t('alerts.billPages.receivedUpdated'));
+    } catch (error) {
+      this.clientBillPageRows.set(previousRows);
+      this.setAlert('danger', errorToMessage(error, this.t('alerts.billPages.updateFailed')));
+    } finally {
+      this.updatingClientBillPageReceivedKeys.set(this.updatingClientBillPageReceivedKeys().filter((key) => key !== row.key));
+    }
+  }
+
   public setClientBillsDate(value: string): void {
     this.clientBillsDate.set(value);
 
@@ -3970,15 +4153,20 @@ export class App implements OnInit, OnDestroy {
         void this.refreshOrderPage();
       }
 
+      if (this.page() === 'client-bills' && this.isClient()) {
+        void this.loadClientBillPage();
+      }
+
+      if (this.page() === 'vendor-bills' && this.isVendor()) {
+        void this.loadVendorBillPage();
+      }
+
       if (this.page() === 'dashboard' && this.isVendor()) {
-        void this.refreshVendorBillsView();
         void this.loadVendorBillMessages();
       }
 
       if (this.page() === 'dashboard' && this.isClient()) {
-        void this.loadClientDashboardCarts();
         void this.loadClientUnpaidReminders();
-        void this.loadClientBillVendors();
       }
     });
 

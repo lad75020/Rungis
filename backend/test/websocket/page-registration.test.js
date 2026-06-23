@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import mongoose from 'mongoose';
 
 import { registerWebsocketRoutes } from '../../src/routes/modules/websocket.js';
+import { registerPageRoutes } from '../../src/routes/modules/pages.js';
 
 function createSocket() {
   const handlers = new Map();
@@ -102,4 +103,40 @@ test('websocket ping re-registers a vendor socket for the active routed page', a
   assert.equal(socket.sent.at(-1).type, 'pong');
 
   socket.emitClose();
+});
+
+
+test('dedicated bill page routes use role-specific page guards', async () => {
+  const routes = new Map();
+  const guard = (name) => async () => name;
+  const deps = {
+    buildPagePayload: async (_request, page) => ({ page }),
+    redirectForSessionUser: () => '/dashboard',
+    requireAdminPage: guard('admin'),
+    requireAuth: guard('auth'),
+    requireClientPage: guard('client'),
+    requirePageRateLimit: guard('rate'),
+    requireVendorPage: guard('vendor')
+  };
+  const app = {
+    get(path, options, handler) {
+      routes.set(path, { options, handler });
+    }
+  };
+
+  registerPageRoutes(app, deps);
+
+  assert.deepEqual(routes.get('/client-bills').options.preHandler, [deps.requirePageRateLimit, deps.requireClientPage]);
+  assert.deepEqual(routes.get('/vendor-bills').options.preHandler, [deps.requirePageRateLimit, deps.requireVendorPage]);
+
+  const clientReply = { view: (template, payload) => ({ template, payload }) };
+  const vendorReply = { view: (template, payload) => ({ template, payload }) };
+  assert.deepEqual(await routes.get('/client-bills').handler({}, clientReply), {
+    template: 'client-bills.ejs',
+    payload: { title: 'Client Bills', appConfig: { page: 'client-bills' } }
+  });
+  assert.deepEqual(await routes.get('/vendor-bills').handler({}, vendorReply), {
+    template: 'vendor-bills.ejs',
+    payload: { title: 'Vendor Bills', appConfig: { page: 'vendor-bills' } }
+  });
 });

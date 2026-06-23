@@ -67,6 +67,236 @@ export function registerWebsocketRoutes(app, context, deps) {
     vendorDashboardConnections
   } = context;
 
+  const parseBillPageDateRange = (input = {}) => {
+    const fromDate = normalizeString(input.fromDate);
+    const toDate = normalizeString(input.toDate);
+    const fromDay = fromDate ? parseIsoDayUtc(fromDate) : null;
+    const toDay = toDate ? parseIsoDayUtc(toDate) : null;
+
+    if ((fromDate && !fromDay) || (toDate && !toDay)) {
+      return { ok: false, message: 'Invalid date. Use YYYY-MM-DD.' };
+    }
+    if (fromDay && toDay && fromDay.getTime() > toDay.getTime()) {
+      return { ok: false, message: 'From date must be before or equal to to date.' };
+    }
+
+    const filter = {};
+    if (fromDay) {
+      filter.$gte = fromDay;
+    }
+    if (toDay) {
+      filter.$lt = addUtcDays(toDay, 1);
+    }
+    return { ok: true, filter };
+  };
+
+  const billDay = (value) => new Date(value).toISOString().slice(0, 10);
+
+  const getCounterpartyName = (user) => normalizeString(user?.organisation)
+    || normalizeString(user?.username)
+    || user?._id?.toString?.()
+    || '';
+
+  const getBillAmountIncludingVat = (bill) => {
+    const gross = Number(bill?.totalPriceIncludingVat);
+    if (Number.isFinite(gross) && gross > 0) {
+      return roundToTwoDecimals(gross);
+    }
+    return roundToTwoDecimals(Number(bill?.totalPrice ?? 0));
+  };
+
+  const getBillCurrency = (bill) => normalizeString(bill?.currency) || 'EUR';
+
+  const getBillDeliveryDateMap = async ({ bills, role, currentUserId }) => {
+    if (!Array.isArray(bills) || bills.length === 0) {
+      return new Map();
+    }
+
+    const days = bills.map((bill) => billDay(bill.date));
+    const dates = days.map((day) => parseIsoDayUtc(day)).filter(Boolean);
+    const minDate = new Date(Math.min(...dates.map((date) => date.getTime())));
+    const maxDate = addUtcDays(new Date(Math.max(...dates.map((date) => date.getTime()))), 1);
+
+    const counterpartyIds = [...new Set(bills.map((bill) => (
+      role === 'client' ? bill.vendorId?.toString?.() : bill.clientId?.toString?.()
+    )).filter((value) => mongoose.Types.ObjectId.isValid(value)))].map((value) => new mongoose.Types.ObjectId(value));
+
+    if (counterpartyIds.length === 0) {
+      return new Map();
+    }
+
+    const match = role === 'client'
+      ? { clientId: currentUserId, validatedAt: { $gte: minDate, $lt: maxDate }, 'items.vendorId': { $in: counterpartyIds } }
+      : { validatedAt: { $gte: minDate, $lt: maxDate }, 'items.vendorId': currentUserId, clientId: { $in: counterpartyIds } };
+
+    const rows = await ValidatedOrder.aggregate([
+      { $match: match },
+      { $unwind: '$items' },
+      role === 'client'
+        ? { $match: { 'items.vendorId': { $in: counterpartyIds } } }
+        : { $match: { 'items.vendorId': currentUserId } },
+      {
+        $group: {
+          _id: {
+            counterpartyId: role === 'client' ? '$items.vendorId' : '$clientId',
+            day: { $dateToString: { format: '%Y-%m-%d', date: '$validatedAt', timezone: 'UTC' } }
+          },
+          deliveryDate: { $max: '$deliveryDate' }
+        }
+      }
+    ]);
+
+    return new Map(rows.map((row) => [
+      `${row._id.counterpartyId.toString()}::${row._id.day}`,
+      row.deliveryDate ? billDay(row.deliveryDate) : row._id.day
+    ]));
+  };
+
+  const buildClientBillPageRows = async ({ currentUserId, requestPayload }) => {
+    const dateRange = parseBillPageDateRange(requestPayload);
+    if (!dateRange.ok) {
+      return dateRange;
+    }
+
+    const paymentStatus = normalizeString(requestPayload?.paymentStatus) || 'all';
+    if (!['all', 'paid', 'unpaid', 'late'].includes(paymentStatus)) {
+      return { ok: false, message: 'Invalid payment status filter.' };
+    }
+
+    const selectedVendorId = normalizeString(requestPayload?.vendorId);
+    if (selectedVendorId && !mongoose.Types.ObjectId.isValid(selectedVendorId)) {
+      return { ok: false, message: 'Invalid vendor selection.' };
+    }
+
+    const baseQuery = { clientId: currentUserId };
+    if (Object.keys(dateRange.filter).length > 0) {
+      baseQuery.date = dateRange.filter;
+    }
+
+    const allAccessibleBills = await Bill.find(baseQuery)
+      .select({ date: 1, vendorId: 1, clientId: 1, vendorSettled: 1, clientSettled: 1, totalPrice: 1, totalPriceIncludingVat: 1, currency: 1 })
+      .sort({ date: -1 })
+      .lean();
+
+    const accessibleVendorIds = [...new Set(allAccessibleBills
+      .map((bill) => bill.vendorId?.toString?.() ?? '')
+      .filter((value) => mongoose.Types.ObjectId.isValid(value)))];
+
+    const vendorDocs = accessibleVendorIds.length > 0
+      ? await User.find({ _id: { $in: accessibleVendorIds.map((vendorId) => new mongoose.Types.ObjectId(vendorId)) }, role: 'vendor' })
+        .select({ _id: 1, organisation: 1, username: 1 })
+        .lean()
+      : [];
+    const vendorNameById = new Map(vendorDocs.map((vendor) => [vendor._id.toString(), getCounterpartyName(vendor)]));
+    const vendors = accessibleVendorIds
+      .map((vendorId) => ({ id: vendorId, name: vendorNameById.get(vendorId) || vendorId }))
+      .sort((left, right) => left.name.localeCompare(right.name));
+
+    const filteredBills = selectedVendorId
+      ? allAccessibleBills.filter((bill) => bill.vendorId?.toString?.() === selectedVendorId)
+      : allAccessibleBills;
+    const deliveryDateByKey = await getBillDeliveryDateMap({ bills: filteredBills, role: 'client', currentUserId });
+    const overdueDays = await getBillOverdueDaysSetting();
+    const nowMs = Date.now();
+
+    const bills = filteredBills
+      .map((bill) => {
+        const vendorId = bill.vendorId.toString();
+        const day = billDay(bill.date);
+        const settlement = mapBillSettlement(bill);
+        const deliveryDate = deliveryDateByKey.get(`${vendorId}::${day}`) || day;
+        const deliveryDateObject = parseIsoDayUtc(deliveryDate) || parseIsoDayUtc(day);
+        const dueDateMs = deliveryDateObject ? addUtcDays(deliveryDateObject, overdueDays).getTime() : nowMs;
+        const isLate = !settlement.vendorSettled && nowMs > dueDateMs;
+        const rowPaymentStatus = settlement.vendorSettled ? 'paid' : (isLate ? 'late' : 'unpaid');
+        return {
+          key: buildClientVendorDayBillKey(vendorId, day),
+          vendorId,
+          vendorOrganisationName: vendorNameById.get(vendorId) || vendorId,
+          billDate: day,
+          amountIncludingVat: getBillAmountIncludingVat(bill),
+          currency: getBillCurrency(bill),
+          paymentStatus: rowPaymentStatus,
+          isPaid: settlement.vendorSettled,
+          isLate,
+          received: settlement.clientSettled
+        };
+      })
+      .filter((bill) => paymentStatus === 'all' || bill.paymentStatus === paymentStatus)
+      .sort((left, right) => right.billDate.localeCompare(left.billDate) || left.vendorOrganisationName.localeCompare(right.vendorOrganisationName));
+
+    return { ok: true, data: { bills, vendors, currency: 'EUR' } };
+  };
+
+  const buildVendorBillPageRows = async ({ currentUserId, requestPayload }) => {
+    const dateRange = parseBillPageDateRange(requestPayload);
+    if (!dateRange.ok) {
+      return dateRange;
+    }
+
+    const receptionStatus = normalizeString(requestPayload?.receptionStatus) || 'all';
+    if (!['all', 'received', 'not-received'].includes(receptionStatus)) {
+      return { ok: false, message: 'Invalid reception status filter.' };
+    }
+
+    const selectedClientId = normalizeString(requestPayload?.clientId);
+    if (selectedClientId && !mongoose.Types.ObjectId.isValid(selectedClientId)) {
+      return { ok: false, message: 'Invalid client selection.' };
+    }
+
+    const baseQuery = { vendorId: currentUserId };
+    if (Object.keys(dateRange.filter).length > 0) {
+      baseQuery.date = dateRange.filter;
+    }
+
+    const allAccessibleBills = await Bill.find(baseQuery)
+      .select({ date: 1, vendorId: 1, clientId: 1, vendorSettled: 1, clientSettled: 1, totalPrice: 1, totalPriceIncludingVat: 1, currency: 1 })
+      .sort({ date: -1 })
+      .lean();
+
+    const accessibleClientIds = [...new Set(allAccessibleBills
+      .map((bill) => bill.clientId?.toString?.() ?? '')
+      .filter((value) => mongoose.Types.ObjectId.isValid(value)))];
+
+    const clientDocs = accessibleClientIds.length > 0
+      ? await User.find({ _id: { $in: accessibleClientIds.map((clientId) => new mongoose.Types.ObjectId(clientId)) }, role: 'client' })
+        .select({ _id: 1, organisation: 1, username: 1 })
+        .lean()
+      : [];
+    const clientNameById = new Map(clientDocs.map((client) => [client._id.toString(), getCounterpartyName(client)]));
+    const clients = accessibleClientIds
+      .map((clientId) => ({ id: clientId, name: clientNameById.get(clientId) || clientId }))
+      .sort((left, right) => left.name.localeCompare(right.name));
+
+    const filteredBills = selectedClientId
+      ? allAccessibleBills.filter((bill) => bill.clientId?.toString?.() === selectedClientId)
+      : allAccessibleBills;
+
+    const bills = filteredBills
+      .map((bill) => {
+        const clientId = bill.clientId.toString();
+        const day = billDay(bill.date);
+        const settlement = mapBillSettlement(bill);
+        const received = settlement.clientSettled;
+        const rowReceptionStatus = received ? 'received' : 'not-received';
+        return {
+          key: buildVendorDayOrderKey(clientId, day),
+          clientId,
+          clientOrganisationName: clientNameById.get(clientId) || clientId,
+          billDate: day,
+          amountIncludingVat: getBillAmountIncludingVat(bill),
+          currency: getBillCurrency(bill),
+          receptionStatus: rowReceptionStatus,
+          received,
+          paid: settlement.vendorSettled
+        };
+      })
+      .filter((bill) => receptionStatus === 'all' || bill.receptionStatus === receptionStatus)
+      .sort((left, right) => right.billDate.localeCompare(left.billDate) || left.clientOrganisationName.localeCompare(right.clientOrganisationName));
+
+    return { ok: true, data: { bills, clients, currency: 'EUR' } };
+  };
+
   app.get('/ws', { websocket: true }, async (socket, request) => {
     const token = request.query?.token;
 
@@ -203,6 +433,135 @@ export function registerWebsocketRoutes(app, context, deps) {
                 }
 
                 const currentUserId = new mongoose.Types.ObjectId(decoded.sub);
+
+                if (action.startsWith('bill-pages:')) {
+                  if (action === 'bill-pages:client:list') {
+                    if (decoded.role !== 'client') {
+                      respond(false, null, 'Only clients can access bill pages.');
+                      return;
+                    }
+
+                    const result = await buildClientBillPageRows({
+                      currentUserId,
+                      requestPayload: payload.payload ?? {}
+                    });
+                    if (!result.ok) {
+                      respond(false, null, result.message);
+                      return;
+                    }
+                    respond(true, result.data);
+                    return;
+                  }
+
+                  if (action === 'bill-pages:client:set-received') {
+                    if (decoded.role !== 'client') {
+                      respond(false, null, 'Only clients can update bill reception status.');
+                      return;
+                    }
+
+                    const parsedKey = parseClientVendorDayBillKey(payload.payload?.key);
+                    if (!parsedKey) {
+                      respond(false, null, 'Invalid bill selection.');
+                      return;
+                    }
+                    const dayStart = parseIsoDayUtc(parsedKey.day);
+                    if (!dayStart) {
+                      respond(false, null, 'Invalid bill day.');
+                      return;
+                    }
+                    const dayEnd = addUtcDays(dayStart, 1);
+                    const vendorId = new mongoose.Types.ObjectId(parsedKey.vendorId);
+                    const existingBill = await Bill.findOne({
+                      clientId: currentUserId,
+                      vendorId,
+                      date: { $gte: dayStart, $lt: dayEnd }
+                    }).select({ _id: 1 }).lean();
+                    if (!existingBill) {
+                      respond(false, null, 'Bill not found or not accessible.');
+                      return;
+                    }
+
+                    const received = Boolean(payload.payload?.received);
+                    const settlement = await setBillSettlement({
+                      day: parsedKey.day,
+                      vendorId: parsedKey.vendorId,
+                      clientId: currentUserId.toString(),
+                      role: 'client',
+                      settled: received
+                    });
+                    respond(true, {
+                      key: buildClientVendorDayBillKey(parsedKey.vendorId, parsedKey.day),
+                      received: settlement.clientSettled,
+                      settlement
+                    });
+                    return;
+                  }
+
+                  if (action === 'bill-pages:vendor:list') {
+                    if (decoded.role !== 'vendor') {
+                      respond(false, null, 'Only vendors can access bill pages.');
+                      return;
+                    }
+
+                    const result = await buildVendorBillPageRows({
+                      currentUserId,
+                      requestPayload: payload.payload ?? {}
+                    });
+                    if (!result.ok) {
+                      respond(false, null, result.message);
+                      return;
+                    }
+                    respond(true, result.data);
+                    return;
+                  }
+
+                  if (action === 'bill-pages:vendor:set-paid') {
+                    if (decoded.role !== 'vendor') {
+                      respond(false, null, 'Only vendors can update bill paid status.');
+                      return;
+                    }
+
+                    const parsedKey = parseVendorDayOrderKey(payload.payload?.key);
+                    if (!parsedKey) {
+                      respond(false, null, 'Invalid bill selection.');
+                      return;
+                    }
+                    const dayStart = parseIsoDayUtc(parsedKey.day);
+                    if (!dayStart) {
+                      respond(false, null, 'Invalid bill day.');
+                      return;
+                    }
+                    const dayEnd = addUtcDays(dayStart, 1);
+                    const clientId = new mongoose.Types.ObjectId(parsedKey.clientId);
+                    const existingBill = await Bill.findOne({
+                      vendorId: currentUserId,
+                      clientId,
+                      date: { $gte: dayStart, $lt: dayEnd }
+                    }).select({ _id: 1 }).lean();
+                    if (!existingBill) {
+                      respond(false, null, 'Bill not found or not accessible.');
+                      return;
+                    }
+
+                    const paid = Boolean(payload.payload?.paid);
+                    const settlement = await setBillSettlement({
+                      day: parsedKey.day,
+                      vendorId: currentUserId.toString(),
+                      clientId: parsedKey.clientId,
+                      role: 'vendor',
+                      settled: paid
+                    });
+                    respond(true, {
+                      key: buildVendorDayOrderKey(parsedKey.clientId, parsedKey.day),
+                      paid: settlement.vendorSettled,
+                      settlement
+                    });
+                    return;
+                  }
+
+                  respond(false, null, 'Unknown bill page action.');
+                  return;
+                }
 
                 if (action.startsWith('dashboard:')) {
                   if (action === 'dashboard:vendor-orders:list') {

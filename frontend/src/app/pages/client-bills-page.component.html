@@ -1,0 +1,244 @@
+<div>
+  <div class="d-flex flex-wrap gap-2 mb-4">
+    <a class="btn btn-link back-arrow-btn" routerLink="/dashboard" [attr.aria-label]="app.t('common.back')">⟵</a>
+  </div>
+
+  @if (!app.isClient()) {
+    <div class="alert alert-danger">{{ app.t('alerts.bills.onlyClients') }}</div>
+  } @else {
+    <section class="border rounded p-3 mb-4 bill-page-section">
+      <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+        <div>
+          <h2 class="h5 mb-1">{{ app.t('billPages.clientTitle') }}</h2>
+          <p class="text-body-secondary mb-0">{{ app.t('billPages.clientSubtitle') }}</p>
+        </div>
+        <button
+          class="btn btn-sm btn-outline-secondary refresh-icon-btn"
+          type="button"
+          [disabled]="app.loadingClientBillPage()"
+          [attr.aria-label]="app.t('admin.refresh')"
+          [attr.title]="app.t('admin.refresh')"
+          (click)="app.loadClientBillPage()"
+        >
+          <span aria-hidden="true">{{ app.loadingClientBillPage() ? '⏳' : '↻' }}</span>
+        </button>
+      </div>
+
+      <div class="row g-3 align-items-end mb-3">
+        <div class="col-md-3">
+          <label class="form-label" for="client-bill-page-from">{{ app.t('dashboard.fromDate') }}</label>
+          <input
+            id="client-bill-page-from"
+            class="form-control"
+            type="date"
+            [value]="app.clientBillPageFilters().fromDate"
+            (change)="app.setClientBillPageDateFilter('fromDate', $any($event.target).value)"
+          />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="client-bill-page-to">{{ app.t('dashboard.toDate') }}</label>
+          <input
+            id="client-bill-page-to"
+            class="form-control"
+            type="date"
+            [value]="app.clientBillPageFilters().toDate"
+            (change)="app.setClientBillPageDateFilter('toDate', $any($event.target).value)"
+          />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="client-bill-page-vendor">{{ app.t('dashboard.selectVendor') }}</label>
+          <select
+            id="client-bill-page-vendor"
+            class="form-select"
+            [value]="app.clientBillPageFilters().vendorId"
+            (change)="app.setClientBillPageVendor($any($event.target).value)"
+          >
+            <option value="">{{ app.t('billPages.allVendors') }}</option>
+            @for (vendor of app.clientBillPageVendors(); track vendor.id) {
+              <option [value]="vendor.id">{{ vendor.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="client-bill-page-status">{{ app.t('billPages.paymentStatus') }}</label>
+          <select
+            id="client-bill-page-status"
+            class="form-select"
+            [value]="app.clientBillPageFilters().paymentStatus"
+            (change)="app.setClientBillPagePaymentStatus($any($event.target).value)"
+          >
+            <option value="all">{{ app.t('billPages.statusAll') }}</option>
+            <option value="paid">{{ app.t('billPages.paymentPaid') }}</option>
+            <option value="unpaid">{{ app.t('billPages.paymentUnpaid') }}</option>
+            <option value="late">{{ app.t('billPages.paymentLate') }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="small text-body-secondary">{{ app.clientBillPageRows().length }} {{ app.t('billPages.visibleBills') }}</div>
+        <button class="btn btn-sm btn-outline-secondary" type="button" (click)="app.clearClientBillPageFilters()">
+          {{ app.t('billPages.clearFilters') }}
+        </button>
+      </div>
+
+      @if (app.loadingClientBillPage()) {
+        <div class="form-text">{{ app.t('admin.refreshing') }}</div>
+      } @else if (app.clientBillPageRows().length === 0) {
+        <div class="alert alert-light border mb-0">{{ app.t('billPages.noClientBills') }}</div>
+      } @else {
+        <div class="bill-page-list-panel" role="list">
+          @for (bill of app.clientBillPageRows(); track bill.key) {
+            <div
+              class="bill-page-row"
+              role="button"
+              tabindex="0"
+              [class.bill-page-row-active]="app.selectedClientCartKey() === bill.key"
+              (click)="app.openClientCartDetails(bill.key)"
+              (keydown.enter)="app.openClientCartDetails(bill.key)"
+              (keydown.space)="$event.preventDefault(); app.openClientCartDetails(bill.key)"
+            >
+              <span class="bill-page-counterparty">{{ bill.vendorOrganisationName }}</span>&nbsp;&nbsp;
+              <span class="bill-page-date">{{ bill.billDate | date: 'dd/MM/yyyy' : 'UTC' }}</span>&nbsp;&nbsp;
+              <span class="bill-page-amount">{{ bill.amountIncludingVat | number: '1.2-2' }} {{ bill.currency === 'EUR' ? '€' : bill.currency }}</span>&nbsp;&nbsp;
+              <span class="bill-page-status">
+                @if (bill.paymentStatus === 'paid') {
+                  <span class="bill-status-icon text-success" aria-hidden="true">✓</span>
+                  <span>{{ app.t('billPages.paymentPaid') }}</span>&nbsp;&nbsp;
+                } @else if (bill.paymentStatus === 'late') {
+                  <span class="bill-status-icon text-danger" aria-hidden="true">⚠</span>
+                  <span>{{ app.t('billPages.paymentLate') }}</span>&nbsp;&nbsp;
+                } @else {
+                  <span class="bill-status-icon text-warning" aria-hidden="true">●</span>
+                  <span>{{ app.t('billPages.paymentUnpaid') }}</span>&nbsp;&nbsp;
+                }
+              
+                <label class="form-check bill-page-toggle" (click)="$event.stopPropagation()">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    [checked]="bill.received"
+                    [disabled]="app.updatingClientBillPageReceivedKeys().includes(bill.key)"
+                    (change)="app.setClientBillPageReceived(bill, $any($event.target).checked)"
+                  />
+                  <span class="form-check-label">📦 {{ app.t('billPages.received') }}</span>
+                </label>
+              </span>
+            </div>
+          }
+        </div>
+      }
+    </section>
+  }
+</div>
+
+@if (app.showingClientCartModal() && app.clientCartDetails(); as details) {
+  <div class="modal-backdrop fade show"></div>
+  <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title h5 mb-0">{{ app.t('dashboard.billDetails') }}</h3>
+          <button class="btn-close" type="button" aria-label="Close" (click)="app.closeClientCartDetailsModal()"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2"><strong>{{ app.t('order.vendor') }}:</strong> {{ details.vendorName }}</p>
+          <p class="mb-3"><strong>{{ app.t('dashboard.day') }}:</strong> {{ details.day }}</p>
+          <div class="bill-settlement-box mb-3">
+            <div class="small mb-2">
+              <strong>{{ app.t('dashboard.billSettlementStatus') }}:</strong>
+              {{ details.vendorSettled ? app.t('dashboard.billConfirmed') : app.t('dashboard.billPending') }}
+              /
+              {{ details.clientSettled ? app.t('dashboard.billConfirmed') : app.t('dashboard.billPending') }}
+            </div>
+            <div class="form-check">
+              <input
+                id="client-bill-settled"
+                class="form-check-input bill-settlement-checkbox"
+                type="checkbox"
+                [checked]="details.clientSettled"
+                [disabled]="app.updatingClientBillSettlement()"
+                (change)="app.setClientBillSettled($any($event.target).checked)"
+              />
+              <label class="form-check-label" for="client-bill-settled">
+                {{ app.t('dashboard.clientSettlementCheckbox') }}
+              </label>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="client-bill-comment">{{ app.t('dashboard.billComment') }}</label>
+            <div class="d-flex gap-2 align-items-start">
+              <textarea
+                id="client-bill-comment"
+                class="form-control bill-comment-textarea"
+                [value]="app.clientBillCommentDraft()"
+                [disabled]="app.sendingClientBillComment()"
+                (input)="app.clientBillCommentDraft.set($any($event.target).value)"
+              ></textarea>
+              <button
+                class="btn btn-outline-primary bill-comment-send-btn"
+                type="button"
+                [disabled]="app.sendingClientBillComment() || !app.clientBillCommentDraft().trim()"
+                [attr.aria-label]="app.t('dashboard.sendComment')"
+                [attr.title]="app.t('dashboard.sendComment')"
+                (click)="app.sendClientBillComment()"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-striped align-middle">
+              <thead>
+                <tr>
+                  <th scope="col">{{ app.t('order.item') }}</th>
+                  <th scope="col">{{ app.t('order.vendor') }}</th>
+                  <th scope="col">{{ app.t('order.unitPriceEur') }}</th>
+                  <th scope="col">{{ app.t('order.vatRate') }}</th>
+                  <th scope="col">{{ app.t('order.unitPriceIncludingVatEur') }}</th>
+                  <th scope="col">{{ app.t('order.qty') }}</th>
+                  <th scope="col">{{ app.t('order.lineTotalEur') }}</th>
+                  <th scope="col">{{ app.t('order.lineTotalIncludingVatEur') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of details.items; track item.merchandiseId + '-' + item.unitPrice + '-' + item.vendorId) {
+                  <tr>
+                    <td>{{ item.reference ? item.name + ' (' + item.reference + ')' : item.name }}</td>
+                    <td>{{ item.vendorName }}</td>
+                    <td>{{ item.unitPrice | number: '1.2-2' }}</td>
+                    <td>{{ item.vatRate | number: '1.0-2' }}%</td>
+                    <td>{{ item.unitPriceIncludingVat | number: '1.2-2' }}</td>
+                    <td>{{ item.quantity ?? '—' }}</td>
+                    <td>{{ item.lineTotal | number: '1.2-2' }}</td>
+                    <td>{{ item.lineTotalIncludingVat | number: '1.2-2' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer d-flex justify-content-between">
+          <div>
+            <strong>{{ app.t('common.total') }}: {{ details.totalPrice | number: '1.2-2' }} {{ details.currency }}</strong><br />
+            <strong>{{ app.t('common.totalIncludingVat') }}: {{ details.totalPriceIncludingVat | number: '1.2-2' }} {{ details.currency }}</strong>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" type="button" (click)="app.openClientBillPdf()">{{ app.t('common.printPdf') }}</button>
+            <button
+              class="btn btn-outline-success"
+              type="button"
+              [disabled]="app.downloadingClientFacturX()"
+              (click)="app.downloadClientFacturX()"
+            >
+              {{ app.downloadingClientFacturX() ? app.t('common.downloading') : app.t('common.downloadFacturX') }}
+            </button>
+            <button class="btn btn-secondary" type="button" (click)="app.closeClientCartDetailsModal()">{{ app.t('common.close') }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+}

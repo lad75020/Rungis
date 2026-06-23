@@ -1,0 +1,227 @@
+<div>
+  <div class="d-flex flex-wrap gap-2 mb-4">
+    <a class="btn btn-link back-arrow-btn" routerLink="/dashboard" [attr.aria-label]="app.t('common.back')">⟵</a>
+  </div>
+
+  @if (!app.isVendor()) {
+    <div class="alert alert-danger">{{ app.t('alerts.bills.onlyVendors') }}</div>
+  } @else {
+    <section class="border rounded p-3 mb-4 bill-page-section">
+      <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+        <div>
+          <h2 class="h5 mb-1">{{ app.t('billPages.vendorTitle') }}</h2>
+          <p class="text-body-secondary mb-0">{{ app.t('billPages.vendorSubtitle') }}</p>
+        </div>
+        <button
+          class="btn btn-sm btn-outline-secondary refresh-icon-btn"
+          type="button"
+          [disabled]="app.loadingVendorBillPage()"
+          [attr.aria-label]="app.t('admin.refresh')"
+          [attr.title]="app.t('admin.refresh')"
+          (click)="app.loadVendorBillPage()"
+        >
+          <span aria-hidden="true">{{ app.loadingVendorBillPage() ? '⏳' : '↻' }}</span>
+        </button>
+      </div>
+
+      <div class="row g-3 align-items-end mb-3">
+        <div class="col-md-3">
+          <label class="form-label" for="vendor-bill-page-from">{{ app.t('dashboard.fromDate') }}</label>
+          <input
+            id="vendor-bill-page-from"
+            class="form-control"
+            type="date"
+            [value]="app.vendorBillPageFilters().fromDate"
+            (change)="app.setVendorBillPageDateFilter('fromDate', $any($event.target).value)"
+          />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="vendor-bill-page-to">{{ app.t('dashboard.toDate') }}</label>
+          <input
+            id="vendor-bill-page-to"
+            class="form-control"
+            type="date"
+            [value]="app.vendorBillPageFilters().toDate"
+            (change)="app.setVendorBillPageDateFilter('toDate', $any($event.target).value)"
+          />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="vendor-bill-page-client">{{ app.t('dashboard.client') }}</label>
+          <select
+            id="vendor-bill-page-client"
+            class="form-select"
+            [value]="app.vendorBillPageFilters().clientId"
+            (change)="app.setVendorBillPageClient($any($event.target).value)"
+          >
+            <option value="">{{ app.t('billPages.allClients') }}</option>
+            @for (client of app.vendorBillPageClients(); track client.id) {
+              <option [value]="client.id">{{ client.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="vendor-bill-page-status">{{ app.t('billPages.receptionStatus') }}</label>
+          <select
+            id="vendor-bill-page-status"
+            class="form-select"
+            [value]="app.vendorBillPageFilters().receptionStatus"
+            (change)="app.setVendorBillPageReceptionStatus($any($event.target).value)"
+          >
+            <option value="all">{{ app.t('billPages.statusAll') }}</option>
+            <option value="received">{{ app.t('billPages.received') }}</option>
+            <option value="not-received">{{ app.t('billPages.notReceived') }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="small text-body-secondary">{{ app.vendorBillPageRows().length }} {{ app.t('billPages.visibleBills') }}</div>
+        <button class="btn btn-sm btn-outline-secondary" type="button" (click)="app.clearVendorBillPageFilters()">
+          {{ app.t('billPages.clearFilters') }}
+        </button>
+      </div>
+
+      @if (app.loadingVendorBillPage()) {
+        <div class="form-text">{{ app.t('admin.refreshing') }}</div>
+      } @else if (app.vendorBillPageRows().length === 0) {
+        <div class="alert alert-light border mb-0">{{ app.t('billPages.noVendorBills') }}</div>
+      } @else {
+        <div class="bill-page-list-panel" role="list">
+          @for (bill of app.vendorBillPageRows(); track bill.key) {
+            <div
+              class="bill-page-row"
+              role="button"
+              tabindex="0"
+              [class.bill-page-row-active]="app.selectedVendorOrderKey() === bill.key"
+              (click)="app.openVendorOrderDetails(bill.key)"
+              (keydown.enter)="app.openVendorOrderDetails(bill.key)"
+              (keydown.space)="$event.preventDefault(); app.openVendorOrderDetails(bill.key)"
+            >
+              <span class="bill-page-counterparty">{{ bill.clientOrganisationName }}</span>&nbsp;&nbsp;
+              <span class="bill-page-date">{{ bill.billDate | date: 'dd/MM/yyyy' : 'UTC' }}</span>&nbsp;&nbsp;
+              <span class="bill-page-amount">{{ bill.amountIncludingVat | number: '1.2-2' }} {{ bill.currency === 'EUR' ? '€' : bill.currency }}</span>&nbsp;&nbsp;
+              <span class="bill-page-status">
+                @if (bill.received) {
+                  <span class="bill-status-icon text-success" aria-hidden="true">✓</span>
+                  <span>{{ app.t('billPages.received') }}</span>&nbsp;&nbsp;
+                } @else {
+                  <span class="bill-status-icon text-secondary" aria-hidden="true">✓</span>
+                  <span>{{ app.t('billPages.notReceived') }}</span>&nbsp;&nbsp;
+                }
+              
+                <label class="form-check bill-page-toggle" (click)="$event.stopPropagation()">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    [checked]="bill.paid"
+                    [disabled]="app.updatingVendorBillPagePaidKeys().includes(bill.key)"
+                    (change)="app.setVendorBillPagePaid(bill, $any($event.target).checked)"
+                  />
+                  <span class="form-check-label">€ {{ app.t('billPages.paid') }}</span>
+                </label>
+              </span>
+            </div>
+          }
+        </div>
+      }
+    </section>
+  }
+</div>
+
+@if (app.showingVendorOrderModal() && app.vendorOrderDetails(); as details) {
+  <div class="modal-backdrop fade show"></div>
+  <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title h5 mb-0">{{ app.t('dashboard.billDetails') }}</h3>
+          <button class="btn-close" type="button" aria-label="Close" (click)="app.closeVendorOrderDetailsModal()"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2"><strong>{{ app.t('dashboard.client') }}:</strong> {{ details.clientUsername }}</p>
+          <p class="mb-3"><strong>{{ app.t('dashboard.day') }}:</strong> {{ details.day }}</p>
+          <div class="bill-settlement-box mb-3">
+            <div class="small mb-2">
+              <strong>{{ app.t('dashboard.billSettlementStatus') }}:</strong>
+              {{ details.vendorSettled ? app.t('dashboard.billConfirmed') : app.t('dashboard.billPending') }}
+              /
+              {{ details.clientSettled ? app.t('dashboard.billConfirmed') : app.t('dashboard.billPending') }}
+            </div>
+            <div class="form-check">
+              <input
+                id="vendor-bill-settled"
+                class="form-check-input bill-settlement-checkbox"
+                type="checkbox"
+                [checked]="details.vendorSettled"
+                [disabled]="app.updatingVendorBillSettlement()"
+                (change)="app.setVendorBillSettled($any($event.target).checked)"
+              />
+              <label class="form-check-label" for="vendor-bill-settled">
+                {{ app.t('dashboard.vendorSettlementCheckbox') }}
+              </label>
+            </div>
+          </div>
+
+          @if (details.clientComment) {
+            <div class="mb-3">
+              <label class="form-label" for="vendor-bill-comment">{{ app.t('dashboard.billComment') }}</label>
+              <textarea
+                id="vendor-bill-comment"
+                class="form-control bill-comment-textarea"
+                [value]="details.clientComment"
+                readonly
+              ></textarea>
+            </div>
+          }
+
+          <div class="table-responsive">
+            <table class="table table-striped align-middle">
+              <thead>
+                <tr>
+                  <th scope="col">{{ app.t('order.item') }}</th>
+                  <th scope="col">{{ app.t('order.unitPriceEur') }}</th>
+                  <th scope="col">{{ app.t('order.vatRate') }}</th>
+                  <th scope="col">{{ app.t('order.unitPriceIncludingVatEur') }}</th>
+                  <th scope="col">{{ app.t('order.qty') }}</th>
+                  <th scope="col">{{ app.t('order.lineTotalEur') }}</th>
+                  <th scope="col">{{ app.t('order.lineTotalIncludingVatEur') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of details.items; track item.merchandiseId + '-' + item.unitPrice) {
+                  <tr>
+                    <td>{{ item.reference ? item.name + ' (' + item.reference + ')' : item.name }}</td>
+                    <td>{{ item.unitPrice | number: '1.2-2' }}</td>
+                    <td>{{ item.vatRate | number: '1.0-2' }}%</td>
+                    <td>{{ item.unitPriceIncludingVat | number: '1.2-2' }}</td>
+                    <td>{{ item.quantity ?? '—' }}</td>
+                    <td>{{ item.lineTotal | number: '1.2-2' }}</td>
+                    <td>{{ item.lineTotalIncludingVat | number: '1.2-2' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer d-flex justify-content-between">
+          <div>
+            <strong>{{ app.t('common.total') }}: {{ details.totalPrice | number: '1.2-2' }} {{ details.currency }}</strong><br />
+            <strong>{{ app.t('common.totalIncludingVat') }}: {{ details.totalPriceIncludingVat | number: '1.2-2' }} {{ details.currency }}</strong>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" type="button" (click)="app.openVendorBillPdf()">{{ app.t('common.printPdf') }}</button>
+            <button
+              class="btn btn-outline-success"
+              type="button"
+              [disabled]="app.downloadingVendorFacturX()"
+              (click)="app.downloadVendorFacturX()"
+            >
+              {{ app.downloadingVendorFacturX() ? app.t('common.downloading') : app.t('common.downloadFacturX') }}
+            </button>
+            <button class="btn btn-secondary" type="button" (click)="app.closeVendorOrderDetailsModal()">{{ app.t('common.close') }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+}

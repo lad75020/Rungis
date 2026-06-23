@@ -16,6 +16,8 @@ export const SUPPORTED_PAGES = new Set<PageName>([
   'vendor-monthly-summary',
   'vendor-overdue-bills',
   'vendor-refunds',
+  'vendor-bills',
+  'client-bills',
   'find-vendors',
   'stocks',
   'order',

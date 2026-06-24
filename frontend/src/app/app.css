@@ -520,12 +520,16 @@
 }
 
 .bill-page-counterparty {
-  font-weight: 600;
+  font-weight: 1200;
+}
+
+.bill-page-date {
+  font-weight: 1200;
 }
 
 .bill-page-amount {
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: 1200;
 }
 
 .bill-page-status {
@@ -537,7 +541,7 @@
 .bill-status-icon {
   width: 1.2rem;
   text-align: center;
-  font-weight: 700;
+  font-weight: 1200;
 }
 
 .bill-page-toggle {

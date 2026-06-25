@@ -25,3 +25,4 @@ specs/StockEtablissement_utf8.csv
 backend/.env
 /playwright-report
 /test-results
+scripts/deploy-staging.zsh

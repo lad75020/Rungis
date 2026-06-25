@@ -97,16 +97,16 @@
               (keydown.enter)="app.openVendorOrderDetails(bill.key)"
               (keydown.space)="$event.preventDefault(); app.openVendorOrderDetails(bill.key)"
             >
-              <span class="bill-page-counterparty">{{ bill.clientOrganisationName }}</span>&nbsp;&nbsp;
-              <span class="bill-page-date">{{ bill.billDate | date: 'dd/MM/yyyy' : 'UTC' }}</span>&nbsp;&nbsp;
-              <span class="bill-page-amount">{{ bill.amountIncludingVat | number: '1.2-2' }} {{ bill.currency === 'EUR' ? '€' : bill.currency }}</span>&nbsp;&nbsp;
-              <span class="bill-page-status">
+              <span class="bill-page-counterparty">{{ bill.clientOrganisationName }}</span>
+              <span class="bill-page-date">{{ bill.billDate | date: 'dd/MM/yyyy' : 'UTC' }}</span>
+              <span class="bill-page-amount">{{ bill.amountIncludingVat | number: '1.2-2' }} {{ bill.currency === 'EUR' ? '€' : bill.currency }}</span>
+              
                 @if (bill.received) {
                   <span class="bill-status-icon text-success" aria-hidden="true">✓</span>
-                  <span>{{ app.t('billPages.received') }}</span>&nbsp;&nbsp;
+                  <span>{{ app.t('billPages.received') }}</span>
                 } @else {
                   <span class="bill-status-icon text-secondary" aria-hidden="true">✓</span>
-                  <span>{{ app.t('billPages.notReceived') }}</span>&nbsp;&nbsp;
+                  <span>{{ app.t('billPages.notReceived') }}</span>
                 }
               
                 <label class="form-check bill-page-toggle" (click)="$event.stopPropagation()">
@@ -119,7 +119,7 @@
                   />
                   <span class="form-check-label">€ {{ app.t('billPages.paid') }}</span>
                 </label>
-              </span>
+              
               <br/>
             </div>
           }

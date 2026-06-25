@@ -98,19 +98,18 @@
               (keydown.enter)="app.openClientCartDetails(bill.key)"
               (keydown.space)="$event.preventDefault(); app.openClientCartDetails(bill.key)"
             >
-              <span class="bill-page-counterparty">{{ bill.vendorOrganisationName }}</span>&nbsp;&nbsp;
-              <span class="bill-page-date">{{ bill.billDate | date: 'dd/MM/yyyy' : 'UTC' }}</span>&nbsp;&nbsp;
-              <span class="bill-page-amount">{{ bill.amountIncludingVat | number: '1.2-2' }} {{ bill.currency === 'EUR' ? '€' : bill.currency }}</span>&nbsp;&nbsp;
-              <span class="bill-page-status">
+              <span class="bill-page-counterparty">{{ bill.vendorOrganisationName }}</span>
+              <span class="bill-page-date">{{ bill.billDate | date: 'dd/MM/yyyy' : 'UTC' }}</span>
+              <span class="bill-page-amount">{{ bill.amountIncludingVat | number: '1.2-2' }} {{ bill.currency === 'EUR' ? '€' : bill.currency }}</span>
                 @if (bill.paymentStatus === 'paid') {
                   <span class="bill-status-icon text-success" aria-hidden="true">✓</span>
-                  <span>{{ app.t('billPages.paymentPaid') }}</span>&nbsp;&nbsp;
+                  <span>{{ app.t('billPages.paymentPaid') }}</span>
                 } @else if (bill.paymentStatus === 'late') {
                   <span class="bill-status-icon text-danger" aria-hidden="true">⚠</span>
-                  <span>{{ app.t('billPages.paymentLate') }}</span>&nbsp;&nbsp;
+                  <span>{{ app.t('billPages.paymentLate') }}</span>
                 } @else {
                   <span class="bill-status-icon text-warning" aria-hidden="true">●</span>
-                  <span>{{ app.t('billPages.paymentUnpaid') }}</span>&nbsp;&nbsp;
+                  <span>{{ app.t('billPages.paymentUnpaid') }}</span>
                 }
               
                 <label class="form-check bill-page-toggle" (click)="$event.stopPropagation()">
@@ -123,7 +122,7 @@
                   />
                   <span class="form-check-label">📦 {{ app.t('billPages.received') }}</span>
                 </label>
-              </span>
+
               <br/>
             </div>
             

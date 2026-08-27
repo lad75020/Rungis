@@ -101,6 +101,61 @@ frontend/
 
 **Structure Decision**: Use the existing Rungis architecture: Fastify owns role-guarded page shells and WebSocket action registration, while Angular page wrappers activate App-owned state. Bill list state remains in `frontend/src/app/app.ts` and `app.types.ts` until a broader decomposition is planned.
 
+## Design Review — Information Architecture
+
+### Bill-page hierarchy
+
+The dedicated vendor and client pages share one calm, data-dense workspace hierarchy. The role changes the counterparty and settlement wording only.
+
+```text
+Page title + one-sentence role orientation + Back to dashboard
+└── Filter bar: date from, date to, counterparty, status
+    └── Result context: visible count + Clear filters
+        └── Scrollable bill list (10 visible rows)
+            └── Bill row: counterparty | date | VAT-inclusive amount | status
+                ├── Details button: opens the existing bill-detail modal
+                └── Settlement checkbox: changes only the role-authorized status
+```
+
+**Interaction decision (D2)**: Each row uses a dedicated, visibly labelled **Details** button. The row itself is not clickable or keyboard-button-like. The settlement checkbox remains a separate labelled control and must never open the modal. This removes nested interactive controls and gives keyboard and touch users two unambiguous actions.
+
+## Design Review — Interaction State Coverage
+
+| Feature | Loading | Empty | Error | Success | Partial |
+|---|---|---|---|---|---|
+| Initial bill list | Keep the page title and filter labels visible; show 10 neutral row skeletons with no actionable controls. | Show a warm role-specific message that no bills exist yet and retain Back to dashboard. | Preserve any previously loaded rows; show an inline alert above the list with **Retry**. | Replace skeletons with rows and announce the loaded count. | If some bill metadata cannot load, retain available rows and state which data could not be refreshed. |
+| Filtered list | Keep current rows visible with a compact “Updating results” indicator; do not blank the panel. | Say “No bills match these filters,” identify that filters are active, and offer **Clear filters**. | Keep the prior result set and selected filter values; show **Retry** without silently resetting filters. | Update the visible count and move focus only when the user explicitly invokes filtering. | Show available matching rows and an inline warning if one filter option source is unavailable. |
+| Settlement checkbox | Disable only that checkbox, show its saving status, and leave Details available. | N/A. | Restore the prior checked state, keep the row in place, and show an inline row-level retry message. | Replace the saving status with a brief, non-blocking confirmation and announce the new settlement state. | If the server confirms an update but fresh list reload fails, retain the confirmed row state and show a refresh warning. |
+| Details modal | Keep the selected row visible; show a modal body skeleton and retain a working Close control. | Explain unavailable historic detail and offer Close. | Keep the list context behind the modal; show a readable error plus **Retry** and **Close**. | Show persisted bill values and role-allowed actions. | Show complete persisted totals first, then identify unavailable optional detail such as a comment or export. |
+
+**State decision (D3)**: All user-visible states are part of the bill-page acceptance criteria. State copy must distinguish no bills from no filter matches, preserve user filters after errors, and never imply that a settlement update succeeded until the server confirms it.
+
+## Design Review — User Journey and Emotional Arc
+
+| Step | User does | User should feel | Plan support |
+|---|---|---|---|
+| 1 | Lands on Vendor Bills or Client Bills | Oriented in under five seconds | Role-specific title, one-sentence purpose, and a persistent Back to dashboard action identify the workspace. |
+| 2 | Narrows a large bill set | In control, not lost | Clearly labelled filters retain values, result count explains scope, and Clear filters is always available. |
+| 3 | Scans a bill | Confident that money and status are understandable | One row exposes counterparty, date, VAT-inclusive amount, status, and separate Details and settlement controls. |
+| 4 | Opens bill details | Reassured before acting | The modal uses persisted historical values, role-authorized actions, and a working Close control in every state. |
+| 5 | Changes paid or received status | Certain what changed and able to recover | Apply the change immediately only after server confirmation; show a row-level success message with **Undo** for a short, documented window. |
+| 6 | Revisits the workflow | Trusts the tool for ongoing reconciliation | Filters, count, role language, and recent settlement state remain stable across refresh and recovery. |
+
+**Journey decision (D4)**: Settlement updates use immediate server-confirmed feedback with a short, accessible **Undo** action. Undo restores only the specific persisted status, retains active filters and scroll context, and degrades to a clear row-level error with Retry if the compensating update fails. No confirmation dialog appears for every routine change.
+
+## Design Review — Local Bill-page Visual Spec
+
+No repository `DESIGN.md` exists. Reuse the established vocabulary in `frontend/src/styles-primary.css` rather than inventing a new brand layer: Aptos/Avenir Next body typography, `--space-1` through `--space-7`, `--app-*` surfaces and semantic colors, and `--app-focus-ring`.
+
+- **Workspace:** One primary list surface, not a dashboard-card mosaic. The page title uses the strongest text treatment; the role subtitle and count are secondary; filters and actions are utility controls.
+- **Data rows:** Use a stable grid with counterparty, date, VAT-inclusive amount, semantic status text, Details, and settlement action. Amounts align at the end; long counterparties truncate with a tooltip/accessible full name.
+- **Status:** Pair every semantic color with visible text. Use `--app-success` for confirmed, `--app-warning` for pending/late attention, and `--app-danger` only for failed or overdue error states. Replace decorative emoji with text plus an accessible semantic icon where needed.
+- **Surfaces and borders:** Use `--app-surface`, `--app-border`, and `--app-border-strong` to group functional areas. Avoid new gradients, ornamental icons, repeated rounded cards, or decorative shadows inside the bill workspace.
+- **Controls:** Keep labels above inputs, use 44px minimum touch targets for Details, checkbox labels, Retry, Undo, and Clear filters. Use `--app-focus-ring` for visible keyboard focus.
+- **Density:** Desktop rows target 60px minimum height and show ten rows in a bounded scroll panel. Reduce only secondary spacing on smaller screens, never body text below 16px.
+
+**Visual-system decision (D5)**: This local bill-page spec is the implementation reference until a product-wide `DESIGN.md` exists. Both role pages must share it; role-specific differences are content and authorized status actions, not divergent styling.
+
 ## Phase 0: Research
 
 Research output is captured in [research.md](research.md). All planning decisions are resolved with no open clarification markers.

@@ -26,3 +26,5 @@ backend/.env
 /playwright-report
 /test-results
 scripts/deploy-staging.zsh
+/wiki
+/.codebase-memory
